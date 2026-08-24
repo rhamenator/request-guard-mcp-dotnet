@@ -2,12 +2,23 @@
 
 ## Status
 
-This document describes the **target** architecture for `request-guard-mcp-dotnet`, a from-scratch
-C#/.NET port of [`request-guard-mcp`](https://github.com/rhamenator/request-guard-mcp) (Rust). It is
-written ahead of implementation, as the design record required by
-[`DO-178C-ASSURANCE-POLICY.md`](DO-178C-ASSURANCE-POLICY.md); sections describe intent, not yet-built
-behavior, until the corresponding delivery phase lands. Each phase's pull request updates this file
-to reflect what was actually implemented.
+This document describes the architecture for `request-guard-mcp-dotnet`, a from-scratch C#/.NET
+port of [`request-guard-mcp`](https://github.com/rhamenator/request-guard-mcp) (Rust), as the design
+record required by [`DO-178C-ASSURANCE-POLICY.md`](DO-178C-ASSURANCE-POLICY.md). Phases 1-2 (below)
+are implemented; sections describing later phases (engines, integrations, observability, deploy)
+describe intent, not yet-built behavior, until each phase lands. Each phase's commit updates this
+file to reflect what was actually implemented.
+
+**Phase 2 refinements from the original sketch:** `AppState`, `BuildInfo`, and the shared
+`HealthCheck` computation live in `RequestGuardMcp.Core` rather than the Host project — `Core` is
+the one project every other project can depend on, and both the raw `GET /health` endpoint (Mcp)
+and the `health` tool (Tools) need the same logic, so it has to sit below both. The application
+error type is named `AppErrorException` (not `AppError`) to satisfy .NET's naming convention for
+`Exception` subclasses (CA1710). The `model_info` tool reports exactly the tools actually
+registered in the `ToolRegistry`, rather than the Rust server's fixed 22-tool list with an
+`enabled` flag — honest about this port's in-progress tool surface rather than listing tools that
+don't exist yet; this will converge with the Rust behavior once all 22 tools are implemented
+(phase 5).
 
 ## Overview
 
@@ -56,11 +67,11 @@ either transport.
 
 | Project | Responsibility | Rust equivalent |
 |---|---|---|
-| `RequestGuardMcp.Core` | Domain models, engines (rules/scorer/explain/anomaly/policy), shared utilities | `src/models/`, `src/engines/`, `src/util/` |
-| `RequestGuardMcp.Mcp` | JSON-RPC 2.0 types, WebSocket + HTTP transports, tool registry, auth, concurrency/limits | `src/mcp/`, `src/auth.rs`, `src/limits.rs` |
-| `RequestGuardMcp.Tools` | The 22 MCP tool implementations | `src/tools/` |
-| `RequestGuardMcp.Integrations` | Redis, PostgreSQL, MaxMind adapters behind interfaces | `src/integrations/` |
-| `RequestGuardMcp.Host` | ASP.NET Core `Program.cs`, DI wiring, configuration, telemetry — the executable | `src/main.rs`, `src/config.rs`, `src/state.rs`, `src/telemetry.rs` |
+| `RequestGuardMcp.Core` | Config, shared runtime state (`AppState`, `BuildInfo`), `AppErrorException`, response DTOs, the `health` computation, engines (rules/scorer/explain/anomaly/policy, phase 3), shared utilities | `src/config.rs`, `src/state.rs`, `src/error.rs`, `src/models/`, `src/tools/health.rs`, `src/engines/`, `src/util/` |
+| `RequestGuardMcp.Mcp` | JSON-RPC 2.0 types, WebSocket + HTTP transports, tool registry, auth, concurrency/limits, endpoint mapping | `src/mcp/`, `src/auth.rs`, `src/limits.rs` |
+| `RequestGuardMcp.Tools` | The MCP tool implementations (`health`, `model_info` so far; 22 total planned) | `src/tools/` |
+| `RequestGuardMcp.Integrations` | Redis, PostgreSQL, MaxMind adapters behind interfaces (phase 4) | `src/integrations/` |
+| `RequestGuardMcp.Host` | ASP.NET Core `Program.cs` composition root: config binding/validation, DI wiring, Kestrel binding, telemetry — the executable | `src/main.rs`, `src/telemetry.rs` |
 
 Redis, PostgreSQL, and MaxMind stay **optional at runtime**, selected via configuration flags, so a
 dependency-free build/run path exists for the backend-free tools — the same shape as the Rust
@@ -93,8 +104,9 @@ No gRPC listener is planned.
 
 ## Delivery phases
 
-See the repository's pull request history and `docs/DO-178C-ASSURANCE-POLICY.md` traceability
-expectations. In summary: (1) scaffolding and governance, (2) MCP protocol core with no backends,
-(3) engines and backend-free tools, (4) Redis/PostgreSQL/MaxMind integrations, (5) remaining tools
-plus TLS/UA handling, (6) observability, (7) Docker/Kubernetes deployment, (8) tests to parity and
-release automation.
+See the repository's commit history and `docs/DO-178C-ASSURANCE-POLICY.md` traceability
+expectations. In summary: (1) scaffolding and governance — **done**; (2) MCP protocol core with no
+backends (JSON-RPC types, WS/HTTP transports, Bearer auth, concurrency/timeout, `health`/`model_info`
+tools) — **done**; (3) engines and backend-free tools; (4) Redis/PostgreSQL/MaxMind integrations;
+(5) remaining tools plus TLS/UA handling; (6) observability; (7) Docker/Kubernetes deployment;
+(8) tests to parity and release automation.

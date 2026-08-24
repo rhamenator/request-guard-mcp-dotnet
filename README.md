@@ -10,11 +10,23 @@ tool surface and behavior over the same WebSocket/HTTP JSON-RPC 2.0 transports.
 
 ## Status
 
-This repository is under active, phased development. The current state is the project scaffolding
-and governance baseline (solution structure, license, contribution/security/support policies, CI,
-and the DO-178C-inspired assurance policy) — the MCP protocol, engines, and tools land in the
-phases that follow. See [docs/architecture.md](docs/architecture.md) for the target design and
-delivery-phase breakdown, and the repository's commit/PR history for current progress.
+This repository is under active, phased development. Implemented so far: the project scaffolding
+and governance baseline, and the MCP protocol core — JSON-RPC 2.0 over WebSocket and HTTP POST,
+Bearer authentication, global concurrency control with per-tool timeouts, and the `health` and
+`model_info` tools. Engines, the remaining tools, backend integrations (Redis/PostgreSQL/MaxMind),
+observability, and deployment manifests land in the phases that follow. See
+[docs/architecture.md](docs/architecture.md) for the design and delivery-phase breakdown, and the
+repository's commit history for current progress.
+
+### Try it
+
+```bash
+cp .env.example .env   # not yet provided — see docs/architecture.md for config env vars
+AUTH_TOKENS=your-strong-token dotnet run --project src/RequestGuardMcp.Host
+curl http://localhost:8085/health
+curl -H "Authorization: Bearer your-strong-token" -X POST http://localhost:8085/mcp \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/model_info"}'
+```
 
 ## Why a .NET port?
 
@@ -27,12 +39,12 @@ OpenTelemetry SDK). See [docs/architecture.md](docs/architecture.md) for the dep
 
 ## Solution layout
 
-```
+```text
 RequestGuardMcp.slnx
 src/
-  RequestGuardMcp.Core/          # models, engines (rules/scorer/explain/anomaly/policy), util
+  RequestGuardMcp.Core/          # config, AppState, errors, response models, health check, engines
   RequestGuardMcp.Mcp/           # JSON-RPC types, WS+HTTP transport, tool registry, auth, limits
-  RequestGuardMcp.Tools/         # the 22 tool implementations
+  RequestGuardMcp.Tools/         # the MCP tool implementations (22 planned)
   RequestGuardMcp.Integrations/  # Redis, Postgres, MaxMind adapters behind interfaces
   RequestGuardMcp.Host/          # ASP.NET Core Program.cs, DI wiring — the executable
 tests/

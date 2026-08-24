@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Lets this classlib define ASP.NET Core endpoint handlers (HttpContext, WebSockets)
+         without requiring the Microsoft.NET.Sdk.Web SDK, so the executable host stays a thin
+         composition root (see src/RequestGuardMcp.Host). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RequestGuardMcp.Core\RequestGuardMcp.Core.csproj" />
   </ItemGroup>
 
