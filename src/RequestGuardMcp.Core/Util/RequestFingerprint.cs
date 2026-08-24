@@ -7,9 +7,7 @@ namespace RequestGuardMcp.Core.Util;
 /// <summary>
 /// Computes a stable cache key from the authenticated caller scope and every caller field used
 /// by the rule engine. Ports src/util/hashing.rs's <c>request_fingerprint</c>. TLS values
-/// participate only after the server verifies a short-lived request binding (phase 5) — until
-/// then <see cref="ClassifyRequest.TlsFingerprintVerified"/> is always false, so those fields
-/// never contribute.
+/// participate only after the server verifies a short-lived request binding.
 /// </summary>
 public static class RequestFingerprint
 {

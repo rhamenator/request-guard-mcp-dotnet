@@ -26,14 +26,8 @@ public sealed class RedactPreviewTool : IMcpTool
         var payload = request.Payload?.DeepClone();
         var fields = request.Fields ?? [.. DefaultSensitiveFields];
 
-        var beforeJson = payload?.ToJsonString(McpJson.Options) ?? "";
+        var fieldsRedacted = JsonRedaction.FindPresentFields(payload, fields);
         JsonRedaction.RedactFields(payload, fields);
-        var afterJson = payload?.ToJsonString(McpJson.Options) ?? "";
-
-        var fieldsRedacted = fields
-            .Where(field => beforeJson.Contains(field, StringComparison.Ordinal) &&
-                             afterJson.Contains(JsonRedaction.RedactedPlaceholder, StringComparison.Ordinal))
-            .ToList();
 
         var response = new RedactPreviewResponse(payload, fieldsRedacted);
         return Task.FromResult(JsonSerializer.SerializeToNode(response, McpJson.Options));

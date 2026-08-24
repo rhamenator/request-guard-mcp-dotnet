@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using RequestGuardMcp.Core.Errors;
 using RequestGuardMcp.Core.Runtime;
@@ -15,6 +16,7 @@ namespace RequestGuardMcp.Mcp.Transport;
 /// </summary>
 public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> logger)
 {
+    private static readonly ActivitySource ActivitySource = new("RequestGuardMcp");
     /// <summary>Returns the JSON text to send back, or null when the message was a notification (no reply).</summary>
     public async Task<string?> ProcessMessageAsync(string text, AppState state, string callerScope, CancellationToken cancellationToken)
     {
@@ -48,6 +50,9 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
         var toolName = request.Method.StartsWith("tools/", StringComparison.Ordinal)
             ? request.Method["tools/".Length..]
             : request.Method;
+        var stopwatch = Stopwatch.StartNew();
+        using var activity = ActivitySource.StartActivity("mcp.tool", ActivityKind.Internal);
+        activity?.SetTag("mcp.tool.name", toolName);
 
         await state.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -56,22 +61,65 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             using var timeoutCts = new CancellationTokenSource(toolTimeout);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
+            string? operationId = null;
+            if (state.Redis.IsAvailable)
+            {
+                try
+                {
+                    operationId = await state.Redis.RecordToolStartedAsync(toolName, Math.Max(1, (long)toolTimeout.TotalSeconds), linkedCts.Token)
+                        .WaitAsync(linkedCts.Token).ConfigureAwait(false);
+                }
+                catch (Exception error)
+                {
+                    logger.LogWarning(error, "failed to record Redis operation start: {Tool}", toolName);
+                }
+            }
+
             JsonNode? result;
             try
             {
-                result = await registry.DispatchAsync(state, request, callerScope, linkedCts.Token).ConfigureAwait(false);
+                result = await registry.DispatchAsync(state, request, callerScope, linkedCts.Token)
+                    .WaitAsync(linkedCts.Token).ConfigureAwait(false);
             }
             catch (AppErrorException appError)
             {
                 logger.LogWarning(appError, "tool error: {Tool}", toolName);
+                state.Metrics.Record(toolName, "error", stopwatch.Elapsed.TotalSeconds, appError.Code);
+                activity?.SetStatus(ActivityStatusCode.Error, appError.Code);
                 return McpMessage.ErrorFromApp(request.Id, appError);
             }
             catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
             {
                 logger.LogError("tool timeout: {Tool}", toolName);
+                state.Metrics.Record(toolName, "timeout", stopwatch.Elapsed.TotalSeconds, "TIMEOUT");
+                activity?.SetStatus(ActivityStatusCode.Error, "TIMEOUT");
                 return McpMessage.ErrorFromApp(request.Id, AppErrorException.Timeout());
             }
+            catch (Exception error)
+            {
+                logger.LogError(error, "unexpected tool failure: {Tool}", toolName);
+                state.Metrics.Record(toolName, "error", stopwatch.Elapsed.TotalSeconds, "INTERNAL_ERROR");
+                activity?.SetStatus(ActivityStatusCode.Error, "INTERNAL_ERROR");
+                return McpMessage.ErrorFromApp(request.Id, AppErrorException.Internal());
+            }
+            finally
+            {
+                if (operationId is not null)
+                {
+                    try
+                    {
+                        await state.Redis.RecordToolFinishedAsync(toolName, operationId, CancellationToken.None)
+                            .WaitAsync(TimeSpan.FromSeconds(1), CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch (Exception error)
+                    {
+                        logger.LogWarning(error, "failed to record Redis operation completion: {Tool}", toolName);
+                    }
+                }
+            }
 
+            state.Metrics.Record(toolName, "ok", stopwatch.Elapsed.TotalSeconds);
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return McpMessage.Success(request.Id, result);
         }
         finally

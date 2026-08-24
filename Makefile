@@ -38,6 +38,7 @@ docker-compose-up:
 	docker compose -f docker/docker-compose.yml up
 
 k8s-apply:
+	kubectl apply -f deploy/k8s/namespace.yaml
 	kubectl apply -f deploy/k8s/configmap.yaml
 	kubectl apply -f deploy/k8s/backends.yaml
 	kubectl apply -f deploy/k8s/deployment.yaml

@@ -10,11 +10,8 @@ using RequestGuardMcp.Mcp.Registry;
 namespace RequestGuardMcp.Tools;
 
 /// <summary>
-/// The <c>config_snapshot</c> MCP tool. Ports src/tools/config_snapshot.rs. Only reports the
-/// config sections that exist so far (host/port/log_level/limits/auth); redis/postgres/geoip/
-/// telemetry/tls_fingerprints sections are added here as the phases that introduce them land.
-/// <paramref name="redactSecrets"/>-equivalent behavior is currently a no-op since nothing in
-/// today's snapshot is secret — it starts redacting once those later sections are added.
+/// The <c>config_snapshot</c> MCP tool. Reports the running configuration without bearer tokens,
+/// connection strings, or attestation keys.
 /// </summary>
 public sealed class ConfigSnapshotTool : IMcpTool
 {
@@ -24,7 +21,8 @@ public sealed class ConfigSnapshotTool : IMcpTool
 
     public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
     {
-        _ = McpJson.ParamsOrDefault<ConfigSnapshotRequest>(parameters);
+        var request = McpJson.ParamsOrDefault<ConfigSnapshotRequest>(parameters);
+        var redact = request.RedactSecrets ?? true;
         var cfg = state.Config;
 
         var snapshot = new JsonObject
@@ -44,6 +42,46 @@ public sealed class ConfigSnapshotTool : IMcpTool
             {
                 ["enabled"] = cfg.Auth.Enabled,
                 ["token_count"] = cfg.Auth.Tokens.Count,
+            },
+            ["features"] = new JsonObject
+            {
+                ["enable_batch"] = cfg.Features.EnableBatch,
+                ["enable_enrichment"] = cfg.Features.EnableEnrichment,
+                ["enable_feedback"] = cfg.Features.EnableFeedback,
+            },
+            ["telemetry"] = new JsonObject
+            {
+                ["service_name"] = cfg.Telemetry.ServiceName,
+                ["metrics_path"] = cfg.Telemetry.MetricsPath,
+                ["otlp_endpoint"] = redact && cfg.Telemetry.OtlpEndpoint is not null ? "[REDACTED]" : cfg.Telemetry.OtlpEndpoint,
+            },
+            ["redis"] = new JsonObject
+            {
+                ["configured"] = cfg.Redis.Url is not null,
+                ["pool_size"] = cfg.Redis.PoolSize,
+                ["key_prefix"] = cfg.Redis.KeyPrefix,
+                ["cache_ttl_secs"] = cfg.Redis.CacheTtlSecs,
+            },
+            ["postgres"] = new JsonObject
+            {
+                ["configured"] = cfg.Postgres.Url is not null,
+                ["max_connections"] = cfg.Postgres.MaxConnections,
+                ["connect_timeout_secs"] = cfg.Postgres.ConnectTimeoutSecs,
+            },
+            ["geoip"] = new JsonObject
+            {
+                ["configured"] = cfg.Geoip.MmdbPath is not null || cfg.Geoip.CityMmdbPath is not null || cfg.Geoip.AsnMmdbPath is not null || cfg.Geoip.AnonymousIpMmdbPath is not null,
+                ["city_configured"] = cfg.Geoip.MmdbPath is not null || cfg.Geoip.CityMmdbPath is not null,
+                ["asn_configured"] = cfg.Geoip.AsnMmdbPath is not null,
+                ["anonymous_ip_configured"] = cfg.Geoip.AnonymousIpMmdbPath is not null,
+            },
+            ["tls_fingerprints"] = new JsonObject
+            {
+                ["attestation_key_configured"] = cfg.TlsFingerprints.AttestationKey is not null,
+                ["previous_attestation_key_configured"] = cfg.TlsFingerprints.PreviousAttestationKey is not null,
+                ["max_age_seconds"] = cfg.TlsFingerprints.MaxAgeSeconds,
+                ["known_bad_ja3_count"] = cfg.TlsFingerprints.KnownBadJa3.Count,
+                ["known_bad_ja4_count"] = cfg.TlsFingerprints.KnownBadJa4.Count,
             },
         };
 

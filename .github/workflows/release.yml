@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out controlled baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      - name: Install pinned .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with: { global-json-file: global.json }
+      - name: Verify baseline
+        run: make ci
+      - name: Build native bundles and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist staging
+          for rid in linux-x64 win-x64 osx-x64 osx-arm64; do
+            output="staging/request-guard-mcp-dotnet-${version}-${rid}"
+            dotnet publish src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj \
+              --configuration Release --runtime "$rid" --self-contained true --output "$output" \
+              -p:PublishSingleFile=true -p:DebugType=None -p:Version="$version"
+            cp .env.example README.md LICENSE SECURITY.md "$output/"
+            mkdir -p "$output/docs"
+            cp docs/runbook.md docs/security-model.md docs/VERIFICATION.md "$output/docs/"
+            tar -C staging -czf "dist/request-guard-mcp-dotnet-${version}-${rid}.tar.gz" "$(basename "$output")"
+          done
+          dotnet list RequestGuardMcp.slnx package --include-transitive --format json > dist/nuget-dependencies.json
+          (cd dist && sha256sum ./*.tar.gz nuget-dependencies.json > SHA256SUMS)
+      - name: Publish container image
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          image="ghcr.io/${GITHUB_REPOSITORY}"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+          docker build -f docker/Dockerfile \
+            --build-arg VERSION="$version" --build-arg GIT_COMMIT="$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$(date -u +%FT%TZ)" \
+            --tag "$image:$version" --tag "$image:latest" .
+          docker push "$image:$version"
+          docker push "$image:latest"
+          docker image inspect "$image:$version" --format '{{index .RepoDigests 0}}' > dist/container-image.txt
+          (cd dist && sha256sum container-image.txt >> SHA256SUMS)
+      - name: Publish immutable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes

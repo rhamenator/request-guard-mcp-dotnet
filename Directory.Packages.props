@@ -9,9 +9,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Test-only (not shipped in any published artifact). Phases 4 and 6 of the delivery
-         plan add StackExchange.Redis, Npgsql, MaxMind.GeoIP2, and the OpenTelemetry packages
-         here. Everything else in this codebase is built on the .NET base class library alone. -->
+    <!-- Runtime integrations: the de facto standard, well-vetted client for each backend
+         (matching the Rust project's own deadpool-redis/sqlx/maxminddb choices) — the BCL has no
+         safe equivalent for any of these three. -->
+    <PackageVersion Include="StackExchange.Redis" Version="3.1.31" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="MaxMind.GeoIP2" Version="6.1.0" />
+    <PackageVersion Include="MaxMind.Db" Version="5.1.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test-only dependencies (not shipped in published artifacts). -->
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

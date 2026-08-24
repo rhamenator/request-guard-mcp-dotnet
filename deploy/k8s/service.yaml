@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: request-guard-mcp
+  namespace: request-guard
+spec:
+  selector: { app: request-guard-mcp }
+  ports: [{ name: http, port: 8085, targetPort: http }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-scraping-defense-mcp
+  namespace: request-guard
+spec:
+  selector: { app: request-guard-mcp }
+  ports: [{ name: http, port: 8085, targetPort: http }]

@@ -4,4 +4,11 @@
     <ProjectReference Include="..\RequestGuardMcp.Core\RequestGuardMcp.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="MaxMind.GeoIP2" />
+    <PackageReference Include="MaxMind.Db" />
+  </ItemGroup>
+
 </Project>

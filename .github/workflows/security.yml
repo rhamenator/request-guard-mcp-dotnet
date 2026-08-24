@@ -64,5 +64,20 @@ jobs:
             exit 1
           fi
 
-# A container vulnerability scan (Trivy) job is added once docker/Dockerfile exists
-# (delivery phase 7 — see docs/architecture.md).
+  container:
+    name: Container vulnerability scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build controlled image
+        run: docker build -f docker/Dockerfile -t request-guard-mcp-dotnet:security .
+      - name: Scan OS and application dependencies
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        with:
+          image-ref: request-guard-mcp-dotnet:security
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL

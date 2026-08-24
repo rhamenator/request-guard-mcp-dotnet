@@ -17,7 +17,7 @@ public sealed class ClassifyRequest
     public string? RequestId { get; set; }
     public string? Timestamp { get; set; }
 
-    /// <summary>TLS metadata is never trusted without a valid short-lived attestation (added phase 5).</summary>
+    /// <summary>TLS metadata is never trusted without a valid short-lived attestation.</summary>
     public string? TlsJa3 { get; set; }
 
     public string? TlsJa4 { get; set; }

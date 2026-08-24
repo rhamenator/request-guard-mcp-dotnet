@@ -46,4 +46,14 @@ public class JsonRedactionTests
 
         Assert.Equal("[REDACTED]", node["Authorization"]!.GetValue<string>());
     }
+
+    [Fact]
+    public void PresentFieldDetectionUsesKeysNotValuesOrSubstrings()
+    {
+        var node = JsonNode.Parse("""{"note":"mentions token but has no sensitive key","Authorization":"x"}""")!;
+
+        var present = JsonRedaction.FindPresentFields(node, ["token", "authorization"]);
+
+        Assert.Equal(["authorization"], present);
+    }
 }

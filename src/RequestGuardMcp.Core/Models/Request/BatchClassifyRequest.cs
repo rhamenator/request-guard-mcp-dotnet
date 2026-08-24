@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace RequestGuardMcp.Core.Models.Request;
 
 /// <summary>Ports src/models/request.rs's <c>BatchClassifyRequest</c>.</summary>
 public sealed class BatchClassifyRequest
 {
+    [JsonRequired]
     public List<ClassifyRequest> Items { get; set; } = [];
     public BatchOptions? Options { get; set; }
 }

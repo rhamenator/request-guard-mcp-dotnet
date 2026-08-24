@@ -8,11 +8,8 @@ using RequestGuardMcp.Mcp.Registry;
 namespace RequestGuardMcp.Tools;
 
 /// <summary>
-/// The <c>model_info</c> MCP tool. Ports src/tools/model_info.rs. Unlike the Rust server (which
-/// always lists its full, fixed set of 22 tools with an <c>enabled</c> flag reflecting
-/// feature/backend availability), this port reports exactly the tools actually registered in the
-/// <see cref="ToolRegistry"/> — honest about the port's in-progress tool surface rather than
-/// listing tools that don't exist yet. See docs/architecture.md.
+/// The <c>model_info</c> MCP tool. Reports all registered contracts and truthful feature/backend
+/// availability, matching src/tools/model_info.rs.
 /// </summary>
 public sealed class ModelInfoTool(ToolRegistry registry) : IMcpTool
 {
@@ -25,7 +22,7 @@ public sealed class ModelInfoTool(ToolRegistry registry) : IMcpTool
         var tools = registry.List()
             .Select(name => registry.Get(name))
             .Where(tool => tool is not null)
-            .Select(tool => new ToolInfo(tool!.Name, tool.Description, Enabled: true, Version: state.BuildInfo.Version))
+            .Select(tool => new ToolInfo(tool!.Name, tool.Description, Enabled: IsEnabled(state, tool.Name), Version: state.BuildInfo.Version))
             .ToList();
 
         var result = new ModelInfoResponse(
@@ -40,4 +37,16 @@ public sealed class ModelInfoTool(ToolRegistry registry) : IMcpTool
 
         return Task.FromResult(JsonSerializer.SerializeToNode(result, McpJson.Options));
     }
+
+    private static bool IsEnabled(AppState state, string name) => name switch
+    {
+        "batch_classify" => state.Config.Features.EnableBatch,
+        "feedback" => state.Config.Features.EnableFeedback && state.Postgres.IsAvailable,
+        "replay_decision" or "drift_report" or "calibration_report" => state.Postgres.IsAvailable,
+        "enrich_ip" => state.Config.Features.EnableEnrichment && (state.Geoip.HasIpDatabase || state.Reputation.IsConfigured),
+        "enrich_asn" => state.Config.Features.EnableEnrichment && (state.Geoip.HasAsnDatabase || state.Reputation.IsConfigured),
+        "enrich_ua" => state.Config.Features.EnableEnrichment,
+        "threat_lookup" or "canary_eval" or "queue_status" => state.Redis.IsAvailable,
+        _ => true,
+    };
 }

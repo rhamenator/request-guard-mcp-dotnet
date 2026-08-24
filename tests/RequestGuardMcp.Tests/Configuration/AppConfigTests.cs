@@ -58,6 +58,21 @@ public class AppConfigTests
     }
 
     [Fact]
+    public void LongPlaceholderCacheScopeKeyFailsValidation()
+    {
+        var config = new AppConfig
+        {
+            Auth = new AuthConfig
+            {
+                Tokens = ["a-real-test-token"],
+                CacheScopeHmacKey = "replace_me_with_32_or_more_random_bytes",
+            },
+        };
+
+        Assert.Throws<ConfigValidationException>(config.Validate);
+    }
+
+    [Fact]
     public void ZeroConcurrencyLimitFailsValidation()
     {
         var config = new AppConfig

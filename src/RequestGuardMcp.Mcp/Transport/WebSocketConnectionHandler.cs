@@ -13,6 +13,7 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
     public async Task HandleAsync(WebSocket socket, AppState state, string callerScope, CancellationToken cancellationToken)
     {
         logger.LogInformation("WebSocket connection established");
+        state.Metrics.ConnectionOpened();
 
         var buffer = new byte[ReceiveBufferSize];
         try
@@ -27,6 +28,12 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
                         break;
+                    }
+
+                    if (messageStream.Length + result.Count > state.Config.Limits.MaxRequestBytes)
+                    {
+                        await socket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "request too large", cancellationToken).ConfigureAwait(false);
+                        return;
                     }
 
                     messageStream.Write(buffer, 0, result.Count);
@@ -57,6 +64,7 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
         }
         finally
         {
+            state.Metrics.ConnectionClosed();
             logger.LogInformation("WebSocket connection closed");
         }
     }

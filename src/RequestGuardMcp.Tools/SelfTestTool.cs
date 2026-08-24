@@ -26,7 +26,7 @@ public sealed class SelfTestTool : IMcpTool
         {
             await ClassifyGptBotAsync(state, cancellationToken).ConfigureAwait(false),
             await ClassifyCleanBrowserAsync(state, cancellationToken).ConfigureAwait(false),
-            HealthCheckSelfTest(state),
+            await HealthCheckSelfTestAsync(state, cancellationToken).ConfigureAwait(false),
         };
 
         var passed = results.Count(r => r.Passed);
@@ -61,10 +61,10 @@ public sealed class SelfTestTool : IMcpTool
         return new SelfTestResult("classify_clean_browser", passed, passed ? null : $"expected allow, got {response.Verdict}", (ulong)stopwatch.ElapsedMilliseconds);
     }
 
-    private static SelfTestResult HealthCheckSelfTest(AppState state)
+    private static async Task<SelfTestResult> HealthCheckSelfTestAsync(AppState state, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        var health = HealthCheck.Run(state);
+        var health = await HealthCheck.RunAsync(state, cancellationToken).ConfigureAwait(false);
         var passed = health.Status == "healthy";
         return new SelfTestResult("health_check", passed, passed ? null : $"unexpected status: {health.Status}", (ulong)stopwatch.ElapsedMilliseconds);
     }

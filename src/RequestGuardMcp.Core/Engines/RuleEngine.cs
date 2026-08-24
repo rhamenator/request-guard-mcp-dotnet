@@ -1,15 +1,17 @@
 using System.Text.RegularExpressions;
+using RequestGuardMcp.Core.Configuration;
 using RequestGuardMcp.Core.Models.Request;
 using RequestGuardMcp.Core.Models.Signals;
 
 namespace RequestGuardMcp.Core.Engines;
 
 /// <summary>
-/// Rule-based signal extraction engine. Ports src/engines/rules.rs. TLS/JA3/JA4 fingerprint
-/// rules are added in phase 5 alongside the attestation verification they depend on.
+/// Rule-based signal extraction engine. Ports src/engines/rules.rs, including rules for
+/// server-verified TLS fingerprints.
 /// </summary>
 public sealed partial class RuleEngine
 {
+    private static readonly string[] ModernBrowserMarkers = ["chrome/", "crios/", "firefox/", "fxios/", "safari/", "edg/"];
     [GeneratedRegex(
         "(GPTBot|ChatGPT-User|Claude-Web|anthropic-ai|Bytespider|CCBot|cohere-ai|DuckAssistBot|" +
         "FacebookBot|Google-Extended|ImagesiftBot|PerplexityBot|Scrapy|python-httpx|python-requests|" +
@@ -28,7 +30,7 @@ public sealed partial class RuleEngine
     private static partial Regex SensitivePath();
 
     /// <summary>Run all rules against a classify request and return a signal set.</summary>
-    public static SignalSet Evaluate(ClassifyRequest request)
+    public static SignalSet Evaluate(ClassifyRequest request, TlsFingerprintConfig? tlsConfig = null)
     {
         var signals = new SignalSet();
 
@@ -52,7 +54,33 @@ public sealed partial class RuleEngine
             EvaluateMethod(method, signals);
         }
 
+        EvaluateTlsFingerprint(request, tlsConfig, signals);
+
         return signals;
+    }
+
+    private static void EvaluateTlsFingerprint(ClassifyRequest request, TlsFingerprintConfig? config, SignalSet signals)
+    {
+        if (!request.TlsFingerprintVerified)
+        {
+            return;
+        }
+
+        var knownBad = request.TlsJa3 is { } ja3 && config?.KnownBadJa3.Contains(ja3, StringComparer.Ordinal) == true ||
+                       request.TlsJa4 is { } ja4 && config?.KnownBadJa4.Contains(ja4, StringComparer.Ordinal) == true;
+        if (knownBad)
+        {
+            signals.Add(new Signal("tls_fingerprint_known_bad", 1.0, 0.85, SignalSource.RuleEngine, "Verified TLS fingerprint matches the configured threat set"));
+        }
+
+        var userAgent = request.UserAgent ?? "";
+        var claimsModernBrowser = userAgent.Contains("Mozilla/5.0", StringComparison.OrdinalIgnoreCase) &&
+                                  ModernBrowserMarkers.Any(marker => userAgent.Contains(marker, StringComparison.OrdinalIgnoreCase));
+        var transport = request.TlsJa4 is { Length: >= 3 } ? request.TlsJa4[..3] : null;
+        if (claimsModernBrowser && transport is not ("t12" or "t13" or "q12" or "q13"))
+        {
+            signals.Add(new Signal("ua_tls_profile_mismatch", 1.0, 0.45, SignalSource.RuleEngine, "Browser user-agent conflicts with the verified JA4 transport profile"));
+        }
     }
 
     private static void EvaluateUserAgent(string userAgent, SignalSet signals)

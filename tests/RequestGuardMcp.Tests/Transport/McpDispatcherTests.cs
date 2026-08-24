@@ -96,4 +96,36 @@ public class McpDispatcherTests
         var node = JsonNode.Parse(response!)!;
         Assert.Equal(-32700, node["error"]!["code"]!.GetValue<int>());
     }
+
+    [Fact]
+    public async Task TimeoutIsEnforcedWhenToolIgnoresCancellation()
+    {
+        var registry = new ToolRegistry();
+        registry.Register(new CancellationIgnoringTool());
+        var dispatcher = new McpDispatcher(registry, NullLogger<McpDispatcher>.Instance);
+        var config = new AppConfig
+        {
+            Auth = new AuthConfig { Enabled = false },
+            Limits = new LimitsConfig { PerToolTimeoutSecs = 1 },
+        };
+        var state = new AppState(config);
+
+        var response = await dispatcher.ProcessMessageAsync(
+            """{"jsonrpc":"2.0","id":1,"method":"slow"}""", state, "public", CancellationToken.None);
+
+        var node = JsonNode.Parse(response!)!;
+        Assert.Equal("TIMEOUT", node["error"]!["message"]!.GetValue<string>());
+    }
+
+    private sealed class CancellationIgnoringTool : IMcpTool
+    {
+        public string Name => "slow";
+        public string Description => "test";
+
+        public async Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), CancellationToken.None);
+            return null;
+        }
+    }
 }

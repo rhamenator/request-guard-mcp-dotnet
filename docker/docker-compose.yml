@@ -1,0 +1,35 @@
+services:
+  request-guard-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: request-guard-mcp-dotnet:local
+    restart: unless-stopped
+    ports: ["8085:8085"]
+    environment:
+      AUTH_TOKENS: ${AUTH_TOKENS:?set AUTH_TOKENS}
+      CACHE_SCOPE_HMAC_KEY: ${CACHE_SCOPE_HMAC_KEY:?set CACHE_SCOPE_HMAC_KEY}
+      MCP__REDIS__URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379
+      MCP__POSTGRES__URL: Host=postgres;Port=5432;Database=mcp;Username=mcp;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+  redis:
+    image: redis:8.2-alpine@sha256:30abb90e62f14b737010746def3ba99cc79fe19dcdb3d37b41f21fc62e7da19d
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    healthcheck: { test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"], interval: 5s, timeout: 3s, retries: 10 }
+  postgres:
+    image: postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+    environment:
+      POSTGRES_DB: mcp
+      POSTGRES_USER: mcp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes: [postgres-data:/var/lib/postgresql]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U mcp -d mcp"], interval: 5s, timeout: 3s, retries: 10 }
+volumes:
+  postgres-data:

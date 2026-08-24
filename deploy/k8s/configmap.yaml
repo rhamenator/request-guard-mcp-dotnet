@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: request-guard-config
+  namespace: request-guard
+data:
+  MCP__HOST: "0.0.0.0"
+  MCP__PORT: "8085"
+  MCP__REDIS__KEY_PREFIX: "request_guard"
+  MCP__FEATURES__ENABLE_BATCH: "true"
+  MCP__FEATURES__ENABLE_ENRICHMENT: "true"
+  MCP__FEATURES__ENABLE_FEEDBACK: "true"
+  MCP__TELEMETRY__METRICS_PATH: "/metrics"

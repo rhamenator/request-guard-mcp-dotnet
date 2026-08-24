@@ -18,12 +18,13 @@ namespace RequestGuardMcp.Mcp;
 /// </summary>
 public static class McpEndpoints
 {
-    public static IEndpointRouteBuilder MapMcpServer(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapMcpServer(this IEndpointRouteBuilder endpoints, string metricsPath = "/metrics")
     {
         endpoints.MapGet("/mcp", HandleWebSocketUpgradeAsync);
         endpoints.MapPost("/mcp", HandleHttpJsonRpcAsync);
         endpoints.MapGet("/health", HandleHealthAsync);
         endpoints.MapGet("/ready", HandleReadinessAsync);
+        endpoints.MapGet(metricsPath, HandleMetricsAsync);
         return endpoints;
     }
 
@@ -90,20 +91,27 @@ public static class McpEndpoints
     private static async Task HandleHealthAsync(HttpContext context)
     {
         var state = context.RequestServices.GetRequiredService<AppState>();
-        var health = HealthCheck.Run(state);
+        var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
         context.Response.ContentType = MediaTypeNames.Application.Json;
         await System.Text.Json.JsonSerializer.SerializeAsync(context.Response.Body, health, McpJson.Options, context.RequestAborted)
             .ConfigureAwait(false);
     }
 
-    private static Task HandleReadinessAsync(HttpContext context)
+    private static async Task HandleReadinessAsync(HttpContext context)
     {
         var state = context.RequestServices.GetRequiredService<AppState>();
         var capacityAvailable = state.Semaphore.CurrentCount > 0;
-        // Redis/PostgreSQL/GeoIP readiness checks are added in Phase 4, once those
-        // integrations exist (src/mcp/server.rs's readiness_handler).
-        context.Response.StatusCode = capacityAvailable ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable;
-        return context.Response.WriteAsync(capacityAvailable ? "ready" : "not ready", context.RequestAborted);
+        var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
+        var ready = capacityAvailable && health.Status == "healthy";
+        context.Response.StatusCode = ready ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable;
+        await context.Response.WriteAsync(ready ? "ready" : "not ready", context.RequestAborted).ConfigureAwait(false);
+    }
+
+    private static Task HandleMetricsAsync(HttpContext context)
+    {
+        var state = context.RequestServices.GetRequiredService<AppState>();
+        context.Response.ContentType = "text/plain; version=0.0.4; charset=utf-8";
+        return context.Response.WriteAsync(state.Metrics.RenderPrometheus(), context.RequestAborted);
     }
 
     private static string Authorize(HttpContext context, AppState state)

@@ -46,8 +46,7 @@ public class RequestFingerprintTests
         request.TlsJa3 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         var withDifferentTls = RequestFingerprint.Compute("caller", request);
 
-        // TlsFingerprintVerified is always false until phase 5's attestation lands, so
-        // unverified TLS values must not partition cache identity.
+        // Unverified TLS values must not partition cache identity.
         Assert.Equal(withTls, withDifferentTls);
     }
 }
