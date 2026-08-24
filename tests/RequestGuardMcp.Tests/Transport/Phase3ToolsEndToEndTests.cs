@@ -103,6 +103,21 @@ public class Phase3ToolsEndToEndTests
     }
 
     [Fact]
+    public async Task BatchClassifyHonorsDisabledFeatureFlag()
+    {
+        var config = new AppConfig
+        {
+            Auth = new AuthConfig { Enabled = false },
+            Features = new FeatureConfig { EnableBatch = false },
+        };
+        var (dispatcher, state) = NewDispatcher(config);
+
+        var node = await DispatchAsync(dispatcher, state, "batch_classify", """{"items":[]}""");
+
+        Assert.Equal("INTEGRATION_UNAVAILABLE", node["error"]!["message"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task ExplainFallsBackWithoutAClassifyRequest()
     {
         var (dispatcher, state) = NewDispatcher();
@@ -217,5 +232,9 @@ public class Phase3ToolsEndToEndTests
         var node = await DispatchAsync(dispatcher, state, "model_info");
 
         Assert.Equal(12, node["result"]!["tool_count"]!.GetValue<int>());
+        Assert.Equal("classify", node["result"]!["tools"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal("Classify multiple requests at once", node["result"]!["tools"]![2]!["description"]!.GetValue<string>());
+        Assert.NotNull(node["result"]!["build_info"]!["rust_version"]);
+        Assert.Null(node["result"]!["build_info"]!["runtime_version"]);
     }
 }

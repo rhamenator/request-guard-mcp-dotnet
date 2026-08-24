@@ -9,6 +9,7 @@ namespace RequestGuardMcp.Mcp.Transport;
 public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger<WebSocketConnectionHandler> logger)
 {
     private const int ReceiveBufferSize = 16 * 1024;
+    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     public async Task HandleAsync(WebSocket socket, AppState state, string callerScope, CancellationToken cancellationToken)
     {
@@ -45,7 +46,19 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
                     break;
                 }
 
-                var text = Encoding.UTF8.GetString(messageStream.ToArray());
+                string text;
+                try
+                {
+                    text = StrictUtf8.GetString(messageStream.ToArray());
+                }
+                catch (DecoderFallbackException)
+                {
+                    logger.LogWarning("received non-UTF-8 binary MCP message");
+                    var parseError = Encoding.UTF8.GetBytes(Protocol.McpMessage.Error(null, -32700, "Parse error: MCP messages must be UTF-8"));
+                    await socket.SendAsync(parseError, WebSocketMessageType.Text, endOfMessage: true, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
                 var response = await dispatcher.ProcessMessageAsync(text, state, callerScope, cancellationToken).ConfigureAwait(false);
                 if (response is not null)
                 {

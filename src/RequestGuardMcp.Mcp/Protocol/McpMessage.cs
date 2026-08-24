@@ -81,16 +81,11 @@ public static class McpMessage
         {
             ["jsonrpc"] = "2.0",
             ["id"] = id?.DeepClone(),
+            ["result"] = error is null ? result?.DeepClone() : null,
+            ["error"] = error is null
+                ? null
+                : System.Text.Json.JsonSerializer.SerializeToNode(error, McpJson.Options),
         };
-
-        if (error is null)
-        {
-            envelope["result"] = result?.DeepClone() ?? JsonValue.Create((object?)null);
-        }
-        else
-        {
-            envelope["error"] = System.Text.Json.JsonSerializer.SerializeToNode(error, McpJson.Options);
-        }
 
         return envelope.ToJsonString(McpJson.Options);
     }

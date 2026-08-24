@@ -8,22 +8,40 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
+var compatibilityConfiguration = new ConfigurationBuilder();
+
+// Rust accepts CONFIG_FILE as a required external configuration source. Load it before all
+// environment providers so MCP__ variables and the compatibility overrides below still win.
+if (Environment.GetEnvironmentVariable("CONFIG_FILE") is { Length: > 0 } configFile)
+{
+    try
+    {
+        var resolvedPath = RustConfigFileParser.ResolvePath(configFile);
+        compatibilityConfiguration.AddInMemoryCollection(RustConfigFileParser.Parse(resolvedPath));
+    }
+    catch (Exception error) when (error is IOException or FormatException or NotSupportedException)
+    {
+        Console.Error.WriteLine($"configuration error: {error.Message}");
+        return 1;
+    }
+}
 
 // Local development convenience. Process environment variables still win because they are added
 // afterward; production deployments should inject secrets rather than mounting this file.
-builder.Configuration.AddIniFile(".env", optional: true, reloadOnChange: false);
-builder.Configuration.AddEnvironmentVariables();
+var dotEnv = RustConfigFileParser.ParseDotEnv(".env");
+compatibilityConfiguration.AddInMemoryCollection(dotEnv);
 
-// Environment variables with prefix MCP__ (e.g. MCP__AUTH__ENABLED), matching the Rust server's
-// `config::Environment::with_prefix("MCP").separator("__")` (src/config.rs).
-builder.Configuration.AddEnvironmentVariables(prefix: "MCP__");
+// Normalize snake_case segments before binding: Microsoft.Configuration treats underscores as
+// literal characters, while Rust/serde maps max_request_bytes to MaxRequestBytes.
+compatibilityConfiguration.AddInMemoryCollection(RustConfigFileParser.ReadMcpEnvironment());
+var compatibilityValues = compatibilityConfiguration.Build();
 
 var appConfig = new AppConfig();
-builder.Configuration.Bind(appConfig);
+compatibilityValues.Bind(appConfig);
 
 // A handful of plain (unprefixed) env vars are also honored for compatibility with the sibling
 // Rust project's deployment examples (src/config.rs's AUTH_TOKENS/LOG_LEVEL handling).
-if (builder.Configuration["AUTH_TOKENS"] is { Length: > 0 } rawTokens)
+if (CompatibilityValue("AUTH_TOKENS") is { Length: > 0 } rawTokens)
 {
     var tokens = rawTokens.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
     if (tokens.Length > 0)
@@ -32,33 +50,33 @@ if (builder.Configuration["AUTH_TOKENS"] is { Length: > 0 } rawTokens)
     }
 }
 
-if (builder.Configuration["CACHE_SCOPE_HMAC_KEY"] is { Length: > 0 } hmacKey)
+if (CompatibilityValue("CACHE_SCOPE_HMAC_KEY") is { Length: > 0 } hmacKey)
 {
     appConfig.Auth.CacheScopeHmacKey = hmacKey;
 }
 
-if (builder.Configuration["LOG_LEVEL"] is { Length: > 0 } logLevel)
+if (CompatibilityValue("LOG_LEVEL") is { Length: > 0 } logLevel)
 {
     appConfig.LogLevel = logLevel;
 }
 
-if (builder.Configuration["TLS_FINGERPRINT_ATTESTATION_KEY"] is { Length: > 0 } tlsKey)
+if (CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_KEY") is { Length: > 0 } tlsKey)
 {
     appConfig.TlsFingerprints.AttestationKey = tlsKey;
 }
 
-if (builder.Configuration["TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY"] is { Length: > 0 } previousTlsKey)
+if (CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY") is { Length: > 0 } previousTlsKey)
 {
     appConfig.TlsFingerprints.PreviousAttestationKey = previousTlsKey;
 }
 
-if (int.TryParse(builder.Configuration["TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS"], System.Globalization.CultureInfo.InvariantCulture, out var tlsMaxAge))
+if (int.TryParse(CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS"), System.Globalization.CultureInfo.InvariantCulture, out var tlsMaxAge))
 {
     appConfig.TlsFingerprints.MaxAgeSeconds = tlsMaxAge;
 }
 
-appConfig.TlsFingerprints.KnownBadJa3 = SplitList(builder.Configuration["TLS_KNOWN_BAD_JA3"]);
-appConfig.TlsFingerprints.KnownBadJa4 = SplitList(builder.Configuration["TLS_KNOWN_BAD_JA4"]);
+appConfig.TlsFingerprints.KnownBadJa3 = SplitList(CompatibilityValue("TLS_KNOWN_BAD_JA3"));
+appConfig.TlsFingerprints.KnownBadJa4 = SplitList(CompatibilityValue("TLS_KNOWN_BAD_JA4"));
 
 try
 {
@@ -113,6 +131,9 @@ catch (Exception error)
     return 1;
 }
 
+// Match the Rust server's startup warmup before accepting traffic.
+_ = await new WarmupTool().CallAsync(appState, null, CancellationToken.None).ConfigureAwait(false);
+
 builder.Services.AddSingleton(appConfig);
 builder.Services.AddSingleton(appState);
 builder.Services.AddSingleton<WebSocketConnectionHandler>();
@@ -131,6 +152,8 @@ app.Run();
 return 0;
 
 static List<string> SplitList(string? value) => value?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList() ?? [];
+
+string? CompatibilityValue(string name) => Environment.GetEnvironmentVariable(name) ?? dotEnv.GetValueOrDefault(name);
 
 static LogLevel ParseLogLevel(string value) => value.Trim().ToLowerInvariant() switch
 {

@@ -135,6 +135,9 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
         var responseJson = reader.GetString(1);
         var request = JsonSerializer.Deserialize<ClassifyRequest>(requestJson, McpJson.Options)!;
         var response = JsonSerializer.Deserialize<ClassifyResponse>(responseJson, McpJson.Options)!;
+        // sqlx's serde_json Value -> typed f64 path rounds JSONB classification scores to 15
+        // fractional digits. Preserve that observable replay wire behavior across languages.
+        response = response with { Score = Math.Round(response.Score, 15, MidpointRounding.ToEven) };
         return new PersistedDecision(request, response);
     }
 

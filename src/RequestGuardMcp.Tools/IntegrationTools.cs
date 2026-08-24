@@ -106,7 +106,10 @@ public sealed class ReplayDecisionTool : IMcpTool
             ?? throw AppErrorException.InvalidRequest($"classification request id '{request.RequestId}' was not found");
         original.Request.RequestId = $"replay-{Guid.NewGuid()}";
         var replayed = await ClassifyService.RunEphemeralAsync(state, original.Request, cancellationToken).ConfigureAwait(false);
-        var equivalent = original.Response.Verdict == replayed.Verdict && original.Response.Score.Equals(replayed.Score) &&
+        // Rust's f64::EPSILON is the spacing at 1.0 (2^-52), whereas C#'s double.Epsilon is
+        // the smallest subnormal value. Use the Rust definition for replay equivalence.
+        var scoreEquivalent = Math.Abs(original.Response.Score - replayed.Score) < Math.ScaleB(1.0, -52);
+        var equivalent = original.Response.Verdict == replayed.Verdict && scoreEquivalent &&
                          original.Response.Confidence == replayed.Confidence && original.Response.ThreatCategory == replayed.ThreatCategory &&
                          JsonSerializer.Serialize(original.Response.Signals, McpJson.Options) == JsonSerializer.Serialize(replayed.Signals, McpJson.Options);
         return ToolResult.Json(new ReplayResponse(request.RequestId, ToolResult.Json(original.Response), replayed, equivalent));
@@ -163,7 +166,6 @@ public sealed class EnrichAsnTool : IMcpTool
 
 public sealed class EnrichUaTool : IMcpTool
 {
-    private static readonly string[] Bots = ["bot", "crawler", "spider", "scrapy", "headless", "curl/", "wget/", "python-requests", "httpx"];
     public string Name => "enrich_ua";
     public string Description => "Enrich a user-agent string";
 
@@ -175,25 +177,17 @@ public sealed class EnrichUaTool : IMcpTool
             throw AppErrorException.IntegrationUnavailable("user-agent enrichment is disabled");
         }
 
-        var bot = Bots.FirstOrDefault(marker => request.UserAgent.Contains(marker, StringComparison.OrdinalIgnoreCase));
-        var browser = BrowserName(request.UserAgent, bot);
-        var os = OperatingSystemName(request.UserAgent);
-        var device = bot is not null ? "crawler" : request.UserAgent.Contains("Mobile", StringComparison.OrdinalIgnoreCase) ? "smartphone" : browser is null ? null : "pc";
-        return Task.FromResult(ToolResult.Json(new EnrichUaResponse(request.UserAgent, browser, os, device, bot is not null, bot is null ? null : browser ?? bot, bot is null ? 0.1 : 0.8)));
+        var parsed = WootheeUaParser.Parse(request.UserAgent);
+        var isBot = parsed?.Category == "crawler";
+        return Task.FromResult(ToolResult.Json(new EnrichUaResponse(
+            request.UserAgent,
+            parsed?.Name,
+            parsed?.Os,
+            parsed?.Category,
+            isBot,
+            isBot ? parsed?.Name : null,
+            isBot ? 0.8 : 0.1)));
     }
-
-    private static string? BrowserName(string ua, string? bot) => bot is not null ? bot :
-        ua.Contains("Edg/", StringComparison.OrdinalIgnoreCase) ? "Edge" :
-        ua.Contains("Chrome/", StringComparison.OrdinalIgnoreCase) ? "Chrome" :
-        ua.Contains("Firefox/", StringComparison.OrdinalIgnoreCase) ? "Firefox" :
-        ua.Contains("Safari/", StringComparison.OrdinalIgnoreCase) ? "Safari" : null;
-
-    private static string? OperatingSystemName(string ua) =>
-        ua.Contains("Windows", StringComparison.OrdinalIgnoreCase) ? "Windows" :
-        ua.Contains("Android", StringComparison.OrdinalIgnoreCase) ? "Android" :
-        ua.Contains("iPhone", StringComparison.OrdinalIgnoreCase) || ua.Contains("iPad", StringComparison.OrdinalIgnoreCase) ? "iOS" :
-        ua.Contains("Mac OS", StringComparison.OrdinalIgnoreCase) ? "macOS" :
-        ua.Contains("Linux", StringComparison.OrdinalIgnoreCase) ? "Linux" : null;
 }
 
 public sealed class ThreatLookupTool : IMcpTool

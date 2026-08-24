@@ -15,6 +15,11 @@ Bearer authentication, bounded concurrency/timeouts, two-level caching, PostgreS
 reporting, Redis threat/canary/queue services, MaxMind enrichment, HMAC-attested JA3/JA4 rules,
 Prometheus metrics, optional OTLP traces, and container/Kubernetes deployment assets.
 
+Behavioral and wire compatibility is continuously checked against the pinned Rust baseline by a
+black-box differential suite. It exercises every tool, error envelopes, disabled features,
+authentication, TLS attestation, both transports, all supported configuration formats, caller cache
+isolation, timeouts, Redis, PostgreSQL, and checksum-pinned official MaxMind test databases.
+
 The assurance baseline is DO-178C-inspired and appropriate to a sole-maintainer project; it is not
 a claim of certification or airborne suitability. Independent review remains required before the
 first stable release.
@@ -64,6 +69,13 @@ Or, equivalently:
 make ci
 ```
 
+With the sibling Rust repository checked out next to this one, run the compatibility gates with:
+
+```bash
+make parity                 # protocol, tools, auth, TLS, and configuration
+make parity-integration     # also disposable Redis/PostgreSQL and MaxMind fixtures
+```
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 ## Tools
@@ -88,6 +100,10 @@ configured dependency fails; they do not return synthetic success data.
 - [docs/REQUIREMENTS-TRACEABILITY.md](docs/REQUIREMENTS-TRACEABILITY.md) — requirements mapped to
   implementation and verification evidence
 - [docs/VERIFICATION.md](docs/VERIFICATION.md) — automated, integration, and deployment checks
+- [docs/VERIFICATION-EVIDENCE.md](docs/VERIFICATION-EVIDENCE.md) — current release-candidate gate
+  results
+- [docs/KNOWN-LIMITATIONS.md](docs/KNOWN-LIMITATIONS.md) — bounded compatibility and assurance
+  limitations
 - [docs/security-model.md](docs/security-model.md) and [docs/runbook.md](docs/runbook.md) — trust
   boundaries and operations
 

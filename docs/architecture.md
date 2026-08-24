@@ -29,6 +29,10 @@ directly on `ConcurrentDictionary`, avoiding a dependency for something this sma
 FIFO eviction instead of moka's LRU — swappable later behind the interface if that ever matters.
 TLS fingerprints are validated and normalized, but affect scoring and cache identity only after a
 fresh request-bound HMAC attestation verifies. The attestation is cleared before cache/persistence.
+User-agent classification is a dependency-free compatibility port of Woothee 0.13.0's dataset and
+challenge ordering; attribution is recorded in `THIRD-PARTY-NOTICES.md`. Configuration is bound
+through a dedicated compatibility source so snake_case file/environment keys cannot be silently
+ignored by the .NET binder.
 
 ## Overview
 
@@ -109,6 +113,15 @@ project's `redis-integration`/`postgres-integration` Cargo features.
 
 WebSocket and HTTP POST JSON-RPC are the only supported MCP transports, matching the Rust original.
 No gRPC listener is planned.
+
+## Compatibility verification
+
+The Rust revision in `tests/parity/rust-baseline.txt` is a controlled external interface baseline.
+`tests/parity/run.py` starts both implementations under matching configurations and compares their
+black-box JSON results. Separate phases cover all tools, Woothee's upstream corpus, both transports,
+feature flags, auth, TLS attestation, configuration formats, Redis, PostgreSQL, MaxMind, cache
+scope, and forced timeouts. Only runtime-generated metadata is normalized. The full gate runs in
+CI and is required whenever either the implementation or baseline changes.
 
 ## Delivery phases
 

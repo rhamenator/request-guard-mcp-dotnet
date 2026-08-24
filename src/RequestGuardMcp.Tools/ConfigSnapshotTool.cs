@@ -53,7 +53,9 @@ public sealed class ConfigSnapshotTool : IMcpTool
             {
                 ["service_name"] = cfg.Telemetry.ServiceName,
                 ["metrics_path"] = cfg.Telemetry.MetricsPath,
-                ["otlp_endpoint"] = redact && cfg.Telemetry.OtlpEndpoint is not null ? "[REDACTED]" : cfg.Telemetry.OtlpEndpoint,
+                // Rust deliberately hides whether an endpoint is configured when redaction is
+                // requested, so even an absent value is represented by the placeholder.
+                ["otlp_endpoint"] = redact ? JsonRedaction.RedactedPlaceholder : cfg.Telemetry.OtlpEndpoint,
             },
             ["redis"] = new JsonObject
             {

@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -70,9 +71,23 @@ public static class McpEndpoints
         }
 
         string text;
-        using (var reader = new StreamReader(context.Request.Body))
+        try
         {
-            text = await reader.ReadToEndAsync(context.RequestAborted).ConfigureAwait(false);
+            using var body = new MemoryStream();
+            await context.Request.Body.CopyToAsync(body, context.RequestAborted).ConfigureAwait(false);
+            text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true)
+                .GetString(body.GetBuffer(), 0, checked((int)body.Length));
+        }
+        catch (DecoderFallbackException)
+        {
+            // This intentionally mirrors Rust's transport-level response rather than the normal
+            // McpMessage serializer: transport decoding failed before an MCP message existed.
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.ContentType = MediaTypeNames.Application.Json;
+            await context.Response.WriteAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700,\"message\":\"Parse error: MCP messages must be UTF-8\"}}",
+                context.RequestAborted).ConfigureAwait(false);
+            return;
         }
 
         var dispatcher = context.RequestServices.GetRequiredService<McpDispatcher>();

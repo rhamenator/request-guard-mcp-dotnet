@@ -59,6 +59,7 @@ public class McpMessageTests
         Assert.Equal(1, node["id"]!.GetValue<int>());
         Assert.Equal("ok", node["result"]!.GetValue<string>());
         Assert.Null(node["error"]);
+        Assert.True(node.AsObject().ContainsKey("error"));
     }
 
     [Fact]
@@ -69,8 +70,10 @@ public class McpMessageTests
         var node = JsonNode.Parse(json)!;
         Assert.Equal(7, node["id"]!.GetValue<int>());
         Assert.Null(node["result"]);
+        Assert.True(node.AsObject().ContainsKey("result"));
         Assert.Equal(-404, node["error"]!["code"]!.GetValue<int>());
         Assert.Equal("TOOL_NOT_FOUND", node["error"]!["message"]!.GetValue<string>());
+        Assert.True(node["error"]!.AsObject().ContainsKey("data"));
     }
 
     [Fact]

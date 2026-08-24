@@ -23,6 +23,11 @@ public sealed class BatchClassifyTool : IMcpTool
 
     public async Task<JsonNode?> CallScopedAsync(AppState state, JsonNode? parameters, string callerScope, CancellationToken cancellationToken)
     {
+        if (!state.Config.Features.EnableBatch)
+        {
+            throw AppErrorException.IntegrationUnavailable("batch_classify is disabled by configuration");
+        }
+
         var request = McpJson.RequiredParams<BatchClassifyRequest>(parameters);
 
         var stopwatch = Stopwatch.StartNew();

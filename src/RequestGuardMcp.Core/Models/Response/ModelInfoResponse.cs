@@ -15,13 +15,12 @@ public sealed record ToolInfo(
     string Version);
 
 /// <summary>
-/// Ports src/models/response.rs's <c>BuildInfoResponse</c>. The Rust field <c>rust_version</c>
-/// (the compiler/toolchain version) has no direct .NET analogue; this port reports the .NET
-/// runtime version under <c>runtime_version</c> instead — a deliberate wire-level difference,
-/// since this metadata is informational rather than part of a published tool schema.
+/// Ports src/models/response.rs's <c>BuildInfoResponse</c>. The legacy wire field remains named
+/// <c>rust_version</c> for compatibility; in this implementation its value identifies the .NET
+/// runtime. Consumers must treat the value as language-specific build metadata.
 /// </summary>
 public sealed record BuildInfoResponse(
     string Version,
     string GitCommit,
     string BuildDate,
-    string RuntimeVersion);
+    string RustVersion);

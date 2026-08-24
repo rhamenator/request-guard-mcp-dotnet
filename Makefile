@@ -1,4 +1,4 @@
-.PHONY: restore build test fmt format audit ci run docker-build docker-run docker-compose-up k8s-apply clean
+.PHONY: restore build test fmt format audit ci parity parity-integration run docker-build docker-run docker-compose-up k8s-apply clean
 
 SOLUTION := RequestGuardMcp.slnx
 HOST_PROJECT := src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj
@@ -24,6 +24,12 @@ audit: restore
 	dotnet list $(SOLUTION) package --vulnerable --include-transitive
 
 ci: format-check build test audit
+
+parity: build
+	python3 tests/parity/run.py --skip-build
+
+parity-integration: build
+	python3 tests/parity/run.py --skip-build --with-integrations
 
 run:
 	dotnet run --project $(HOST_PROJECT)

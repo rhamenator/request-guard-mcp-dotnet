@@ -19,6 +19,12 @@ For Redis, verify the `redis://`/`rediss://` endpoint, credentials, DNS, and key
 PostgreSQL, verify the Npgsql connection string, TLS policy, DDL permission on first start, and pool
 limit. For GeoIP, verify the path, file permissions, database edition/type, and checksum.
 
+`CONFIG_FILE` accepts JSON, INI, TOML, YAML (`.yaml`/`.yml`), RON, and JSON5, matching the Rust
+build's enabled formats. File keys use Rust snake_case names. `MCP__...` environment settings and
+the explicitly supported plain secret variables override the file. A missing file, unsupported
+extension, malformed value, or invalid bound configuration fails startup rather than falling back.
+Use `config_snapshot` with redaction enabled to confirm effective non-secret settings.
+
 ## Safe maintenance
 
 Before upgrading, record the image/source revision, back up PostgreSQL, validate dependency alerts,
@@ -32,3 +38,10 @@ immutable digest approved for the environment before production use.
 Rotate TLS attestation keys by moving the old key to the previous-key setting and deploying the new
 key to producers/signers, then remove the previous key after the maximum age plus rollout margin.
 Rotate Bearer tokens with an overlap period; cache scopes intentionally change with the token.
+
+## Release verification
+
+Run `make ci` and `make parity-integration` before producing an image. Validate Kubernetes and
+workflow files and scan the final immutable image for known vulnerabilities. Record exact tool,
+source, baseline, and image digests with the release evidence. Independent human review remains a
+separate mandatory stable-release gate.

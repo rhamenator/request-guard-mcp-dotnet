@@ -16,7 +16,10 @@ public static class McpJson
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        // Rust's serde models serialize Option::None as JSON null unless an individual field is
+        // explicitly annotated otherwise. Keep nulls on the wire so clients see the same object
+        // shape from both implementations.
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
         RespectNullableAnnotations = true,
         RespectRequiredConstructorParameters = true,
         WriteIndented = false,
