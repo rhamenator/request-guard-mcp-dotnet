@@ -12,7 +12,7 @@
     <!-- Test-only (not shipped in any published artifact). Phases 4 and 6 of the delivery
          plan add StackExchange.Redis, Npgsql, MaxMind.GeoIP2, and the OpenTelemetry packages
          here. Everything else in this codebase is built on the .NET base class library alone. -->
-    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
