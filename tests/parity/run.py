@@ -128,7 +128,7 @@ class IntegrationBackends:
             self.postgres_port = self._published_port(self.postgres_name, "5432/tcp")
             self._wait()
             for database in ("parity_rust", "parity_dotnet"):
-                self.postgres("createdb", "-U", "postgres", database)
+                self._create_database(database)
         except BaseException:
             self.stop()
             raise
@@ -142,11 +142,24 @@ class IntegrationBackends:
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             redis = subprocess.run(["docker", "exec", self.redis_name, "redis-cli", "-a", self.password, "ping"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            postgres = subprocess.run(["docker", "exec", self.postgres_name, "pg_isready", "-U", "postgres"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            postgres = subprocess.run(["docker", "exec", "-e", f"PGPASSWORD={self.password}", self.postgres_name, "psql", "-U", "postgres", "-d", "postgres", "-c", "SELECT 1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if redis.returncode == 0 and postgres.returncode == 0:
                 return
             time.sleep(0.25)
         raise TimeoutError("Redis/PostgreSQL test containers did not become ready")
+
+    def _create_database(self, database: str) -> None:
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            result = subprocess.run(
+                ["docker", "exec", "-e", f"PGPASSWORD={self.password}", self.postgres_name, "createdb", "-U", "postgres", database],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if result.returncode == 0:
+                return
+            time.sleep(0.25)
+        raise TimeoutError(f"PostgreSQL did not remain ready long enough to create {database}")
 
     def redis(self, *arguments: str, capture: bool = False) -> str:
         result = subprocess.run(["docker", "exec", self.redis_name, "redis-cli", "--no-auth-warning", "-a", self.password, *arguments], check=True, text=True, stdout=subprocess.PIPE if capture else subprocess.DEVNULL)
