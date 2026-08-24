@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/rhamenator/request-guard-mcp-dotnet/security/advisories/new
+    about: Privately report suspected vulnerabilities. Do not open a public issue.
+  - name: Support policy
+    url: https://github.com/rhamenator/request-guard-mcp-dotnet/blob/main/SUPPORT.md
+    about: Review support scope and the information to include before opening an issue.
+  - name: Ask a question or start a discussion
+    url: https://github.com/rhamenator/request-guard-mcp-dotnet/discussions
+    about: Open-ended questions and design ideas that aren't yet a concrete bug or proposal.

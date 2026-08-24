@@ -1,0 +1,68 @@
+name: Security Scan
+
+on:
+  push:
+    branches: ["main"]
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  codeql-deep:
+    name: CodeQL security-extended (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: csharp
+            build-mode: manual
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: matrix.language == 'csharp'
+        with:
+          global-json-file: global.json
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended,security-and-quality
+      - name: Build (C# only)
+        if: matrix.language == 'csharp'
+        run: |
+          dotnet restore RequestGuardMcp.slnx --locked-mode
+          dotnet build RequestGuardMcp.slnx --configuration Release --no-restore
+      - name: Analyze
+        uses: github/codeql-action/analyze@ce729e4d353d580e6cacd6a8cf2921b72e5e310a
+        with:
+          category: /language:${{ matrix.language }}
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore RequestGuardMcp.slnx --locked-mode
+      - name: Check for known-vulnerable NuGet packages
+        run: |
+          set -euo pipefail
+          output="$(dotnet list RequestGuardMcp.slnx package --vulnerable --include-transitive 2>&1)"
+          echo "$output"
+          if echo "$output" | grep -qi "has the following vulnerable packages"; then
+            echo "::error::Vulnerable NuGet packages detected"
+            exit 1
+          fi
+
+# A container vulnerability scan (Trivy) job is added once docker/Dockerfile exists
+# (delivery phase 7 — see docs/architecture.md).

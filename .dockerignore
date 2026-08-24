@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+.git/
+.github/
+docs/
+tests/
+*.md
+.env
+deploy/k8s/secret.yaml

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <AssemblyName>request-guard-mcp-dotnet</AssemblyName>
+    <UserSecretsId>request-guard-mcp-dotnet</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RequestGuardMcp.Core\RequestGuardMcp.Core.csproj" />
+    <ProjectReference Include="..\RequestGuardMcp.Mcp\RequestGuardMcp.Mcp.csproj" />
+    <ProjectReference Include="..\RequestGuardMcp.Tools\RequestGuardMcp.Tools.csproj" />
+    <ProjectReference Include="..\RequestGuardMcp.Integrations\RequestGuardMcp.Integrations.csproj" />
+  </ItemGroup>
+
+</Project>

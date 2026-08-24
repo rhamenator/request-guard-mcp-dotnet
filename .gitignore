@@ -1,0 +1,38 @@
+# Build outputs
+bin/
+obj/
+out/
+publish/
+artifacts/
+
+# Rider / VS / VS Code
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.user
+*.suo
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# Local secrets and overrides
+.env
+*.local.json
+appsettings.*.local.json
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Kubernetes secrets rendered from the example (never commit real credentials)
+deploy/k8s/secret.yaml

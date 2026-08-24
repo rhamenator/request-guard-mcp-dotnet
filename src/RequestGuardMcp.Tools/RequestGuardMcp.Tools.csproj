@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RequestGuardMcp.Core\RequestGuardMcp.Core.csproj" />
+    <ProjectReference Include="..\RequestGuardMcp.Mcp\RequestGuardMcp.Mcp.csproj" />
+    <ProjectReference Include="..\RequestGuardMcp.Integrations\RequestGuardMcp.Integrations.csproj" />
+  </ItemGroup>
+
+</Project>

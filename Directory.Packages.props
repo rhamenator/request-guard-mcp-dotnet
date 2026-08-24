@@ -1,0 +1,21 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Central Package Management: every NuGet dependency version is pinned in this one
+         file so the dependency inventory required by docs/DO-178C-ASSURANCE-POLICY.md
+         (configuration management / release evidence) has a single source of truth. -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Test-only (not shipped in any published artifact). Phases 4 and 6 of the delivery
+         plan add StackExchange.Redis, Npgsql, MaxMind.GeoIP2, and the OpenTelemetry packages
+         here. Everything else in this codebase is built on the .NET base class library alone. -->
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+</Project>

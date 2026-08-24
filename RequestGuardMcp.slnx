@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RequestGuardMcp.Core/RequestGuardMcp.Core.csproj" />
+    <Project Path="src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj" />
+    <Project Path="src/RequestGuardMcp.Integrations/RequestGuardMcp.Integrations.csproj" />
+    <Project Path="src/RequestGuardMcp.Mcp/RequestGuardMcp.Mcp.csproj" />
+    <Project Path="src/RequestGuardMcp.Tools/RequestGuardMcp.Tools.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RequestGuardMcp.Tests/RequestGuardMcp.Tests.csproj" />
+  </Folder>
+</Solution>
