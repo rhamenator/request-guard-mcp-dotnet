@@ -20,6 +20,21 @@ registered in the `ToolRegistry`, rather than the Rust server's fixed 22-tool li
 don't exist yet; this will converge with the Rust behavior once all 22 tools are implemented
 (phase 5).
 
+**Phase 3 notes:** `AnomalyEngine` and `Policy` (src/engines/anomaly.rs, src/engines/policy.rs)
+are **not** ported — `grep` across the Rust source confirms neither is referenced anywhere outside
+its own module; they are dead code in the source project, and porting unused code would violate
+this project's own "no code beyond what's needed" standard. `RuleEngine.Evaluate` and
+`Scorer.Score` are static methods (both engines are pure functions over their input, with no
+instance state — the .NET analyzers flag stateless instance methods as CA1822, and the fix is
+correct here, not a suppression). The in-process cache (`ICacheStore`/`InMemoryCacheStore`) is a
+hand-rolled bounded TTL cache rather than a port of the `moka` crate: it's simple enough to write
+directly on `ConcurrentDictionary`, avoiding a dependency for something this small, at the cost of
+FIFO eviction instead of moka's LRU — swappable later behind the interface if that ever matters.
+TLS fingerprint handling (validation, normalization, and the `tls_fingerprint_verified` rule) is
+deferred as one unit to phase 5 alongside the attestation crypto it depends on; until then
+`ClassifyRequest.TlsFingerprintVerified` is always `false` and TLS fields never affect scoring or
+cache-key fingerprinting.
+
 ## Overview
 
 `request-guard-mcp-dotnet` is a Model Context Protocol (MCP) server built on ASP.NET Core / Kestrel.
@@ -107,6 +122,8 @@ No gRPC listener is planned.
 See the repository's commit history and `docs/DO-178C-ASSURANCE-POLICY.md` traceability
 expectations. In summary: (1) scaffolding and governance — **done**; (2) MCP protocol core with no
 backends (JSON-RPC types, WS/HTTP transports, Bearer auth, concurrency/timeout, `health`/`model_info`
-tools) — **done**; (3) engines and backend-free tools; (4) Redis/PostgreSQL/MaxMind integrations;
-(5) remaining tools plus TLS/UA handling; (6) observability; (7) Docker/Kubernetes deployment;
-(8) tests to parity and release automation.
+tools) — **done**; (3) engines and backend-free tools (rule engine, scorer, explain engine,
+in-process cache, `classify`/`batch_classify`/`explain`/`score_breakdown`/`validate_payload`/
+`feature_flags`/`warmup`/`redact_preview`/`config_snapshot`/`self_test`) — **done**;
+(4) Redis/PostgreSQL/MaxMind integrations; (5) remaining tools plus TLS/UA handling;
+(6) observability; (7) Docker/Kubernetes deployment; (8) tests to parity and release automation.

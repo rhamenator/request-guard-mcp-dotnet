@@ -11,10 +11,12 @@ tool surface and behavior over the same WebSocket/HTTP JSON-RPC 2.0 transports.
 ## Status
 
 This repository is under active, phased development. Implemented so far: the project scaffolding
-and governance baseline, and the MCP protocol core — JSON-RPC 2.0 over WebSocket and HTTP POST,
-Bearer authentication, global concurrency control with per-tool timeouts, and the `health` and
-`model_info` tools. Engines, the remaining tools, backend integrations (Redis/PostgreSQL/MaxMind),
-observability, and deployment manifests land in the phases that follow. See
+and governance baseline, the MCP protocol core (JSON-RPC 2.0 over WebSocket and HTTP POST, Bearer
+authentication, global concurrency control with per-tool timeouts), and the classification engines
+with 12 backend-free tools: `health`, `model_info`, `classify`, `batch_classify`, `explain`,
+`score_breakdown`, `validate_payload`, `feature_flags`, `warmup`, `redact_preview`,
+`config_snapshot`, `self_test`. Backend integrations (Redis/PostgreSQL/MaxMind), the remaining
+tools, observability, and deployment manifests land in the phases that follow. See
 [docs/architecture.md](docs/architecture.md) for the design and delivery-phase breakdown, and the
 repository's commit history for current progress.
 
@@ -25,7 +27,7 @@ cp .env.example .env   # not yet provided — see docs/architecture.md for confi
 AUTH_TOKENS=your-strong-token dotnet run --project src/RequestGuardMcp.Host
 curl http://localhost:8085/health
 curl -H "Authorization: Bearer your-strong-token" -X POST http://localhost:8085/mcp \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/model_info"}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"classify","params":{"user_agent":"GPTBot/1.0","path":"/"}}'
 ```
 
 ## Why a .NET port?

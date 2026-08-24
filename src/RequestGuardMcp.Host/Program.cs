@@ -60,6 +60,16 @@ builder.Services.AddSingleton(_ =>
     var registry = new ToolRegistry();
     registry.Register(new HealthTool());
     registry.Register(new ModelInfoTool(registry));
+    registry.Register(new ClassifyTool());
+    registry.Register(new BatchClassifyTool());
+    registry.Register(new ExplainTool());
+    registry.Register(new ScoreBreakdownTool());
+    registry.Register(new ValidatePayloadTool());
+    registry.Register(new FeatureFlagsTool());
+    registry.Register(new RedactPreviewTool());
+    registry.Register(new ConfigSnapshotTool());
+    registry.Register(new SelfTestTool());
+    registry.Register(new WarmupTool());
     return registry;
 });
 
