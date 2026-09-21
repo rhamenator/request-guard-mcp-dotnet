@@ -31,13 +31,13 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.1.31",
-        "contentHash": "u+MFK6FzGWngKaY3wJ/V9vQSVe/NSqpk0IYYw6ACwmlPq5eTnsyZGlzEa3YMifJGVs3omrl5MkgigB1jZYNnGg=="
+        "resolved": "3.3.0",
+        "contentHash": "pzHmX5/ffYxDs0liGPwbAQ9c9xRmbhtJ6XnZOpktHAs9x7MTqQByEXiySXzT3xPZ/l8U95OfVUYvm/BOBK6f6w=="
       },
       "System.IO.Hashing": {
         "type": "Transitive",
-        "resolved": "10.0.5",
-        "contentHash": "8IBJWcCT9+e4Bmevm4T7+fQEiAh133KGiz4oiVTgJckd3Q76OFdR1falgn9lpz7+C4HJvogCDJeAa2QmvbeVtg=="
+        "resolved": "10.0.12",
+        "contentHash": "jDix4bBMYnpZdSPcnY+KDV6ik3SRMzpMKby/bZl/XUwIiflwRNAFZ0oOl61R/pSaveIJ8t1gs2BUlrGsPs/bcg=="
       },
       "requestguardmcp.core": {
         "type": "Project"
@@ -45,11 +45,11 @@
       "requestguardmcp.integrations": {
         "type": "Project",
         "dependencies": {
-          "MaxMind.Db": "[5.1.0, )",
+          "MaxMind.Db": "[5.2.0, )",
           "MaxMind.GeoIP2": "[6.1.0, )",
           "Npgsql": "[10.0.3, )",
           "RequestGuardMcp.Core": "[0.1.0, )",
-          "StackExchange.Redis": "[3.1.31, )"
+          "StackExchange.Redis": "[3.3.0, )"
         }
       },
       "requestguardmcp.mcp": {
@@ -60,9 +60,9 @@
       },
       "MaxMind.Db": {
         "type": "CentralTransitive",
-        "requested": "[5.1.0, )",
-        "resolved": "5.1.0",
-        "contentHash": "u4fynkxX0bNLYaz90N9m9FiaOX22WmEFKlHnvlqw8sswngH54oYvgynhT4GXZvqTy8l7D96/+E9OVzuu34ex9w=="
+        "requested": "[5.2.0, )",
+        "resolved": "5.2.0",
+        "contentHash": "UJ6zwjzV8YZ4YbELCUsK+9lEut5Ea6ks3p8CXEK9hQm8GxhJYrKsVxXcVvZsJ2Nzij1e89dXYrqUH7MCoWdhqg=="
       },
       "MaxMind.GeoIP2": {
         "type": "CentralTransitive",
@@ -85,13 +85,13 @@
       },
       "StackExchange.Redis": {
         "type": "CentralTransitive",
-        "requested": "[3.1.31, )",
-        "resolved": "3.1.31",
-        "contentHash": "QillloeZxgw9+IWmnowTrjrn+JV7JIMVzr1JiUpCa7pJQI48rtcqG9yy6u5UBRiTuCiKU5909aRu67Ch6gWVMg==",
+        "requested": "[3.3.0, )",
+        "resolved": "3.3.0",
+        "contentHash": "vSB6W7F85IJ9gYAHPcRsQYLGODptvm8kmp1z2XwmKHYWifHiGGDQHzYkNNUKk3bzODOoOM2fuy7nUeNp1MHIKA==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.5",
-          "RESPite": "3.1.31",
-          "System.IO.Hashing": "10.0.5"
+          "RESPite": "3.3.0",
+          "System.IO.Hashing": "10.0.12"
         }
       }
     }
