@@ -51,8 +51,7 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             ? request.Method["tools/".Length..]
             : request.Method;
         var stopwatch = Stopwatch.StartNew();
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!state.Semaphore.Wait(0))
+        if (!state.Semaphore.Wait(0, cancellationToken))
         {
             return McpMessage.ErrorFromApp(request.Id, AppErrorException.RateLimitExceeded());
         }
