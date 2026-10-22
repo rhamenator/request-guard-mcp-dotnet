@@ -42,3 +42,14 @@ Update this matrix whenever a requirement, implementation path, or verification 
 - DR-006: Unknown method names must be rejected before Redis bookkeeping and tracing;
   metric labels are limited to registered tool names plus `__unknown__`. Dispatcher overload
   and 100-name cardinality regressions verify this boundary.
+
+## Connection-resource follow-up (Rust main 740eac2)
+
+DR-007: Bound total TCP admission before authentication, incomplete first requests,
+MCP body reads, and HTTP/2 idle/age/request-count retention. `ConnectionResourceGuard`
+and Host wiring implement admission and monitoring; `McpEndpoints` applies the body
+deadline. `ConnectionResourceGuardTests` exercises real Kestrel sockets and concurrent
+128-winner admission, synchronous excess-request 503, recovery, idle/age rotation,
+HTTP/1 survival and incomplete-body 408. `AppConfigTests` rejects zero limits. Production
+HTTP/2 age is fixed at 120 seconds; socket tests shorten only that internal test budget.
+Full transport/client parity and TLS/ALPN qualification remain open.
