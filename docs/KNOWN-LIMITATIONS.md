@@ -20,7 +20,9 @@ These are explicit scope boundaries, not untracked defects.
 - MaxMind results are only as current and precise as the operator-provided databases. IP location
   must not be treated as an exact physical address.
 
-No known behavioral or JSON wire difference remains within the tested 23-tool contract. Any new
+The historical pinned suite found no behavioral or JSON wire difference within its tested
+23-tool contract. Current Rust has since changed; known gaps and required new evidence are
+tracked in [PARITY-MATRIX.md](PARITY-MATRIX.md). Any new
 difference is a release blocker unless this document and the requirements/evidence are updated with
 an explicit disposition.
 
