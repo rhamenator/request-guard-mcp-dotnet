@@ -1,0 +1,62 @@
+# Rust / .NET parity maintenance matrix
+
+Assessment date: 2026-10-22. This is a source audit and work queue, not a claim of
+current full parity or independent verification. No stable .NET release is published.
+
+## Controlled references
+
+- .NET starting main: `76c4de4aab291ffc72b049ab63930ee02b75094a`.
+- Existing differential baseline: `4170649920190e989175755369215d4f29a7427b`
+  (August 2026). Keep this gate until the newer contracts are implemented; passing
+  it does **not** establish compatibility with current Rust.
+- Rust main inspected: `6dc433d9cc9cf1805e5074e8a8bf95a65dddfc30`.
+- Published Rust v0.1.5 tag: `f76ff9d2558fac705f091d9b858d3bc180b4f0bd`.
+  GitHub's latest-release selector currently returns v0.1.4, so do not use that
+  selector as the identity of the v0.1.5 artifacts.
+- Private v1 candidate and open Rust PR #162 (idle HTTP/2 bounds) are moving
+  targets. Recheck main and candidate commits before porting or claiming parity.
+
+## Matrix
+
+“Historical gate” refers only to the pinned August differential suite. “Pending”
+requires both implementation review and execution against the named newer Rust
+revision; matching tool names or copied tests are insufficient evidence.
+
+| Area | Current Rust reference behavior | .NET finding / evidence | Closure requirement / priority |
+|---|---|---|---|
+| Tool surface | 23 inbound tools; direct calls and official MCP tool lifecycle | 23 direct tool contracts have historical gate; lifecycle absent in `ToolRegistry` | Add lifecycle schemas/wrappers, pagination/error semantics and SDK tests; P1 |
+| Classifier rules | Scanner UA boundaries, internal/XML-RPC paths, four rounds of byte-wise percent/backslash normalization | This change adds rules and independent expected-signal regressions in `RuleEngineTests`; current-Rust differential still pending | Run new classifier corpus against v0.1.5 and main; P0 |
+| Cache identity | Structured fingerprint covers body, referer, accept, extra and verified TLS | `RequestFingerprint` still joins delimiters and omits fields | Replace ambiguous encoding; collision and isolation regression tests; P0 |
+| JSON-RPC envelope | Validates version, integer/string IDs, object params/results, invalid-request vs parse-error, notifications and responses | `McpMessage` permissive historical parser | Port envelope contract and run HTTP/WS negative matrix; P0 |
+| HTTP negotiation | Version/content-type/Accept checks; stateless POST, GET 405 | New negotiation not implemented | Test duplicate/malformed headers and no-body notification status; P1 |
+| Browser origin / auth | Allowed-origin checks, strict Bearer parsing and caller scopes | Bearer historical tests; new origin contract absent | Review auth diff, origin config validation and transport tests; P0 |
+| Connection / timeout limits | TCP admission, header/body/idle deadlines, bounded WS admission and writes | Work semaphore and tool timeout exist; new connection limits absent | Test slow clients, saturation and recovery on running .NET host; P0 |
+| WebSocket framing | UTF-8, byte bounds, close/ping handling and bounded lifetime | Historical differential covers basic WS only | Run newer adversarial WS corpus; P0 |
+| stdio | Process-local newline-delimited JSON-RPC; logs off stdout | Host only starts ASP.NET Core | Add process transport and packaged SDK/CLI smoke; P1 |
+| Backend behavior | Redis recovery, PostgreSQL TLS/recovery, scoped persistence/reporting | Historical Redis/Postgres/MaxMind tests; newer SQL/TLS and tenancy changes unreviewed | Audit integration diffs, cross-caller negatives and outage/recovery tests; P0 |
+| Configuration / redaction | New transport, origin and limit settings; safer snapshots | Six file formats tested historically; newer fields absent | Map all fields/defaults/validation and test secret non-disclosure; P1 |
+| Telemetry | New redaction/logging changes and resource limits | Historical metrics/OTLP checks only | Review log inputs, cardinality and sink failures; P1 |
+| Native packaging | Five platform bundles, archive verification and smoke evidence | Release workflow lists four RIDs, no Linux arm64; no published .NET assets | Add truthful install guide, artifact verification and per-platform smoke; P1 |
+| Containers / deployment | Multiarch qualification, dependency scans, native/musl and backend TLS evidence | .NET Dockerfile pinned; scheduled 2026-10-19 container scan failed on runtime advisories | Refresh verified pins, rescan, non-root/read-only/backend smoke; P0 |
+| Release gates | Owner review required for stable publication; private candidate qualification | Tag workflow publishes stable/`latest` without an explicit owner gate | Add enforced stable gate and prerelease handling; never tag stable before owner review; P0 |
+| Companion skill / install | Rust skill and npm wrapper document native dependencies/client limits | No .NET companion skill or npm package | Decide distribution, provide .NET-specific setup and smoke; do not reuse Rust install claims; P2 |
+| Client evidence | Inspector, Python SDK, Claude Code, Cursor CLI and ASD adapters with exact artifact evidence | No equivalent current .NET server client evidence | Test actual .NET server artifacts with supported clients; P1 |
+| Outbound egress | Inbound classifier does not enforce outbound egress | No outbound enforcement implemented | Keep all claims limited to inbound classification; no egress parity claim |
+
+## Evidence rules and execution order
+
+1. Fix classifier/cache, envelope/auth/origin and admission/resource boundaries in
+   bounded PRs with expected-outcome regressions independent of the Rust oracle.
+2. Add current-Rust scoped differential jobs before replacing the historical gate.
+   Do not normalize away security-relevant differences to make that gate pass.
+3. Implement official lifecycle, HTTP profile and stdio, then test pinned real SDKs
+   against a running .NET build. Document supported clients only after those pass.
+4. Qualify fresh installs, native/container packaging and recovery. Record exact
+   commits, artifact digests, commands and results, including failures.
+5. Reconcile this matrix with Rust main and private v1 fixes. Full parity remains
+   unverified until every applicable row has current executable evidence.
+
+Hosted CI is preferred while shared-host backup I/O remains high. This assessment
+started no VM, local Docker build or backend container. Coordinate any later
+shared-resource work with the canonical Request Guard chat. The existing August
+verification record remains historical and must not be relabeled as current.

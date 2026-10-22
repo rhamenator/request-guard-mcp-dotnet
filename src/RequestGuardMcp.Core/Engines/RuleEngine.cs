@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using RequestGuardMcp.Core.Configuration;
 using RequestGuardMcp.Core.Models.Request;
@@ -20,12 +21,12 @@ public sealed partial class RuleEngine
     private static partial Regex AiBotUserAgent();
 
     [GeneratedRegex(
-        "(scrapy|beautifulsoup|mechanize|selenium|phantom|puppeteer|playwright|headless|crawler|spider|bot|scraper)",
+        "(scrapy|beautifulsoup|mechanize|selenium|phantom|puppeteer|playwright|headless|crawler|spider|bot|scraper|\\bmasscan\\b|\\bnikto\\b|\\bsqlmap\\b|\\bhttpclient\\b)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex ScrapingUserAgent();
 
     [GeneratedRegex(
-        @"(\.env|/admin|/api/internal|/wp-admin|/phpmyadmin|\.git/|/etc/passwd|/proc/|/debug|/actuator|/swagger|/graphql|/config)",
+        @"(\.env|/admin|/api/internal|/wp-admin|/phpmyadmin|\.git/|/etc/passwd|/proc/|/debug|/actuator|/swagger|/graphql|/config|/internal(?:/|$|\?)|/xmlrpc\.php(?:/|$|\?))",
         RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex SensitivePath();
 
@@ -109,18 +110,56 @@ public sealed partial class RuleEngine
 
     private static void EvaluatePath(string path, SignalSet signals)
     {
-        if (SensitivePath().IsMatch(path))
+        var normalized = NormalizePathForSignals(path);
+        if (SensitivePath().IsMatch(normalized))
         {
             signals.Add(new Signal("path_sensitive", 1.0, 0.6, SignalSource.RuleEngine, "Request targets a sensitive path"));
         }
 
         // Bulk / enumeration pattern: many path segments or numeric IDs.
-        var segments = path.Trim('/').Split('/', StringSplitOptions.None).Length;
+        var segments = normalized.Trim('/').Split('/', StringSplitOptions.None).Length;
         if (segments > 8)
         {
             signals.Add(new Signal("path_deep", 0.6, 0.2, SignalSource.RuleEngine, "Unusually deep path traversal"));
         }
     }
+
+    // Match Rust's four bounded byte-wise rounds, including malformed UTF-8 and
+    // encoded backslashes. This is signal extraction; the request is never rewritten.
+    private static string NormalizePathForSignals(string path)
+    {
+        var bytes = Encoding.UTF8.GetBytes(path);
+        for (var round = 0; round < 4; round++)
+        {
+            var decoded = new byte[bytes.Length];
+            var count = 0;
+            for (var index = 0; index < bytes.Length; index++)
+            {
+                var value = bytes[index];
+                if (value == '%' && index + 2 < bytes.Length &&
+                    HexDigit(bytes[index + 1]) is var high && high >= 0 &&
+                    HexDigit(bytes[index + 2]) is var low && low >= 0)
+                {
+                    value = (byte)((high << 4) | low);
+                    index += 2;
+                }
+
+                decoded[count++] = value == '\\' ? (byte)'/' : value;
+            }
+
+            bytes = decoded[..count];
+        }
+
+        return Encoding.UTF8.GetString(bytes);
+    }
+
+    private static int HexDigit(byte value) => value switch
+    {
+        >= (byte)'0' and <= (byte)'9' => value - '0',
+        >= (byte)'a' and <= (byte)'f' => value - 'a' + 10,
+        >= (byte)'A' and <= (byte)'F' => value - 'A' + 10,
+        _ => -1,
+    };
 
     private static void EvaluateHeaders(IReadOnlyDictionary<string, string> headers, SignalSet signals)
     {
