@@ -85,6 +85,31 @@ public class RedisBookkeepingTests
     }
 
     [Fact]
+    public async Task SlowStartDoesNotConsumeTheToolExecutionDeadline()
+    {
+        var redis = new BookkeepingRedis(stallStart: true, stallFinish: false);
+        await using var state = State(redis);
+        var tool = new StalledTool();
+        var dispatch = Dispatcher(tool).ProcessMessageAsync(Request, state, "test", CancellationToken.None);
+        try
+        {
+            await redis.StartInvoked.Task;
+            await Task.Delay(TimeSpan.FromMilliseconds(350));
+            redis.Release();
+            await Task.Delay(TimeSpan.FromMilliseconds(800));
+            tool.Completion.TrySetResult(new JsonObject { ["ok"] = true });
+            var response = JsonNode.Parse((await dispatch)!)!;
+            Assert.Null(response["error"]);
+            Assert.True(response["result"]!["ok"]!.GetValue<bool>());
+        }
+        finally
+        {
+            redis.Release();
+            tool.Completion.TrySetResult(null);
+        }
+    }
+
+    [Fact]
     public async Task HealthyRecordsStillCompleteNormally()
     {
         var redis = new BookkeepingRedis(stallStart: false, stallFinish: false);
