@@ -17,6 +17,7 @@ namespace RequestGuardMcp.Mcp.Transport;
 public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> logger)
 {
     private static readonly ActivitySource ActivitySource = new("RequestGuardMcp");
+    private static readonly TimeSpan OperationRecordTimeout = TimeSpan.FromMilliseconds(500);
     /// <summary>Returns the JSON text to send back, or null when the message was a notification (no reply).</summary>
     public async Task<string?> ProcessMessageAsync(string text, AppState state, string callerScope, CancellationToken cancellationToken)
     {
@@ -70,16 +71,19 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             using var activity = ActivitySource.StartActivity("mcp.tool", ActivityKind.Internal);
             activity?.SetTag("mcp.tool.name", toolName);
             var toolTimeout = toolName == "classify" ? state.Config.ClassifyTimeout : state.Config.PerToolTimeout;
-            using var timeoutCts = new CancellationTokenSource(toolTimeout);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-
             string? operationId = null;
             if (state.Redis.IsAvailable)
             {
+                using var recordDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                recordDeadline.CancelAfter(OperationRecordTimeout);
                 try
                 {
-                    operationId = await state.Redis.RecordToolStartedAsync(toolName, Math.Max(1, (long)toolTimeout.TotalSeconds), linkedCts.Token)
-                        .WaitAsync(linkedCts.Token).ConfigureAwait(false);
+                    operationId = await state.Redis.RecordToolStartedAsync(toolName, Math.Max(1, (long)toolTimeout.TotalSeconds), recordDeadline.Token)
+                        .WaitAsync(recordDeadline.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception error)
                 {
@@ -87,6 +91,10 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
                 }
             }
 
+            // Optional queue telemetry has its own budget. Preserve the full tool execution
+            // deadline even when the best-effort start record used all of its 500 ms.
+            using var timeoutCts = new CancellationTokenSource(toolTimeout);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
             JsonNode? result;
             try
             {
@@ -118,10 +126,12 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             {
                 if (operationId is not null)
                 {
+                    using var recordDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    recordDeadline.CancelAfter(OperationRecordTimeout);
                     try
                     {
-                        await state.Redis.RecordToolFinishedAsync(toolName, operationId, CancellationToken.None)
-                            .WaitAsync(TimeSpan.FromSeconds(1), CancellationToken.None).ConfigureAwait(false);
+                        await state.Redis.RecordToolFinishedAsync(toolName, operationId, recordDeadline.Token)
+                            .WaitAsync(recordDeadline.Token).ConfigureAwait(false);
                     }
                     catch (Exception error)
                     {
