@@ -23,3 +23,9 @@ These are explicit scope boundaries, not untracked defects.
 No known behavioral or JSON wire difference remains within the tested 23-tool contract. Any new
 difference is a release blocker unless this document and the requirements/evidence are updated with
 an explicit disposition.
+
+Cache fingerprints use structured, recursively sorted JSON in this port. Keys from older
+.NET builds are not reused; old entries expire according to their existing TTL. A rolling
+upgrade can temporarily reduce cache hit rate. Byte-identical cache keys shared between
+Rust and .NET (including Unicode/number serialization edge cases) are not yet qualified;
+use separate Redis key prefixes for mixed-runtime deployments.
