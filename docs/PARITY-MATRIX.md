@@ -9,12 +9,13 @@ current full parity or independent verification. No stable .NET release is publi
 - Existing differential baseline: `4170649920190e989175755369215d4f29a7427b`
   (August 2026). Keep this gate until the newer contracts are implemented; passing
   it does **not** establish compatibility with current Rust.
-- Rust main inspected: `6dc433d9cc9cf1805e5074e8a8bf95a65dddfc30`.
+- Rust main initially inspected: `6dc433d9cc9cf1805e5074e8a8bf95a65dddfc30`.
+  Follow-up main: `740eac2` (2026-10-22), including merged #160 and #162.
 - Published Rust v0.1.5 tag: `f76ff9d2558fac705f091d9b858d3bc180b4f0bd`.
   GitHub's latest-release selector currently returns v0.1.4, so do not use that
   selector as the identity of the v0.1.5 artifacts.
-- Private v1 candidate and open Rust PR #162 (idle HTTP/2 bounds) are moving
-  targets. Recheck main and candidate commits before porting or claiming parity.
+- Private v1 candidate and subsequent Rust main fixes are moving targets.
+  Rust #162 is now merged, not part of public v0.1.5. Recheck main and candidate commits before porting or claiming parity.
 
 ## Matrix
 
@@ -30,7 +31,7 @@ revision; matching tool names or copied tests are insufficient evidence.
 | JSON-RPC envelope | Validates version, integer/string IDs, object params/results, invalid-request vs parse-error, notifications and responses | `McpMessage` permissive historical parser | Port envelope contract and run HTTP/WS negative matrix; P0 |
 | HTTP negotiation | Version/content-type/Accept checks; stateless POST, GET 405 | New negotiation not implemented | Test duplicate/malformed headers and no-body notification status; P1 |
 | Browser origin / auth | Allowed-origin checks, strict Bearer parsing and caller scopes | Bearer historical tests; new origin contract absent | Review auth diff, origin config validation and transport tests; P0 |
-| Connection / timeout limits | TCP admission, header/body/idle deadlines, bounded WS admission and writes | Work semaphore and tool timeout exist; PR #20 adds immediate tool shedding; connection limits still absent | Test slow clients, saturation and recovery on running .NET host; P0 |
+| Connection / timeout limits | TCP admission; #160 pre-auth first-request deadline; #162 HTTP/2 idle 60s, age 120s, exactly 128 admitted requests, synchronous 503 beyond cap and bounded GOAWAY drain; bounded WS admission and writes | Work semaphore and tool timeout exist; PR #20 adds immediate tool shedding; connection limits still absent | Test slow clients, saturation and recovery on running .NET host; P0 |
 | WebSocket framing | UTF-8, byte bounds, close/ping handling and bounded lifetime | Historical differential covers basic WS only | Run newer adversarial WS corpus; P0 |
 | stdio | Process-local newline-delimited JSON-RPC; logs off stdout | Host only starts ASP.NET Core | Add process transport and packaged SDK/CLI smoke; P1 |
 | Backend behavior | Redis recovery, PostgreSQL TLS/recovery, scoped persistence/reporting | Historical Redis/Postgres/MaxMind tests; newer SQL/TLS and tenancy changes unreviewed | Audit integration diffs, cross-caller negatives and outage/recovery tests; P0 |
@@ -78,3 +79,14 @@ verification record remains historical and must not be relabeled as current.
 
 These are maintainer/automation results, not independent human verification. All
 four PRs remain reviewable, and unimplemented matrix rows remain open.
+
+## Connection-security follow-up — Rust main 740eac2
+
+Rust PR #160 bounds incomplete HTTP/2/auto-protocol connections before authentication
+or a first complete request. Merged PR #162 adds post-first-request HTTP/2 protection:
+60-second idle timeout, 120-second lifetime, at most 128 admitted requests with a
+synchronous 503 for excess requests, and bounded graceful GOAWAY draining. These are
+development-main requirements, not guarantees of the published v0.1.5 artifact.
+Equivalent .NET protections and direct socket tests are the next security priority.
+Kestrel's protocol negotiation and graceful-close behavior need their own execution
+evidence; matching timeout values alone will not close this row.
