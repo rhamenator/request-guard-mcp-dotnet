@@ -3,7 +3,7 @@
 
 import argparse
 import json
-import os
+import math
 import pathlib
 import secrets
 import socket
@@ -79,8 +79,12 @@ def main():
         result = value.get("result")
         valid = (value.get("jsonrpc") == "2.0" and value.get("id") == counter and value.get("error") is None
                  and isinstance(result, dict) and result.get("request_id") == request_id
-                 and isinstance(result.get("score"), (int, float))
-                 and result.get("verdict") in {"allow", "challenge", "block", "monitor"}
+                 and type(result.get("score")) in {int, float}
+                 and math.isclose(result["score"], 1.01 / 1.1, abs_tol=1e-9)
+                 and result.get("verdict") == "block"
+                 and result.get("confidence") == "medium"
+                 and result.get("threat_category") == "ai_scraping"
+                 and isinstance(result.get("model_version"), str)
                  and any(signal.get("name") == "ua_ai_bot" for signal in result.get("signals", [])))
         return duration, valid
 
@@ -102,10 +106,12 @@ def main():
             if time.monotonic() > deadline:
                 raise AssertionError(f"{stage}: host did not recover")
             time.sleep(0.2)
+        before = set(redis("--scan", "--pattern", f"{prefix}:cache:*").splitlines())
         if not samples(stage):
             raise AssertionError(f"{stage}: recovered sample gate failed")
-        if not redis("--scan", "--pattern", f"{prefix}:cache:*"):
-            raise AssertionError(f"{stage}: Redis cache writes did not recover")
+        after = set(redis("--scan", "--pattern", f"{prefix}:cache:*").splitlines())
+        if len(after - before) < 3:
+            raise AssertionError(f"{stage}: three fresh Redis cache writes did not recover")
 
     try:
         docker("run", "--detach", "--name", name, "--publish", f"127.0.0.1:{redis_port}:6379",
