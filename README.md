@@ -129,3 +129,17 @@ every placeholder, and keep that generated file out of version control.
 ## License
 
 GPL-3.0-or-later — see [LICENSE](LICENSE).
+
+### Best-effort Redis operation records
+
+Redis queue start/finish records each have a separate 500 ms wait budget, even when a
+backend ignores cancellation. Tool execution retains its configured timeout after start
+bookkeeping. Consequently the tool timeout is not a total wall-clock response SLA:
+bookkeeping can add up to one second, plus transport/scheduling overhead. A missing start
+record skips its matching finish record. Caller cancellation stops waiting for a start
+record instead of dispatching new work.
+
+These bounds follow the proposed Rust #163 fix for issue #159. They do not qualify
+paused-Redis classifier recovery: this port's optional distributed-cache reads/writes
+still need independent latency bounds and a running-backend outage probe. Abandoned
+StackExchange.Redis operations may complete later; queue telemetry is best-effort.

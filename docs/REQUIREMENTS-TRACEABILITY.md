@@ -38,3 +38,12 @@ assurance process. It is engineering evidence, not a claim of certification or a
   separation should pre-create the documented tables and revoke DDL afterward.
 
 Update this matrix whenever a requirement, implementation path, or verification artifact changes.
+
+## Redis operation-record follow-up (Rust issue #159 / proposed PR #163)
+
+DR-008: Each optional dispatch start/finish queue record must stop delaying the response
+after 500 ms even if its Redis implementation ignores cancellation. Tool execution has
+its own deadline after start recording. `McpDispatcher` implements these boundaries;
+`RedisBookkeepingTests` independently stalls start/finish, verifies classification and
+timeout envelopes, caller cancellation and permit recovery. This requirement does not
+establish distributed-cache outage/recovery parity.
