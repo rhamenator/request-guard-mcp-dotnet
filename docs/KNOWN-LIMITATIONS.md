@@ -20,6 +20,14 @@ These are explicit scope boundaries, not untracked defects.
 - MaxMind results are only as current and precise as the operator-provided databases. IP location
   must not be treated as an exact physical address.
 
-No known behavioral or JSON wire difference remains within the tested 23-tool contract. Any new
+The historical pinned suite found no behavioral or JSON wire difference within its tested
+23-tool contract. Current Rust has since changed; known gaps and required new evidence are
+tracked in [PARITY-MATRIX.md](PARITY-MATRIX.md). Any new
 difference is a release blocker unless this document and the requirements/evidence are updated with
 an explicit disposition.
+
+Cache fingerprints use structured, recursively sorted JSON in this port. Keys from older
+.NET builds are not reused; old entries expire according to their existing TTL. A rolling
+upgrade can temporarily reduce cache hit rate. Byte-identical cache keys shared between
+Rust and .NET (including Unicode/number serialization edge cases) are not yet qualified;
+use separate Redis key prefixes for mixed-runtime deployments.
