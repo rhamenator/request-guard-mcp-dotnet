@@ -89,7 +89,9 @@ catch (ConfigValidationException ex)
 }
 
 builder.WebHost.UseUrls($"http://{appConfig.Host}:{appConfig.Port}");
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = appConfig.Limits.MaxRequestBytes);
+var connectionGuard = new ConnectionResourceGuard(appConfig.Limits);
+builder.Services.AddSingleton(connectionGuard);
+builder.WebHost.ConfigureKestrel(connectionGuard.ConfigureKestrel);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
@@ -143,6 +145,7 @@ builder.Services.AddSingleton(_ => ToolRegistryFactory.Create());
 
 var app = builder.Build();
 
+app.Use(connectionGuard.InvokeAsync);
 app.UseWebSockets();
 app.MapMcpServer(appConfig.Telemetry.MetricsPath);
 

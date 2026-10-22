@@ -72,3 +72,14 @@ image scanning belongs in release evidence.
 Automated tests and maintainer self-review are not independent verification. Independent human
 review remains mandatory at the gate in `RELEASE-READINESS-REVIEW.md`. See
 `KNOWN-LIMITATIONS.md` for residual scope boundaries.
+
+## Container dependency refresh
+
+The security workflow runs on Dockerfile/security-workflow pull requests and can also be
+started manually. It builds the digest-pinned image and rejects fixed HIGH/CRITICAL
+findings with Trivy; a successful NuGet audit alone is not container evidence.
+The 2026-10-19 scheduled scan found fixed advisories in the old .NET 10.0.11 runtime.
+The replacement pins select SDK 10.0.402 and ASP.NET runtime 10.0.13 from Microsoft
+Container Registry. Treat those versions as candidates until the hosted container scan
+passes; record the exact workflow run rather than inheriting August's scan result.
+No native bundles or stable release are published by this workflow.

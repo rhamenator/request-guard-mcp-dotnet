@@ -117,6 +117,56 @@ public class McpDispatcherTests
         Assert.Equal("TIMEOUT", node["error"]!["message"]!.GetValue<string>());
     }
 
+    [Fact]
+    public async Task SaturationRejectsImmediatelyAndRecoversAfterPermitRelease()
+    {
+        var (dispatcher, state) = NewDispatcher();
+        var permits = state.Semaphore.CurrentCount;
+        for (var index = 0; index < permits; index++)
+        {
+            Assert.True(state.Semaphore.Wait(0));
+        }
+
+        try
+        {
+            var rejected = dispatcher.ProcessMessageAsync(
+                """{"jsonrpc":"2.0","id":41,"method":"health"}""", state, "public", CancellationToken.None);
+            Assert.True(rejected.IsCompleted, "saturated calls must not enter a waiting queue");
+            var node = JsonNode.Parse((await rejected)!)!;
+            Assert.Equal(41, node["id"]!.GetValue<int>());
+            Assert.Equal(-429, node["error"]!["code"]!.GetValue<int>());
+            Assert.Equal("RATE_LIMIT_EXCEEDED", node["error"]!["message"]!.GetValue<string>());
+            Assert.Equal(0, state.Semaphore.CurrentCount);
+        }
+        finally
+        {
+            state.Semaphore.Release(permits);
+        }
+
+        var healthy = await dispatcher.ProcessMessageAsync(
+            """{"jsonrpc":"2.0","id":42,"method":"health"}""", state, "public", CancellationToken.None);
+        Assert.Equal("healthy", JsonNode.Parse(healthy!)!["result"]!["status"]!.GetValue<string>());
+        Assert.Equal(permits, state.Semaphore.CurrentCount);
+    }
+
+    [Fact]
+    public async Task UnknownMethodsHaveOneBoundedMetricLabelAndReleasePermits()
+    {
+        var (dispatcher, state) = NewDispatcher();
+        var permits = state.Semaphore.CurrentCount;
+        for (var index = 0; index < 100; index++)
+        {
+            var response = await dispatcher.ProcessMessageAsync(
+                $$"""{"jsonrpc":"2.0","id":{{index}},"method":"attacker-{{index}}"}""", state, "public", CancellationToken.None);
+            Assert.Equal("TOOL_NOT_FOUND", JsonNode.Parse(response!)!["error"]!["message"]!.GetValue<string>());
+        }
+
+        var metrics = state.Metrics.RenderPrometheus();
+        Assert.DoesNotContain("attacker-", metrics);
+        Assert.Contains("tool=\"__unknown__\"", metrics);
+        Assert.Equal(permits, state.Semaphore.CurrentCount);
+    }
+
     private sealed class CancellationIgnoringTool : IMcpTool
     {
         public string Name => "slow";

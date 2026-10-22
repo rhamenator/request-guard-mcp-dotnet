@@ -7,10 +7,10 @@ assurance process. It is engineering evidence, not a claim of certification or a
 |---|---|---|---|
 | HLR-001 | Accept JSON-RPC 2.0 over HTTP POST and WebSocket at `/mcp`, including strict UTF-8 and Rust-compatible null fields. | `McpEndpoints`, `WebSocketConnectionHandler`, `McpDispatcher`, `McpMessage` | `McpMessageTests`, `McpDispatcherTests`, differential core transport phase |
 | HLR-002 | Require a configured Bearer token before MCP dispatch. | `BearerAuth`, `McpEndpoints.Authorize` | `BearerAuthTests`, differential HTTP/WebSocket auth phase |
-| HLR-003 | Bound request bytes, concurrent work, batch size, and execution time. | `McpDispatcher`, `BatchClassifyTool`, `AppConfig.Limits` | `McpDispatcherTests`, `Phase3ToolsEndToEndTests`, `AppConfigTests`, database-lock timeout differential |
+| HLR-003 | Bound request bytes, concurrent work (reject saturation without queueing), batch size, and execution time. | `McpDispatcher`, `BatchClassifyTool`, `AppConfig.Limits` | `McpDispatcherTests`, `Phase3ToolsEndToEndTests`, `AppConfigTests`, database-lock timeout differential |
 | HLR-004 | Provide all 23 request-guard-mcp tool contracts. | `ToolRegistryFactory`, `RequestGuardMcp.Tools` | `CompleteRegistryTests.FactoryRegistersAllTwentyThreeContracts`, all-tool differential phase |
-| HLR-005 | Produce behaviorally compatible classification signals, score, verdict, explanation, UA enrichment, and replay. | engines, `ClassifyService`, `WootheeUaParser`, replay tool | engine tests, 238-case Woothee corpus verification, core and integration differential phases |
-| HLR-006 | Keep cached decisions isolated by authenticated caller and all scoring inputs. | `BearerAuth`, `RequestFingerprint`, `ClassifyService` | unit cache tests plus two-token/two-key Redis differential assertion |
+| HLR-005 | Produce behaviorally compatible classification signals, score, verdict, explanation, UA enrichment, and replay. | engines, `ClassifyService`, `WootheeUaParser`, replay tool | engine tests (including scanner boundaries and bounded encoded-path regressions), 238-case Woothee corpus verification, core and integration differential phases |
+| HLR-006 | Keep cached decisions isolated by authenticated caller and all scoring inputs. | `BearerAuth`, `RequestFingerprint`, `ClassifyService` | unit cache tests (field/header delimiter collisions, all decision inputs, recursive object ordering) plus two-token/two-key Redis differential assertion |
 | HLR-007 | Treat Redis, PostgreSQL, and MaxMind as optional; never synthesize backend data. | integration interfaces/null clients, concrete clients, backend-dependent tools | `CompleteRegistryTests.BackendDependentToolFailsTruthfullyWhenDisabled` |
 | HLR-008 | Persist decisions and feedback and support deterministic replay, drift, and calibration. | `PostgresClient`, reporting/replay/feedback tools | unit tests and disposable-PostgreSQL differential round trip |
 | HLR-009 | Use Redis for distributed cache, reputation, canaries, and queue telemetry. | `RedisClient`, `ReputationClient`, security/queue tools | unit tests and seeded disposable-Redis differential phase |
@@ -38,6 +38,21 @@ assurance process. It is engineering evidence, not a claim of certification or a
   separation should pre-create the documented tables and revoke DDL afterward.
 
 Update this matrix whenever a requirement, implementation path, or verification artifact changes.
+
+- DR-006: Unknown method names must be rejected before Redis bookkeeping and tracing;
+  metric labels are limited to registered tool names plus `__unknown__`. Dispatcher overload
+  and 100-name cardinality regressions verify this boundary.
+
+## Connection-resource follow-up (Rust main 740eac2)
+
+DR-007: Bound total TCP admission before authentication, incomplete first requests,
+MCP body reads, and HTTP/2 idle/age/request-count retention. `ConnectionResourceGuard`
+and Host wiring implement admission and monitoring; `McpEndpoints` applies the body
+deadline. `ConnectionResourceGuardTests` exercises real Kestrel sockets and concurrent
+128-winner admission, synchronous excess-request 503, recovery, idle/age rotation,
+HTTP/1 survival and incomplete-body 408. `AppConfigTests` rejects zero limits. Production
+HTTP/2 age is fixed at 120 seconds; socket tests shorten only that internal test budget.
+Full transport/client parity and TLS/ALPN qualification remain open.
 
 ## Redis operation-record follow-up (Rust issue #159 / merged PR #163)
 

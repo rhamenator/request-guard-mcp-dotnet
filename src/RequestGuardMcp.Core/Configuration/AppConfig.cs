@@ -56,6 +56,10 @@ public sealed class AppConfig
         if (Limits.MaxRequestBytes <= 0 ||
             Limits.MaxBatchSize <= 0 ||
             Limits.GlobalConcurrency <= 0 ||
+            Limits.MaxConnections <= 0 ||
+            Limits.HttpHeaderTimeoutSecs <= 0 ||
+            Limits.HttpBodyTimeoutSecs <= 0 ||
+            Limits.Http2IdleTimeoutSecs <= 0 ||
             Limits.PerToolTimeoutSecs <= 0 ||
             Limits.ClassifyTimeoutSecs <= 0)
         {
@@ -161,6 +165,10 @@ public sealed class LimitsConfig
     public int MaxRequestBytes { get; set; } = 1024 * 1024;
     public int MaxBatchSize { get; set; } = 50;
     public int GlobalConcurrency { get; set; } = 256;
+    public int MaxConnections { get; set; } = 256;
+    public int HttpHeaderTimeoutSecs { get; set; } = 10;
+    public int HttpBodyTimeoutSecs { get; set; } = 30;
+    public int Http2IdleTimeoutSecs { get; set; } = 60;
     public int PerToolTimeoutSecs { get; set; } = 30;
     public int ClassifyTimeoutSecs { get; set; } = 5;
 }
