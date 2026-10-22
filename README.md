@@ -129,3 +129,27 @@ every placeholder, and keep that generated file out of version control.
 ## License
 
 GPL-3.0-or-later — see [LICENSE](LICENSE).
+
+### Connection resource limits
+
+The Kestrel host caps admitted TCP connections, including upgraded WebSockets, at
+`MCP__LIMITS__MAX_CONNECTIONS` (default 256). A connection without a first complete
+request is aborted after `HTTP_HEADER_TIMEOUT_SECS` (10) plus a 250 ms response grace;
+HTTP/1 header parsing also has Kestrel's header deadline. MCP POST body reads have
+`HTTP_BODY_TIMEOUT_SECS` (30) and return 408 on timeout. Use the full `MCP__LIMITS__`
+prefix for each setting, as shown in `.env.example`; all values must be positive.
+
+HTTP/2 connections have a 60-second idle deadline after completed work (configured by
+`MCP__LIMITS__HTTP2_IDLE_TIMEOUT_SECS`), a fixed 120-second age budget starting with
+the first request, 16 concurrent streams and at most 128 admitted requests. Requests
+beyond the count cap receive 503 before authentication or tool dispatch. Limit expiry
+requests Kestrel's graceful close/GOAWAY; the socket is aborted after a drain budget of
+body timeout + the larger tool timeout + 2 seconds. Clients must tolerate reconnects.
+
+These controls follow Rust development-main PRs #160/#162, not the public v0.1.5
+contract. Kestrel's default cleartext listener uses HTTP/1; it does not auto-detect
+HTTP/2 prior knowledge on the same cleartext port as Rust does. The socket tests use
+an explicit HTTP/2 listener. TLS/ALPN, proxy/IIS deployments, slow response consumers
+and full current-Rust transport qualification remain unverified. Existing
+`config_snapshot` keeps its historical schema; these new limits are configured via
+startup settings and are not yet listed by that tool. No outbound enforcement is added.

@@ -91,4 +91,23 @@ public class AppConfigTests
 
         config.Validate();
     }
+    [Theory]
+    [InlineData("connections")]
+    [InlineData("headers")]
+    [InlineData("body")]
+    [InlineData("http2_idle")]
+    public void ConnectionLimitsMustBePositive(string field)
+    {
+        var config = new AppConfig { Auth = new AuthConfig { Enabled = false } };
+        switch (field)
+        {
+            case "connections": config.Limits.MaxConnections = 0; break;
+            case "headers": config.Limits.HttpHeaderTimeoutSecs = 0; break;
+            case "body": config.Limits.HttpBodyTimeoutSecs = 0; break;
+            case "http2_idle": config.Limits.Http2IdleTimeoutSecs = 0; break;
+        }
+
+        Assert.Throws<ConfigValidationException>(config.Validate);
+    }
+
 }

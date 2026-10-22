@@ -71,12 +71,19 @@ public static class McpEndpoints
         }
 
         string text;
+        using var bodyDeadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+        bodyDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.HttpBodyTimeoutSecs));
         try
         {
             using var body = new MemoryStream();
-            await context.Request.Body.CopyToAsync(body, context.RequestAborted).ConfigureAwait(false);
+            await context.Request.Body.CopyToAsync(body, bodyDeadline.Token).ConfigureAwait(false);
             text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true)
                 .GetString(body.GetBuffer(), 0, checked((int)body.Length));
+        }
+        catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested && bodyDeadline.IsCancellationRequested)
+        {
+            context.Response.StatusCode = StatusCodes.Status408RequestTimeout;
+            return;
         }
         catch (DecoderFallbackException)
         {

@@ -38,3 +38,14 @@ assurance process. It is engineering evidence, not a claim of certification or a
   separation should pre-create the documented tables and revoke DDL afterward.
 
 Update this matrix whenever a requirement, implementation path, or verification artifact changes.
+
+## Connection-resource follow-up (Rust main 740eac2)
+
+DR-007: Bound total TCP admission before authentication, incomplete first requests,
+MCP body reads, and HTTP/2 idle/age/request-count retention. `ConnectionResourceGuard`
+and Host wiring implement admission and monitoring; `McpEndpoints` applies the body
+deadline. `ConnectionResourceGuardTests` exercises real Kestrel sockets and concurrent
+128-winner admission, synchronous excess-request 503, recovery, idle/age rotation,
+HTTP/1 survival and incomplete-body 408. `AppConfigTests` rejects zero limits. Production
+HTTP/2 age is fixed at 120 seconds; socket tests shorten only that internal test budget.
+Full transport/client parity and TLS/ALPN qualification remain open.
