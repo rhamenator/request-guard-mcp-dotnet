@@ -6,6 +6,7 @@ on:
     paths:
       - "docker/Dockerfile"
       - ".github/workflows/security.yml"
+      - "scripts/container_smoke.py"
   push:
     branches: ["main"]
   schedule:
@@ -78,6 +79,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build controlled image
         run: docker build -f docker/Dockerfile -t request-guard-mcp-dotnet:security .
+      - name: Smoke non-root read-only image
+        run: python3 scripts/container_smoke.py
       - name: Scan OS and application dependencies
         run: |
           docker run --rm \
