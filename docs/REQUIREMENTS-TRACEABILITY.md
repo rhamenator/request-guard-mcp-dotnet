@@ -53,3 +53,12 @@ deadline. `ConnectionResourceGuardTests` exercises real Kestrel sockets and conc
 HTTP/1 survival and incomplete-body 408. `AppConfigTests` rejects zero limits. Production
 HTTP/2 age is fixed at 120 seconds; socket tests shorten only that internal test budget.
 Full transport/client parity and TLS/ALPN qualification remain open.
+
+## Redis operation-record follow-up (Rust issue #159 / merged PR #163)
+
+DR-008: Each optional dispatch start/finish queue record must stop delaying the response
+after 500 ms even if its Redis implementation ignores cancellation. Tool execution has
+its own deadline after start recording. `McpDispatcher` implements these boundaries;
+`RedisBookkeepingTests` independently stalls start/finish, verifies classification and
+timeout envelopes, caller cancellation and permit recovery. This requirement does not
+establish distributed-cache outage/recovery parity.
