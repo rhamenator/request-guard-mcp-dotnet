@@ -177,7 +177,20 @@ bookkeeping can add up to one second, plus transport/scheduling overhead. A miss
 record skips its matching finish record. Caller cancellation stops waiting for a start
 record instead of dispatching new work.
 
-These bounds follow the merged Rust #163 fix for issue #159. They do not qualify
-paused-Redis classifier recovery: this port's optional distributed-cache reads/writes
-still need independent latency bounds and a running-backend outage probe. Abandoned
+These bounds follow the merged Rust #163 fix for issue #159. Abandoned
 StackExchange.Redis operations may complete later; queue telemetry is best-effort.
+Optional cache waits have separate bounds described below.
+
+### Optional Redis cache waits
+
+Classification gives each distributed-cache read and write at most 500 ms, inside the
+tool execution budget. A cache-only timeout falls back to the local cache or newly
+computed decision; caller cancellation still propagates. PostgreSQL persistence and
+backend-dependent tools retain their error contracts. This does not bound every Redis
+lookup, health check or network reconnect.
+
+The [Redis outage gate](docs/REDIS-OUTAGE-QUALIFICATION.md) runs a real disposable Redis
+backend through healthy, paused, stopped and recovered phases, with cold cache keys,
+expected classifier responses, external wall-clock limits, and an old-build negative
+control. See the exact workflow/PR evidence for qualification status; adding a gate is
+not a claim that it has passed or that all Rust behavior/clients/platforms match.

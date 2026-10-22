@@ -17,7 +17,7 @@ current full parity or independent verification. No stable .NET release is publi
 - Private v1 candidate and subsequent Rust main fixes are moving targets.
   Rust #162 is now merged, not part of public v0.1.5. Recheck main and candidate commits before porting or claiming parity.
 
-## Matrix
+## Initial source-audit matrix (historical)
 
 “Historical gate” refers only to the pinned August differential suite. “Pending”
 requires both implementation review and execution against the named newer Rust
@@ -77,8 +77,8 @@ verification record remains historical and must not be relabeled as current.
   passed its replacement-image scan. The later runtime-smoke addition is not covered
   by that result; require its own green run before merging.
 
-These are maintainer/automation results, not independent human verification. All
-four PRs remain reviewable, and unimplemented matrix rows remain open.
+These are maintainer/automation results, not independent human verification. The initial PRs remain inspectable as review records; subsequent merge/disposition
+updates below supersede their initial status. Unimplemented matrix rows remain open.
 
 ## Connection-security follow-up — Rust main 740eac2
 
@@ -110,3 +110,27 @@ record clients. It deliberately does not claim paused-backend parity: optional c
 reads/writes in `ClassifyService` also lack independent latency bounds and must be
 qualified separately with healthy-backend, response-shape, repeated paused-backend
 and recovery checks. Status remains **unverified for real Redis outage parity**.
+
+## Current maintenance disposition and tracked gaps
+
+PRs #17–#21 are merged after exact-head checks and strict-base updates. PR #22 is
+being rechecked on the combined baseline. The cache-bound follow-up implements a
+real-Redis gate but is still a candidate until its exact-head run passes; no real
+paused-Redis parity is inferred from synthetic cancellation tests. The original audit
+above is historical; use these issues and linked PR evidence for current status.
+
+| Remaining qualification area | Tracked issue |
+|---|---|
+| Independent cache deadlines, real Redis pause/outage/recovery and negative control | [#23](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/23) |
+| Envelopes, official lifecycle, HTTP negotiation, stdio and protocol SDK evidence | [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| Auth/origin, remaining WS/connection boundaries, same-port cleartext HTTP/2 and TLS/proxies | [#25](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/25) |
+| Caller-bound persistence/reporting, PostgreSQL TLS, backend failure/recovery and MaxMind | [#26](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/26) |
+| Native/container installs, supported platforms, real clients and distribution/skill docs | [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
+| Enforced owner-reviewed stable publication and exact-candidate release gates | [#28](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/28) |
+| Broader classifier, mixed-runtime cache serialization, config/redaction and telemetry | [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
+
+Full parity remains **unverified**. The current maintenance reference includes Rust
+#163 at `899a4b7264a34a5e6c2b60027cb26288e96be30d`; the scoped classifier jobs still pin
+v0.1.5 and `6dc433d` and must not be described as a full differential against `899a4b7`.
+No .NET stable tag, package publication or outbound-egress enforcement is authorized
+by these maintenance results.

@@ -62,3 +62,14 @@ its own deadline after start recording. `McpDispatcher` implements these boundar
 `RedisBookkeepingTests` independently stalls start/finish, verifies classification and
 timeout envelopes, caller cancellation and permit recovery. This requirement does not
 establish distributed-cache outage/recovery parity.
+
+## Optional Redis cache waits (issue #23)
+
+DR-009: Each optional classification cache read/write has an independent 500 ms wait
+boundary even when the client ignores cancellation. Only caller cancellation propagates;
+cache-only failure falls back without synthesizing a decision. `ClassifyService` implements
+this boundary; `RedisCacheDeadlineTests` covers stalled reads/writes/both and caller
+cancellation in either phase. `tests/parity/redis_outage.py` is the running-backend gate,
+including negative control, cold keys, expected output, three-sample latency distributions,
+actual Redis cache-read proof, fresh recovered writes and resource cleanup. See
+`REDIS-OUTAGE-QUALIFICATION.md` for commands, scope and exact evidence requirements.
