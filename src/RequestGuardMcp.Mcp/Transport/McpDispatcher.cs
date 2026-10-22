@@ -51,12 +51,24 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             ? request.Method["tools/".Length..]
             : request.Method;
         var stopwatch = Stopwatch.StartNew();
-        using var activity = ActivitySource.StartActivity("mcp.tool", ActivityKind.Internal);
-        activity?.SetTag("mcp.tool.name", toolName);
+        if (!state.Semaphore.Wait(0, cancellationToken))
+        {
+            return McpMessage.ErrorFromApp(request.Id, AppErrorException.RateLimitExceeded());
+        }
 
-        await state.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // Reject arbitrary caller-selected names before tracing, Redis bookkeeping or
+            // metric labels. Keep cardinality bounded by the registry plus one sentinel.
+            if (registry.Get(toolName) is null)
+            {
+                var error = AppErrorException.ToolNotFound(toolName);
+                state.Metrics.Record("__unknown__", "error", stopwatch.Elapsed.TotalSeconds, error.Code);
+                return McpMessage.ErrorFromApp(request.Id, error);
+            }
+
+            using var activity = ActivitySource.StartActivity("mcp.tool", ActivityKind.Internal);
+            activity?.SetTag("mcp.tool.name", toolName);
             var toolTimeout = toolName == "classify" ? state.Config.ClassifyTimeout : state.Config.PerToolTimeout;
             using var timeoutCts = new CancellationTokenSource(toolTimeout);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);

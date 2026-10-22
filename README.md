@@ -10,6 +10,12 @@ tool surface and behavior over the same WebSocket/HTTP JSON-RPC 2.0 transports.
 
 ## Status
 
+Compatibility evidence currently targets an August 2026 Rust revision, not current Rust main or
+v0.1.5. Current parity work and unverified gaps are tracked in the
+[parity matrix](docs/PARITY-MATRIX.md). Official MCP lifecycle methods and stdio are not yet
+implemented in this port; use the documented direct HTTP/WebSocket JSON-RPC calls.
+No stable .NET release has been published.
+
 The .NET port implements all 23 sibling Rust tool contracts, HTTP/WebSocket JSON-RPC transports,
 Bearer authentication, bounded concurrency/timeouts, two-level caching, PostgreSQL persistence and
 reporting, Redis threat/canary/queue services, MaxMind enrichment, HMAC-attested JA3/JA4 rules,
@@ -129,6 +135,14 @@ every placeholder, and keep that generated file out of version control.
 ## License
 
 GPL-3.0-or-later — see [LICENSE](LICENSE).
+
+### Overload behavior
+
+When all configured tool execution permits are occupied, a new tool request returns the
+JSON-RPC application error `-429` / `RATE_LIMIT_EXCEEDED` immediately. Clients should use
+bounded retries with backoff. Unknown tool names use one `__unknown__` telemetry label and
+are rejected before Redis operation bookkeeping. These tool-level controls do not yet
+establish current Rust parity for TCP/HTTP/WebSocket connection and slow-client limits.
 
 ### Connection resource limits
 
