@@ -19,6 +19,7 @@ namespace RequestGuardMcp.Core.Classification;
 /// </summary>
 public static class ClassifyService
 {
+    private static readonly TimeSpan DistributedCacheTimeout = TimeSpan.FromMilliseconds(500);
     public static Task<ClassifyResponse> RunAsync(AppState state, ClassifyRequest request, string callerScope, CancellationToken cancellationToken = default) =>
         RunInternalAsync(state, request, callerScope, persist: true, cancellationToken);
 
@@ -79,11 +80,14 @@ public static class ClassifyService
             await state.Cache.SetAsync(fingerprint, node, cancellationToken).ConfigureAwait(false);
             if (state.Redis.IsAvailable)
             {
+                using var cacheDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cacheDeadline.CancelAfter(DistributedCacheTimeout);
                 try
                 {
-                    await state.Redis.CacheSetAsync(fingerprint, node, cancellationToken).ConfigureAwait(false);
+                    await state.Redis.CacheSetAsync(fingerprint, node, cacheDeadline.Token)
+                        .WaitAsync(cacheDeadline.Token).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     throw;
                 }
@@ -109,11 +113,14 @@ public static class ClassifyService
             return null;
         }
 
+        using var cacheDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cacheDeadline.CancelAfter(DistributedCacheTimeout);
         try
         {
-            return await state.Redis.CacheGetAsync(fingerprint, cancellationToken).ConfigureAwait(false);
+            return await state.Redis.CacheGetAsync(fingerprint, cacheDeadline.Token)
+                .WaitAsync(cacheDeadline.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
