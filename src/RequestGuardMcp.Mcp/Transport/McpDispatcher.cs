@@ -63,7 +63,7 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             if (registry.Get(toolName) is null)
             {
                 var error = AppErrorException.ToolNotFound(toolName);
-                state.Metrics.Record("unknown", "error", stopwatch.Elapsed.TotalSeconds, error.Code);
+                state.Metrics.Record("__unknown__", "error", stopwatch.Elapsed.TotalSeconds, error.Code);
                 return McpMessage.ErrorFromApp(request.Id, error);
             }
 

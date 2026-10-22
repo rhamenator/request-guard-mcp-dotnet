@@ -163,7 +163,7 @@ public class McpDispatcherTests
 
         var metrics = state.Metrics.RenderPrometheus();
         Assert.DoesNotContain("attacker-", metrics);
-        Assert.Contains("tool=\"unknown\"", metrics);
+        Assert.Contains("tool=\"__unknown__\"", metrics);
         Assert.Equal(permits, state.Semaphore.CurrentCount);
     }
 

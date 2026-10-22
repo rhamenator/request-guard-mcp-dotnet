@@ -40,5 +40,5 @@ assurance process. It is engineering evidence, not a claim of certification or a
 Update this matrix whenever a requirement, implementation path, or verification artifact changes.
 
 - DR-006: Unknown method names must be rejected before Redis bookkeeping and tracing;
-  metric labels are limited to registered tool names plus `unknown`. Dispatcher overload
+  metric labels are limited to registered tool names plus `__unknown__`. Dispatcher overload
   and 100-name cardinality regressions verify this boundary.
