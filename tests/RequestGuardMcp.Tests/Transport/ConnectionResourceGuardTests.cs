@@ -190,6 +190,7 @@ public class ConnectionResourceGuardTests
         await stream.WriteAsync(headers);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(7));
         var goAway = false;
+        var responseBodySeen = false;
         var header = new byte[9];
         while (true)
         {
@@ -204,6 +205,7 @@ public class ConnectionResourceGuardTests
             var payload = new byte[size];
             await stream.ReadExactlyAsync(payload, deadline.Token);
             goAway |= header[3] == 7;
+            responseBodySeen |= header[3] == 0 && payload.Length > 0;
             if (header[3] == 4 && header[4] == 0)
             {
                 await stream.WriteAsync(new byte[] { 0, 0, 0, 4, 1, 0, 0, 0, 0 }, deadline.Token);
@@ -212,6 +214,7 @@ public class ConnectionResourceGuardTests
             // Deliberately do not acknowledge PING/GOAWAY with more traffic.
         }
 
+        Assert.True(responseBodySeen, "the raw peer must complete a real request before testing idle drain");
         Assert.True(goAway, "graceful close must emit GOAWAY before bounded socket teardown");
         using var client = host.Client();
         using var response = await client.GetAsync("/");
