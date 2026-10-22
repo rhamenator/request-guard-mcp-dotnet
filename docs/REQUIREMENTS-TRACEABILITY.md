@@ -39,7 +39,7 @@ assurance process. It is engineering evidence, not a claim of certification or a
 
 Update this matrix whenever a requirement, implementation path, or verification artifact changes.
 
-## Redis operation-record follow-up (Rust issue #159 / proposed PR #163)
+## Redis operation-record follow-up (Rust issue #159 / merged PR #163)
 
 DR-008: Each optional dispatch start/finish queue record must stop delaying the response
 after 500 ms even if its Redis implementation ignores cancellation. Tool execution has

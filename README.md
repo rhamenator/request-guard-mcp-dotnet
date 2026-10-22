@@ -139,7 +139,7 @@ bookkeeping can add up to one second, plus transport/scheduling overhead. A miss
 record skips its matching finish record. Caller cancellation stops waiting for a start
 record instead of dispatching new work.
 
-These bounds follow the proposed Rust #163 fix for issue #159. They do not qualify
+These bounds follow the merged Rust #163 fix for issue #159. They do not qualify
 paused-Redis classifier recovery: this port's optional distributed-cache reads/writes
 still need independent latency bounds and a running-backend outage probe. Abandoned
 StackExchange.Redis operations may complete later; queue telemetry is best-effort.
