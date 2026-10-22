@@ -174,6 +174,49 @@ public class ConnectionResourceGuardTests
         Assert.Contains("408", Encoding.ASCII.GetString(buffer, 0, read));
     }
 
+    [Fact]
+    public async Task Http2GracefulDrainCannotBeHeldByAnUnresponsivePeer()
+    {
+        await using var host = await RunningServer.StartAsync(new LimitsConfig { MaxConnections = 1, Http2IdleTimeoutSecs = 1 }, HttpProtocols.Http2);
+        using var peer = new TcpClient();
+        await peer.ConnectAsync(IPAddress.Loopback, host.Port);
+        var stream = peer.GetStream();
+        await stream.WriteAsync(Encoding.ASCII.GetBytes("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"));
+        await stream.WriteAsync(new byte[] { 0, 0, 0, 4, 0, 0, 0, 0, 0 }); // SETTINGS
+        // HPACK: GET /, http, literal :authority localhost. No dynamic table needed.
+        byte[] headers = [0x82, 0x84, 0x86, 0x01, 0x09, .. Encoding.ASCII.GetBytes("localhost")];
+        await stream.WriteAsync(new byte[] { 0, 0, (byte)headers.Length, 1, 5, 0, 0, 0, 1 });
+        await stream.WriteAsync(headers);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(7));
+        var goAway = false;
+        var header = new byte[9];
+        while (true)
+        {
+            var read = await stream.ReadAsync(header.AsMemory(0, 1), deadline.Token);
+            if (read == 0)
+            {
+                break;
+            }
+
+            await stream.ReadExactlyAsync(header.AsMemory(1), deadline.Token);
+            var size = (header[0] << 16) | (header[1] << 8) | header[2];
+            var payload = new byte[size];
+            await stream.ReadExactlyAsync(payload, deadline.Token);
+            goAway |= header[3] == 7;
+            if (header[3] == 4 && header[4] == 0)
+            {
+                await stream.WriteAsync(new byte[] { 0, 0, 0, 4, 1, 0, 0, 0, 0 }, deadline.Token);
+            }
+
+            // Deliberately do not acknowledge PING/GOAWAY with more traffic.
+        }
+
+        Assert.True(goAway, "graceful close must emit GOAWAY before bounded socket teardown");
+        using var client = host.Client();
+        using var response = await client.GetAsync("/");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private sealed class RunningServer(WebApplication app, ConnectionResourceGuard guard, int port) : IAsyncDisposable
     {
         public int Port => port;
