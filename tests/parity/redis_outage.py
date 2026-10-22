@@ -63,13 +63,13 @@ def main():
                 raise TimeoutError("Redis did not become healthy")
             time.sleep(0.1)
 
-    def classify(stage):
+    def classify(stage, *, path_override=None, expected_model=None):
         nonlocal counter
         counter += 1
         request_id = f"outage-{stage}-{counter}"
         # Paths vary: these are cold keys, not request_id-only local-cache hits.
         payload = {"jsonrpc": "2.0", "id": counter, "method": "classify", "params": {
-            "user_agent": "GPTBot/1.0", "path": f"/outage/{stage}/{counter}", "request_id": request_id}}
+            "user_agent": "GPTBot/1.0", "path": path_override or f"/outage/{stage}/{counter}", "request_id": request_id}}
         request = urllib.request.Request(f"{base}/mcp", json.dumps(payload).encode(), headers={
             "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
         started = time.monotonic()
@@ -85,6 +85,7 @@ def main():
                  and result.get("confidence") == "medium"
                  and result.get("threat_category") == "ai_scraping"
                  and isinstance(result.get("model_version"), str)
+                 and (expected_model is None or result["model_version"] == expected_model)
                  and any(signal.get("name") == "ua_ai_bot" for signal in result.get("signals", [])))
         return duration, valid
 
@@ -95,6 +96,28 @@ def main():
                   "worst": max(durations), "valid_responses": sum(item[1] for item in values)}
         print(json.dumps(report), flush=True)
         return report["valid_responses"] == 3 and report["median"] < 1.8 and report["worst"] < 2.25
+
+    def prove_redis_read(stage, request_number):
+        wanted = f"outage-{stage}-{request_number}"
+        keys = redis("--scan", "--pattern", f"{prefix}:cache:*").splitlines()
+        for key in keys:
+            original = redis("GET", key)
+            cached = json.loads(original)
+            if cached.get("request_id") != wanted:
+                continue
+            cached["model_version"] = "redis-cache-read-proof"
+            try:
+                if redis("SET", key, json.dumps(cached), "KEEPTTL") != "OK":
+                    raise AssertionError("could not seed Redis read proof")
+                _, valid = classify("redis-hit", path_override=f"/outage/{stage}/{request_number}",
+                                    expected_model="redis-cache-read-proof")
+                if not valid:
+                    raise AssertionError("classification did not read the actual Redis cache")
+            finally:
+                redis("SET", key, original, "KEEPTTL")
+            print(f"PASS real Redis cache read: {stage}", flush=True)
+            return
+        raise AssertionError(f"Redis did not contain the expected fresh decision: {wanted}")
 
     def recovery(stage):
         ready()
@@ -110,8 +133,10 @@ def main():
         if not samples(stage):
             raise AssertionError(f"{stage}: recovered sample gate failed")
         after = set(redis("--scan", "--pattern", f"{prefix}:cache:*").splitlines())
-        if len(after - before) < 3:
+        fresh = [json.loads(redis("GET", key)) for key in after - before]
+        if sum(value.get("request_id", "").startswith(f"outage-{stage}-") for value in fresh) < 3:
             raise AssertionError(f"{stage}: three fresh Redis cache writes did not recover")
+        prove_redis_read(stage, counter)
 
     try:
         docker("run", "--detach", "--name", name, "--publish", f"127.0.0.1:{redis_port}:6379",
@@ -140,6 +165,7 @@ def main():
                     time.sleep(0.1)
                 if not samples("healthy") or not redis("--scan", "--pattern", f"{prefix}:cache:*"):
                     raise AssertionError("healthy host and real Redis cache preflight failed")
+                prove_redis_read("healthy", counter)
                 docker("pause", name)
                 paused = True
                 if docker("inspect", "--format", "{{.State.Paused}}", name, capture=True) != "true":
