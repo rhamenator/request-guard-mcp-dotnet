@@ -29,6 +29,7 @@ public static class ClassifyService
 
     private static async Task<ClassifyResponse> RunInternalAsync(AppState state, ClassifyRequest request, string callerScope, bool persist, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var stopwatch = Stopwatch.StartNew();
         var requestId = request.RequestId ?? Guid.NewGuid().ToString();
 

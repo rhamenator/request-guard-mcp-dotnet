@@ -191,17 +191,24 @@ def main():
                 recovery("restarted")
                 print("PASS Redis healthy/pause/outage/recovery classification gate", flush=True)
     finally:
-        if paused:
-            docker("unpause", name)
-        if process is not None:
-            process.terminate()
+        try:
+            if paused:
+                docker("unpause", name)
+        finally:
             try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=5)
-        if created:
-            docker("rm", "--force", name)
+                if process is not None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=5)
+            finally:
+                # Also clean up a stopped container left by a failed docker run.
+                cleanup = subprocess.run(["docker", "rm", "--force", name], stdout=subprocess.DEVNULL,
+                                         stderr=subprocess.DEVNULL, timeout=30)
+                if created and cleanup.returncode:
+                    raise RuntimeError(f"could not remove scoped test container {name}")
 
 
 if __name__ == "__main__":
