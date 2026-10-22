@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Connections;
@@ -215,6 +216,37 @@ public class ConnectionResourceGuardTests
         using var client = host.Client();
         using var response = await client.GetAsync("/");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpgradedSocketKeepsAdmissionPermitAndSurvivesFirstRequestDeadline()
+    {
+        await using var host = await RunningServer.StartAsync(new LimitsConfig { MaxConnections = 1, HttpHeaderTimeoutSecs = 1 }, HttpProtocols.Http1);
+        using var socket = new ClientWebSocket();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{host.Port}/mcp"), deadline.Token);
+        using (var excess = new TcpClient())
+        {
+            await excess.ConnectAsync(IPAddress.Loopback, host.Port, deadline.Token);
+            try
+            {
+                await excess.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"), deadline.Token);
+                var rejected = new byte[1];
+                Assert.Equal(0, await excess.GetStream().ReadAsync(rejected, deadline.Token));
+            }
+            catch (IOException)
+            {
+                // Immediate connection reset is the expected admission rejection.
+            }
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(2), deadline.Token);
+        var payload = Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","id":1,"method":"health"}""");
+        await socket.SendAsync(payload.AsMemory(), WebSocketMessageType.Text, true, deadline.Token);
+        var response = new byte[4096];
+        var received = await socket.ReceiveAsync(response.AsMemory(), deadline.Token);
+        Assert.Contains("healthy", Encoding.UTF8.GetString(response, 0, received.Count));
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", deadline.Token);
     }
 
     private sealed class RunningServer(WebApplication app, ConnectionResourceGuard guard, int port) : IAsyncDisposable
