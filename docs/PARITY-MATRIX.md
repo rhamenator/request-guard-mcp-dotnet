@@ -1,112 +1,85 @@
 # Rust / .NET parity maintenance matrix
 
-Assessment date: 2026-10-22. This is a source audit and work queue, not a claim of
-current full parity or independent verification. No stable .NET release is published.
+Assessment: 2026-10-22. **Full parity remains unverified.** Tool names, source similarity,
+and historical test counts are not substitutes for running-build evidence. No stable
+.NET release is published; stable publication still requires owner review.
 
 ## Controlled references
 
-- .NET starting main: `76c4de4aab291ffc72b049ab63930ee02b75094a`.
-- Existing differential baseline: `4170649920190e989175755369215d4f29a7427b`
-  (August 2026). Keep this gate until the newer contracts are implemented; passing
-  it does **not** establish compatibility with current Rust.
-- Rust main initially inspected: `6dc433d9cc9cf1805e5074e8a8bf95a65dddfc30`.
-  Follow-up main: `740eac2` (2026-10-22), including merged #160 and #162.
+- Initial .NET main: `76c4de4aab291ffc72b049ab63930ee02b75094a`.
+- Merged maintenance baseline before the cache fix:
+  `c028cdbf9408aac66d43db27b0eede3c4ab3fcc6` (#17–#22).
+- Historical full differential baseline:
+  `4170649920190e989175755369215d4f29a7427b` (August 2026).
 - Published Rust v0.1.5 tag: `f76ff9d2558fac705f091d9b858d3bc180b4f0bd`.
-  GitHub's latest-release selector currently returns v0.1.4, so do not use that
-  selector as the identity of the v0.1.5 artifacts.
-- Private v1 candidate and subsequent Rust main fixes are moving targets.
-  Rust #162 is now merged, not part of public v0.1.5. Recheck main and candidate commits before porting or claiming parity.
+  GitHub's latest-release selector returned v0.1.4 at inspection, so it is not used
+  as the identity of the v0.1.5 artifacts.
+- Current Rust maintenance reference:
+  `899a4b7264a34a5e6c2b60027cb26288e96be30d`, including #160/#162/#163.
+  These development fixes are not part of public v0.1.5.
+- Scoped classifier jobs pin v0.1.5 and `6dc433d9cc9cf1805e5074e8a8bf95a65dddfc30`.
+  They do not establish full differential compatibility with `899a4b7` or the moving
+  private v1 candidate. Reconcile new main/candidate fixes before claiming parity.
 
-## Matrix
+## Current matrix
 
-“Historical gate” refers only to the pinned August differential suite. “Pending”
-requires both implementation review and execution against the named newer Rust
-revision; matching tool names or copied tests are insufficient evidence.
+| Area | .NET implementation / evidence | Remaining qualification / issue |
+|---|---|---|
+| Tool surface | All 23 direct inbound tools have the historical differential gate | Official lifecycle definitions/wrappers, current schemas and SDK evidence: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| Classifier | #17 ports scanner boundaries and four-round byte-wise encoded-path rules; 31 expected-outcome running-build cases pass against both scoped Rust refs | Broader adversarial/current-main corpus: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
+| Cache identity | #18 replaces ambiguous delimiter encoding with structured inputs, covering all decision fields and verified TLS | Shared Rust/.NET byte identity, Unicode/numeric edge cases and mixed-runtime prefixes: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
+| Optional cache failure isolation | #30 bounds each read/write at 500 ms, preserves caller cancellation and passes the real-Redis scope below | Scoped work tracked in [#23](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/23); broader lookup/health behavior is not covered |
+| Dispatch admission / telemetry | #20 sheds saturated calls immediately and bounds unknown-method labels before Redis/tracing | Other log/sink/cardinality behavior: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
+| Redis operation records | #22 bounds each start/finish wait at 500 ms and preserves the separate tool execution budget | Not a global response SLA or evidence for every Redis method |
+| JSON-RPC envelopes | Historical permissive parser remains | Current ID/version/params/result/error/notification/response rules over HTTP/WS: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| HTTP negotiation | Direct HTTP POST works historically | Content-type/Accept/version negotiation and current notification/405 GET behavior: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| Auth / browser origin | Historical Bearer/caller-scope tests | Current strict header parsing, allowed origins and configuration: [#25](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/25) |
+| Connections / deadlines | #21 adds shared TCP/upgrade admission, pre-first-request deadline, body timeout and HTTP/2 idle/age/count/drain controls with real socket tests | Same-port cleartext HTTP/2 detection, production-duration endurance, TLS/ALPN, slow consumers and proxies/IIS: [#25](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/25) |
+| WebSocket framing / lifetime | Historical transport checks plus #21 upgrade admission/survival test | New adversarial framing/UTF-8/close/write/idle matrix: [#25](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/25) |
+| stdio | Host currently starts ASP.NET Core only | Process transport, stdout discipline and packaged SDK/CLI smoke: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| Persistence / reporting / backend TLS | Historical Redis/PostgreSQL/MaxMind suite | Current caller-bound persistence/reporting, SQL/schema/TLS changes and outage recovery: [#26](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/26) |
+| Configuration / redaction | Six file formats and dotenv have historical tests; new connection settings exist | Map all current fields/defaults/validation and snapshots; secret redaction: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
+| Containers | #19 patches pinned SDK/runtime and passes non-root/read-only auth/classifier smoke and vulnerability scan | Broader platform/backend TLS and exact-artifact qualification: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
+| Native packaging / installs | Four RIDs in the release workflow; no published .NET assets | Musl/arm64 disposition, archive/provenance checks and fresh installs: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
+| Clients / companion distribution | No equivalent current .NET server client-artifact matrix | Real Inspector/SDK/CLI/ASD tests and .NET-specific installer/skill/npm disposition: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
+| Release gates | No stable .NET publication performed | Enforce owner-reviewed stable workflow and private/prerelease/latest separation: [#28](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/28) |
+| Outbound egress | Inbound classification only | No outbound egress enforcement is implemented or claimed |
 
-| Area | Current Rust reference behavior | .NET finding / evidence | Closure requirement / priority |
-|---|---|---|---|
-| Tool surface | 23 inbound tools; direct calls and official MCP tool lifecycle | 23 direct tool contracts have historical gate; lifecycle absent in `ToolRegistry` | Add lifecycle schemas/wrappers, pagination/error semantics and SDK tests; P1 |
-| Classifier rules | Scanner UA boundaries, internal/XML-RPC paths, four rounds of byte-wise percent/backslash normalization | PR #17 adds rules and independent expected-signal regressions; 31 running-build differential cases pass against both pinned v0.1.5 and inspected main | Scoped gate passes; broaden adversarial corpus before full classifier qualification |
-| Cache identity | Structured fingerprint covers body, referer, accept, extra and verified TLS | Main still joins delimiters and omits fields; PR #18 replaces this with structured inputs and regression tests | PR #18 unit and historical integration gates pass; mixed-runtime cache byte identity remains unqualified; P0 |
-| JSON-RPC envelope | Validates version, integer/string IDs, object params/results, invalid-request vs parse-error, notifications and responses | `McpMessage` permissive historical parser | Port envelope contract and run HTTP/WS negative matrix; P0 |
-| HTTP negotiation | Version/content-type/Accept checks; stateless POST, GET 405 | New negotiation not implemented | Test duplicate/malformed headers and no-body notification status; P1 |
-| Browser origin / auth | Allowed-origin checks, strict Bearer parsing and caller scopes | Bearer historical tests; new origin contract absent | Review auth diff, origin config validation and transport tests; P0 |
-| Connection / timeout limits | TCP admission; #160 pre-auth first-request deadline; #162 HTTP/2 idle 60s, age 120s, exactly 128 admitted requests, synchronous 503 beyond cap and bounded GOAWAY drain; bounded WS admission and writes | Work semaphore and tool timeout exist; PR #20 adds immediate tool shedding; connection limits still absent | Test slow clients, saturation and recovery on running .NET host; P0 |
-| WebSocket framing | UTF-8, byte bounds, close/ping handling and bounded lifetime | Historical differential covers basic WS only | Run newer adversarial WS corpus; P0 |
-| stdio | Process-local newline-delimited JSON-RPC; logs off stdout | Host only starts ASP.NET Core | Add process transport and packaged SDK/CLI smoke; P1 |
-| Backend behavior | Redis recovery, PostgreSQL TLS/recovery, scoped persistence/reporting | Historical Redis/Postgres/MaxMind tests; newer SQL/TLS and tenancy changes unreviewed | Audit integration diffs, cross-caller negatives and outage/recovery tests; P0 |
-| Configuration / redaction | New transport, origin and limit settings; safer snapshots | Six file formats tested historically; newer fields absent | Map all fields/defaults/validation and test secret non-disclosure; P1 |
-| Telemetry | New redaction/logging changes and resource limits | Historical metrics/OTLP checks only | Review log inputs, cardinality and sink failures; P1 |
-| Native packaging | Five platform bundles, archive verification and smoke evidence | Release workflow lists four RIDs, no Linux musl lane; no published .NET assets | Add truthful install guide, artifact verification and per-platform smoke; P1 |
-| Containers / deployment | Multiarch qualification, dependency scans, native/musl and backend TLS evidence | .NET scheduled 2026-10-19 scan failed on runtime advisories; PR #19 refreshes pinned SDK/runtime and adds read-only runtime smoke | First hosted replacement scan passed; final runtime smoke and updated-commit scan pending, then backend/platform qualification; P0 |
-| Release gates | Owner review required for stable publication; private candidate qualification | Tag workflow publishes stable/`latest` without an explicit owner gate | Add enforced stable gate and prerelease handling; never tag stable before owner review; P0 |
-| Companion skill / install | Rust skill and npm wrapper document native dependencies/client limits | No .NET companion skill or npm package | Decide distribution, provide .NET-specific setup and smoke; do not reuse Rust install claims; P2 |
-| Client evidence | Inspector, Python SDK, Claude Code, Cursor CLI and ASD adapters with exact artifact evidence | No equivalent current .NET server client evidence | Test actual .NET server artifacts with supported clients; P1 |
-| Outbound egress | Inbound classifier does not enforce outbound egress | No outbound enforcement implemented | Keep all claims limited to inbound classification; no egress parity claim |
+## Evidence and boundaries
 
-## Evidence rules and execution order
+PRs #17–#22 merged after self-review, strict-base updates and exact-head green checks;
+the PR descriptions preserve those source identities and workflow results. These are
+maintainer/automation results, not independent human verification.
 
-1. Fix classifier/cache, envelope/auth/origin and admission/resource boundaries in
-   bounded PRs with expected-outcome regressions independent of the Rust oracle.
-2. Add current-Rust scoped differential jobs before replacing the historical gate.
-   Do not normalize away security-relevant differences to make that gate pass.
-3. Implement official lifecycle, HTTP profile and stdio, then test pinned real SDKs
-   against a running .NET build. Document supported clients only after those pass.
-4. Qualify fresh installs, native/container packaging and recovery. Record exact
-   commits, artifact digests, commands and results, including failures.
-5. Reconcile this matrix with Rust main and private v1 fixes. Full parity remains
-   unverified until every applicable row has current executable evidence.
+- Classifier: [run 39732536875](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39732536875)
+  at `fb4d3b3` passed 141 unit tests, historical integration differential and 31 classifier
+  cases against each scoped Rust ref. Only measured latency/model build metadata is
+  excluded from the classifier comparison; score/signals/verdict/confidence/category match.
+- Connection controls follow Rust #160 (pre-auth incomplete first request) and #162
+  (HTTP/2 idle 60 s, age 120 s, exact 128 admitted requests, synchronous excess 503 and
+  bounded GOAWAY drain). .NET #21 tests actual sockets, including an unresponsive peer,
+  capacity recovery and WebSocket admission. Its age test shortens the internal budget;
+  it is not a 120-second production artifact endurance record.
+- Redis #163: upstream private-candidate paused samples of 2.507/2.005/2.005 s improved
+  to reported fixed-development samples of 1.506/1.505/1.505 s. Those upstream results
+  alone were not treated as .NET evidence. .NET #22's synthetic-client tests isolated
+  bookkeeping; #30 separately qualified the optional cache path against real Redis.
+- Redis cache: [run 39741361266](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39741361266)
+  passed at `ca1cb71`, with merged pre-fix main `c028cdb` as negative control. Paused
+  candidate median/worst were 1.503/1.533 s with 3/3 correct cold-key responses;
+  stopped-backend median/worst were 1.503/1.503 s. The control had 0/3 valid paused
+  responses at 2.503/2.511 s median/worst, then recovered. Fresh writes and actual Redis
+  reads passed after unpause and restart. An earlier independent run also passed.
+  See [commands, samples and scope](REDIS-OUTAGE-QUALIFICATION.md). This qualifies the
+  tested classifier/cache path in hosted Ubuntu/.NET, not all Redis operations or clients.
 
-Hosted CI is preferred while shared-host backup I/O remains high. This assessment
-started no VM, local Docker build or backend container. Coordinate any later
-shared-resource work with the canonical Request Guard chat. The existing August
-verification record remains historical and must not be relabeled as current.
+Keep the historical differential pin until newer contracts pass their own executable
+gates; do not normalize away security-relevant differences to advance it. Record exact
+source/artifact identities, commands, failures and explicit dispositions. Keep August's
+verification record historical. Stable review, full parity and platform/client claims
+cannot inherit evidence from a different build or the Rust server.
 
-## Initial hosted evidence
-
-- PR #17 at `fb4d3b3`: [CI run 39732536875](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39732536875)
-  passed formatting, warning-as-error build, dependency audit, 141 xUnit cases,
-  the historical differential/integration gate and 31 independently expected
-  classifier cases against each current reference above. CodeQL also passed.
-  Only latency/model build metadata is excluded from the new classifier comparison;
-  score, signals, verdict, confidence and category are compared.
-- PR #18 at `e998077`: [CI run 39732674900](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39732674900)
-  passed build, formatting, unit tests, dependency audit and historical integration
-  differential. Cross-runtime cache serialization remains explicitly unqualified.
-- PR #19 at `8e42920`: [security run 39732790439](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39732790439)
-  passed its replacement-image scan. The later runtime-smoke addition is not covered
-  by that result; require its own green run before merging.
-
-These are maintainer/automation results, not independent human verification. All
-four PRs remain reviewable, and unimplemented matrix rows remain open.
-
-## Connection-security follow-up — Rust main 740eac2
-
-Rust PR #160 bounds incomplete HTTP/2/auto-protocol connections before authentication
-or a first complete request. Merged PR #162 adds post-first-request HTTP/2 protection:
-60-second idle timeout, 120-second lifetime, at most 128 admitted requests with a
-synchronous 503 for excess requests, and bounded graceful GOAWAY draining. These are
-development-main requirements, not guarantees of the published v0.1.5 artifact.
-Equivalent .NET protections and direct socket tests are the next security priority.
-Kestrel's protocol negotiation and graceful-close behavior need their own execution
-evidence; matching timeout values alone will not close this row.
-
-## Redis operation-record follow-up — issue #159 / merged Rust #163
-
-Rust issue #159 confirmed optional start/finish record waits could extend response
-latency beyond the dispatch timeout. The private rc.3 paused-Redis probe measured
-2.507/2.005/2.005 seconds with a two-second classify timeout. Rust PR #163
-caps each record wait at 500 ms; the reported fixed-development-build samples were
-1.506/1.505/1.505 seconds. These are upstream-reported results, not .NET evidence,
-and #163 was initially open when inspected (head `28103a7`). A follow-up GitHub
-check confirmed its merge on 2026-10-22; it remains development behavior, not
-public v0.1.5 evidence.
-
-.NET has analogous pre/post-dispatch bookkeeping: its start record can consume the
-whole tool timeout, and finish can add one second afterward. The concrete transaction
-methods ignore cancellation. .NET PR #22 proposes independent 500 ms record waits,
-caller-cancellation propagation and expected-outcome tests with cancellation-ignoring
-record clients. It deliberately does not claim paused-backend parity: optional cache
-reads/writes in `ClassifyService` also lack independent latency bounds and must be
-qualified separately with healthy-backend, response-shape, repeated paused-backend
-and recovery checks. Status remains **unverified for real Redis outage parity**.
+Hosted CI was used throughout this maintenance batch; no local Docker build, backend
+container or VM was started. Coordinate any future shared-host work with the canonical
+Request Guard chat. All remaining matrix rows have tracked issues; full parity remains
+unverified until their applicable gates pass.
