@@ -91,14 +91,16 @@ Equivalent .NET protections and direct socket tests are the next security priori
 Kestrel's protocol negotiation and graceful-close behavior need their own execution
 evidence; matching timeout values alone will not close this row.
 
-## Redis operation-record follow-up — issue #159 / proposed Rust #163
+## Redis operation-record follow-up — issue #159 / merged Rust #163
 
 Rust issue #159 confirmed optional start/finish record waits could extend response
 latency beyond the dispatch timeout. The private rc.3 paused-Redis probe measured
-2.507/2.005/2.005 seconds with a two-second classify timeout. Proposed Rust PR #163
+2.507/2.005/2.005 seconds with a two-second classify timeout. Rust PR #163
 caps each record wait at 500 ms; the reported fixed-development-build samples were
 1.506/1.505/1.505 seconds. These are upstream-reported results, not .NET evidence,
-and #163 was still open when inspected (head `28103a7`).
+and #163 was initially open when inspected (head `28103a7`). A follow-up GitHub
+check confirmed its merge on 2026-10-22; it remains development behavior, not
+public v0.1.5 evidence.
 
 .NET has analogous pre/post-dispatch bookkeeping: its start record can consume the
 whole tool timeout, and finish can add one second afterward. The concrete transaction
