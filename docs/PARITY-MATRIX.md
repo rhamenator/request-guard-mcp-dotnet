@@ -114,9 +114,11 @@ and recovery checks. Status remains **unverified for real Redis outage parity**.
 ## Current maintenance disposition and tracked gaps
 
 PRs #17–#22 are merged after exact-head checks and strict-base updates. The
-combined baseline is `c028cdbf9408aac66d43db27b0eede3c4ab3fcc6`. The cache-bound follow-up implements a
-real-Redis gate but is still a candidate until its exact-head run passes; no real
-paused-Redis parity is inferred from synthetic cancellation tests. The original audit
+combined baseline is `c028cdbf9408aac66d43db27b0eede3c4ab3fcc6`. The cache-bound follow-up passed the real-Redis healthy/pause/stop/recovery gate,
+including the merged pre-fix main negative control, at `ca1cb71` in
+[run 39741361266](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39741361266).
+See [scope and samples](REDIS-OUTAGE-QUALIFICATION.md); this qualifies that classification
+cache path in hosted Ubuntu/.NET, not every Redis lookup or full Rust parity. The original audit
 above is historical; use these issues and linked PR evidence for current status.
 
 | Remaining qualification area | Tracked issue |

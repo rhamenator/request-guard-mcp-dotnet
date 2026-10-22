@@ -50,8 +50,25 @@ is still tracked with the lifecycle work in issue #24.
 
 ## Evidence status
 
-The gate is implemented but exact-head candidate and negative-control results are pending.
-Do not claim a passed outage gate from the implementation alone. Record the source SHAs,
-workflow run, latency samples and failure/recovery results in the PR before merging.
-Qualification initially targets the hosted Ubuntu/.NET environment; other clients,
-platforms, TLS and wider backend behavior remain in the parity matrix.
+[Hosted run 39741361266](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39741361266)
+passed for candidate `ca1cb71`, with merged pre-fix main
+`c028cdbf9408aac66d43db27b0eede3c4ab3fcc6` as negative control. All candidate phases
+returned three valid responses; the control returned none during the pause but passed
+healthy preflight and recovery.
+
+| Build / phase | Median (s) | Worst (s) | Valid responses |
+|---|---:|---:|---:|
+| Candidate healthy | 0.003 | 0.024 | 3/3 |
+| Candidate paused | 1.503 | 1.533 | 3/3 |
+| Candidate unpaused | 0.001 | 0.002 | 3/3 |
+| Candidate stopped | 1.503 | 1.503 | 3/3 |
+| Candidate restarted | 0.001 | 0.002 | 3/3 |
+| Pre-fix paused | 2.503 | 2.511 | 0/3 |
+| Pre-fix recovered | 0.002 | 0.003 | 3/3 |
+
+Actual Redis reads and fresh recovered writes passed in both healthy and recovered
+phases. An earlier candidate run (39741177876) independently passed with paused median
+1.505 s / worst 1.512 s and the earlier bookkeeping-only head as control. These are
+scoped maintainer/automation observations, not independent human verification or an
+all-Redis latency guarantee. Qualification targets the hosted Ubuntu/.NET environment;
+other clients, platforms, TLS and wider backend behavior remain in the parity matrix.
