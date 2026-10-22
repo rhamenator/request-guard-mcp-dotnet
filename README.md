@@ -135,3 +135,11 @@ every placeholder, and keep that generated file out of version control.
 ## License
 
 GPL-3.0-or-later — see [LICENSE](LICENSE).
+
+### Overload behavior
+
+When all configured tool execution permits are occupied, a new tool request returns the
+JSON-RPC application error `-429` / `RATE_LIMIT_EXCEEDED` immediately. Clients should use
+bounded retries with backoff. Unknown tool names use one `__unknown__` telemetry label and
+are rejected before Redis operation bookkeeping. These tool-level controls do not yet
+establish current Rust parity for TCP/HTTP/WebSocket connection and slow-client limits.
