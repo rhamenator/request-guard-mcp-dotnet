@@ -75,7 +75,9 @@ origin boundary, duplicate Authorization rejection, allowed-origin authenticatio
 negotiation status codes. Parser/configuration tests cover malformed tokens/origins,
 case/default-port normalization and fail-fast configuration. The incomplete-body socket
 test includes valid negotiation headers so it still exercises the 408 body deadline.
-All repository clients/examples now send the required Accept header. Missing protocol
+All repository clients/examples now send the required Accept header. The historical
+pair runner explicitly binds both servers to loopback, rather than hiding the changed
+.NET default through payload normalization; a default-configuration test checks it. Missing protocol
 version is an explicit legacy/initialization compatibility path, not implicit support
 for every MCP revision. Reverse proxy/IIS, TLS/ALPN and broader browser clients remain
 separate qualification work in #25.
