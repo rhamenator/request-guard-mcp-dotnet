@@ -113,6 +113,37 @@ tests/
   RequestGuardMcp.Tests/         # unit + contract tests (xUnit)
 ```
 
+## Native development bundles
+
+No stable bundles are published yet. Build a development archive from the **committed**
+Git revision with Python 3.12+ and the exact SDK in `global.json`:
+
+```bash
+python3 scripts/native_bundle.py --rid linux-x64 --output-dir out/native
+```
+
+Supported bundle targets are `linux-x64` (glibc), `win-x64`, `osx-x64` and `osx-arm64`.
+Linux musl/Alpine and Linux/Windows arm64 bundles are not provided. Each bundle includes
+its self-contained executable, setup/security documentation, placeholder `.env.example`
+and a source/RID/SDK manifest with file checksums. A sibling SHA-256 file identifies the
+archive. Extract the entire top-level folder, configure secrets through the environment,
+and launch `request-guard-mcp-dotnet` (`.exe` on Windows), adding `--stdio` for a subprocess
+client. A .NET installation is not required; operating-system native runtime libraries
+still are. macOS/Windows signing and installer integration are not supplied.
+
+The `ReleaseBundle` build profile uses separate committed `packages.release.lock.json`
+files including all four RIDs and the pinned single-file task. Dependency drift fails
+locked restore. The builder archives tracked source before publishing, so ignored local
+configuration, credentials, build output and uncommitted changes cannot enter a bundle.
+No existing archive is overwritten. To update release locks intentionally, review the
+SDK/package changes, run `dotnet restore src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj
+-p:ReleaseBundle=true`, review all five release lock files and rerun qualification.
+
+The Native Bundle Qualification workflow builds and tests fresh extractions on matching
+Linux, Windows, Intel macOS and arm64 macOS runners. Its seven-day Actions artifacts are
+development candidates with exact archive checksum/source records; this does not publish
+a stable release or `latest`. See [verification](docs/VERIFICATION.md) for scope and commands.
+
 ## Development
 
 ```bash

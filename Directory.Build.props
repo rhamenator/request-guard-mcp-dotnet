@@ -25,6 +25,14 @@
     <!-- Per-project packages.lock.json, checked in like Cargo.lock, so CI can restore in
          locked mode and fail if a dependency drifts without an explicit, reviewed bump. -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- Native publishing has a separate reviewed lock graph including all supported
+         RIDs and the SDK's single-file linker task. Normal builds keep their original lock. -->
+    <DebugType Condition="'$(ReleaseBundle)' == 'true'">None</DebugType>
+    <DebugSymbols Condition="'$(ReleaseBundle)' == 'true'">false</DebugSymbols>
+    <RuntimeIdentifiers Condition="'$(ReleaseBundle)' == 'true'">linux-x64;win-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <SelfContained Condition="'$(ReleaseBundle)' == 'true'">true</SelfContained>
+    <PublishSingleFile Condition="'$(ReleaseBundle)' == 'true'">true</PublishSingleFile>
+    <NuGetLockFilePath Condition="'$(ReleaseBundle)' == 'true'">packages.release.lock.json</NuGetLockFilePath>
   </PropertyGroup>
 
 </Project>

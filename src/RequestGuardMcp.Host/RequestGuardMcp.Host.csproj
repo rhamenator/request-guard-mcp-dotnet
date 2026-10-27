@@ -18,4 +18,8 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="packages.release.lock.json;appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>

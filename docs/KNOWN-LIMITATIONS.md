@@ -39,3 +39,10 @@ prior-knowledge auto-detection in this host. HTTP/2 tests explicitly select that
 TLS/ALPN and reverse-proxy hosting need independent client qualification. The 120-second
 production age limit is exercised with a shorter injected clock budget in tests; this
 is not an exact 120-second artifact endurance record.
+
+Native archives target glibc Linux x64, Windows x64, Intel macOS and arm64 macOS. Linux
+musl/Alpine and Linux/Windows arm64 archives, platform installers, service registration
+and native code signing are not provided. The native qualification workflow exercises
+fresh portable extraction and SDK clients on matching hosted runners; backend TLS and
+real service/installer deployment are separate gates. Development Actions artifacts are
+not stable releases. File/archive checksums establish consistency, not signed provenance.
