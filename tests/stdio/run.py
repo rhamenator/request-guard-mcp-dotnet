@@ -19,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'parity'))
 from run import clean_environment
 
 
-async def sdk(dll, environment, directory, log):
-    server = StdioServerParameters(command='dotnet', args=[str(dll), '--stdio'], env=environment, cwd=directory)
+async def sdk(command, environment, directory, log):
+    server = StdioServerParameters(command=command[0], args=command[1:] + ['--stdio'], env=environment, cwd=directory)
     async with stdio_client(server, errlog=log) as (read, write):
         async with ClientSession(read, write, read_timeout_seconds=timedelta(seconds=10)) as session:
             initialized = await session.initialize()
@@ -41,11 +41,14 @@ async def sdk(dll, environment, directory, log):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--dotnet-dll', type=Path, required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument('--dotnet-dll', type=Path)
+    target.add_argument('--binary', type=Path)
     args = parser.parse_args()
-    dll = args.dotnet_dll.resolve()
-    if not dll.is_file():
+    executable = (args.binary or args.dotnet_dll).resolve()
+    if not executable.is_file():
         parser.error('build the host first')
+    prefix = [str(executable)] if args.binary else ['dotnet', str(executable)]
     # Reserve the configured HTTP port throughout. Stdio must start and work without
     # taking it or serving any network traffic, even with no AUTH_TOKENS configured.
     with socket.socket() as reservation, tempfile.TemporaryDirectory(prefix='dotnet-stdio-') as directory:
@@ -53,7 +56,7 @@ def main():
         reservation.listen()
         environment = {**clean_environment(), 'MCP__PORT': str(reservation.getsockname()[1]),
                        'MCP__HOST': '127.0.0.1', 'MCP__LIMITS__MAX_REQUEST_BYTES': '256', 'LOG_LEVEL': 'trace'}
-        command = ['dotnet', str(dll), '--stdio']
+        command = prefix + ['--stdio']
         lines = [
             b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}',
             b'{"jsonrpc":"2.0","method":"notifications/initialized"}',
@@ -73,7 +76,7 @@ def main():
         assert result.stderr, 'expected tool-error diagnostics on stderr'
         print('PASS actual-process stdio: no HTTP bind/auth requirement; JSON-only stdout, stderr diagnostics; bounded oversized/UTF-8 input recovery and EOF exit')
         with open(Path(directory) / 'sdk.log', 'w+') as log:
-            asyncio.run(sdk(dll, environment, directory, log))
+            asyncio.run(sdk(prefix, environment, directory, log))
         # Check termination while waiting for more input, after the process is ready.
         process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                    cwd=directory, env=environment)

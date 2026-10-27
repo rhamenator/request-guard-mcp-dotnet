@@ -1,0 +1,48 @@
+name: Native Bundle Qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native bundle (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, rid: linux-x64}
+          - {os: windows-2025, rid: win-x64}
+          - {os: macos-15-intel, rid: osx-x64}
+          - {os: macos-15, rid: osx-arm64}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tests/protocol/requirements.txt
+      - name: Build tracked source with locked native dependencies
+        run: python scripts/native_bundle.py --rid ${{ matrix.rid }} --output-dir out/native
+      - name: Verify and run the extracted artifact
+        run: python tests/protocol/qualify_bundle.py --archive out/native/request-guard-mcp-dotnet-0.1.0-dev-${{ matrix.rid }}.tar.gz --expected-rid ${{ matrix.rid }} --expected-source ${{ github.sha }} --report out/native/qualification.json
+      - name: Reject native dependency drift
+        if: matrix.rid == 'linux-x64'
+        run: python tests/protocol/lock_negative.py
+      - name: Retain development candidate and exact-artifact evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-qualification-${{ matrix.rid }}
+          path: out/native/
+          retention-days: 7
+          if-no-files-found: error

@@ -92,3 +92,11 @@ EOF or shutdown without an unbounded stream wait. `StdioTransport`, Host mode se
 `StdioTransportTests` and `tests/stdio/run.py` implement/verify the Linux process contract
 and official SDK startup/calls. This transport is sequential and does not implement
 notification-based in-flight cancellation; packaged platform evidence remains open.
+
+DR-012: Build native archives from tracked source with a pinned SDK and separate locked
+RID/single-file dependency graph. Reject dependency drift, exclude local config/debug
+artifacts, include source/RID/SDK and file/archive checksums, and test the exact extracted
+binary on matching operating systems before a platform claim. `ReleaseBundle`, release
+locks, `native_bundle.py`, `qualify_bundle.py`, `lock_negative.py` and `native.yml` map this
+requirement to build/provenance, negative-control and real-client evidence. No stable
+publication or signing/installer qualification is implied.

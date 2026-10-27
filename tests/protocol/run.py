@@ -137,15 +137,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument('--dotnet-dll', type=Path)
+    target.add_argument('--binary', type=Path)
     target.add_argument('--url', help='Explicit isolated test server; no host process is started')
     args = parser.parse_args()
     if args.url:
         check_envelopes(args.url)
         asyncio.run(check_sdk(args.url))
         return
-    dll = args.dotnet_dll.resolve()
-    if not dll.is_file():
-        parser.error(f'build the host first; DLL not found: {dll}')
+    executable = (args.binary or args.dotnet_dll).resolve()
+    if not executable.is_file():
+        parser.error(f'build the host first; executable not found: {executable}')
+    command = [str(executable)] if args.binary else ['dotnet', str(executable)]
     with socket.socket() as reservation:
         reservation.bind(('127.0.0.1', 0))
         port = reservation.getsockname()[1]
@@ -154,7 +156,7 @@ def main():
         environment = {**clean_environment(), 'MCP__HOST': '127.0.0.1', 'MCP__PORT': str(port),
                        'AUTH_TOKENS': TOKEN, 'CACHE_SCOPE_HMAC_KEY': 'synthetic-protocol-cache-scope-key-32-bytes'}
         with open(Path(directory) / 'server.log', 'w+') as log:
-            process = subprocess.Popen(['dotnet', str(dll)], cwd=directory, env=environment, stdout=log, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(command, cwd=directory, env=environment, stdout=log, stderr=subprocess.STDOUT)
             try:
                 deadline = time.monotonic() + 20
                 while True:

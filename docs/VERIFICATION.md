@@ -76,6 +76,40 @@ unterminated EOF, independent stable subprocess scopes, and cancellation even wh
 stream ignores it. CI runs the process runner on Linux. The transport is sequential;
 client cancellation notifications and Windows/macOS native packages remain unqualified.
 
+## Native archive qualification
+
+Use a clean committed revision (the builder always snapshots Git HEAD, not working-tree edits):
+
+```bash
+python3 scripts/native_bundle.py --rid linux-x64 --output-dir out/native
+/tmp/request-guard-sdk/bin/python tests/protocol/qualify_bundle.py \
+  --archive out/native/request-guard-mcp-dotnet-0.1.0-dev-linux-x64.tar.gz \
+  --expected-rid linux-x64 --expected-source "$(git rev-parse HEAD)" \
+  --report out/native/qualification.json
+python3 tests/protocol/lock_negative.py
+```
+
+`native.yml` repeats the native archive checks on matching Linux x64, Windows x64,
+Intel macOS and arm64 macOS hosted runners. It validates archive/file checksums,
+source/RID provenance and safe single-root extraction, then runs the actual extracted
+binary through the HTTP/WebSocket envelope and all-tool official SDK suite plus stdio
+process/SDK tests. Runtime lookup paths point at an absent directory; the executable
+runs directly without invoking `dotnet`. The dependency-drift negative control requires
+NU1004. Test reports record the exact archive digest, source, RID and SDK. Development
+candidate archives/reports are retained for seven days, without release/tag/registry
+publication. Check current run results before making a platform qualification claim.
+
+The four-RID `ReleaseBundle` profile pins dependencies separately from normal builds,
+and `global.json` pins SDK10.0.402 with roll-forward disabled, matching the container.
+The original locked single-file publish failed NU1004 for missing RID/ILLink entries;
+local release-lock restore/publish succeeds without rewriting the five locks. SDK
+updates require reviewing/regenerating native locks and rerunning all platforms.
+
+These tests cover fresh portable extraction and process/HTTP clients without external
+backends. They do not qualify native installers, code signing, OS service registration,
+physical LAN/router or backend TLS/recovery. Archive checksums/manifests provide
+consistency/provenance records, not an independent cryptographic signature.
+
 Coverage may be collected with:
 
 ```bash

@@ -25,16 +25,9 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          mkdir -p dist staging
+          mkdir -p dist
           for rid in linux-x64 win-x64 osx-x64 osx-arm64; do
-            output="staging/request-guard-mcp-dotnet-${version}-${rid}"
-            dotnet publish src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj \
-              --configuration Release --runtime "$rid" --self-contained true --output "$output" \
-              -p:PublishSingleFile=true -p:DebugType=None -p:Version="$version"
-            cp .env.example README.md LICENSE SECURITY.md "$output/"
-            mkdir -p "$output/docs"
-            cp docs/runbook.md docs/security-model.md docs/VERIFICATION.md "$output/docs/"
-            tar -C staging -czf "dist/request-guard-mcp-dotnet-${version}-${rid}.tar.gz" "$(basename "$output")"
+            python3 scripts/native_bundle.py --rid "$rid" --version "$version" --output-dir dist
           done
           dotnet list RequestGuardMcp.slnx package --include-transitive --format json > dist/nuget-dependencies.json
           (cd dist && sha256sum ./*.tar.gz nuget-dependencies.json > SHA256SUMS)
