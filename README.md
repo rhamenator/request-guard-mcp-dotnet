@@ -14,8 +14,8 @@ Compatibility evidence currently targets an August 2026 Rust revision, not curre
 v0.1.5. Current parity work and unverified gaps are tracked in the
 [parity matrix](docs/PARITY-MATRIX.md). The `2025-06-18` lifecycle methods (`initialize`, `ping`, `tools/list`, `tools/call`)
 work alongside direct HTTP/WebSocket JSON-RPC calls. The pinned official Python SDK
-qualifies the JSON-response HTTP path; stdio, full HTTP negotiation, browser-origin
-policy, SSE, sessions and OAuth discovery are not qualified by that test.
+qualifies the JSON-response HTTP path and process-local `--stdio`. Full HTTP negotiation,
+browser-origin policy, SSE, sessions and OAuth discovery remain unqualified.
 No stable .NET release has been published.
 
 The .NET port implements all 23 sibling Rust tool contracts, HTTP/WebSocket JSON-RPC transports,
@@ -68,6 +68,30 @@ envelope fields must update. Tool payload null fields are unchanged.
 
 Reproduce the SDK and transport contract with the commands in
 [verification](docs/VERIFICATION.md). No .NET companion skill is distributed in this repository.
+
+### Process-local stdio
+
+```bash
+dotnet src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --stdio
+```
+
+Configure a subprocess-capable MCP client to launch that command with an absolute DLL
+path. Build the host first with the pinned .NET SDK; a runtime or self-contained native
+bundle is required on the client machine. Stdio opens no TCP listener, needs no Bearer
+header or `AUTH_TOKENS`, and is authorized by ownership of the launched process. It
+supports the same 23 tools, configuration, feature flags and optional backends as HTTP.
+Supply backend credentials through the child environment/secret manager; the subprocess
+has the launching user's file/network permissions and configured backend costs.
+
+Each process gets a distinct cache scope. Send one UTF-8 JSON-RPC message per LF/CRLF
+line, within `limits.max_request_bytes` bytes before LF. Output contains JSON messages
+only; diagnostics go to stderr. Oversized lines are drained through LF and rejected
+with -413; invalid UTF-8/JSON and unterminated EOF messages return -32700. Valid
+notifications produce no output. EOF exits cleanly; Ctrl+C/SIGTERM cancels pending work.
+Output writes have a five-second deadline; a stuck reader causes process failure.
+This is a sequential transport: requests finish in input order, and notification-based
+in-flight cancellation is not implemented. SDK/process evidence is currently Linux;
+Windows/macOS packaged client qualification remains open.
 
 ## Why a .NET port?
 

@@ -7,7 +7,8 @@ using RequestGuardMcp.Integrations;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-var builder = WebApplication.CreateBuilder(args);
+var useStdio = args.Contains("--stdio", StringComparer.Ordinal);
+var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--stdio").ToArray());
 var compatibilityConfiguration = new ConfigurationBuilder();
 
 // Rust accepts CONFIG_FILE as a required external configuration source. Load it before all
@@ -78,6 +79,13 @@ if (int.TryParse(CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS
 appConfig.TlsFingerprints.KnownBadJa3 = SplitList(CompatibilityValue("TLS_KNOWN_BAD_JA3"));
 appConfig.TlsFingerprints.KnownBadJa4 = SplitList(CompatibilityValue("TLS_KNOWN_BAD_JA4"));
 
+// Stdio is authorized by process ownership, not HTTP Bearer headers. It opens no
+// network listener; every subprocess gets a separate cache scope in StdioTransport.
+if (useStdio)
+{
+    appConfig.Auth.Enabled = false;
+}
+
 try
 {
     appConfig.Validate();
@@ -95,6 +103,11 @@ builder.WebHost.ConfigureKestrel(connectionGuard.ConfigureKestrel);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
+if (useStdio)
+{
+    builder.Services.Configure<Microsoft.Extensions.Logging.Console.ConsoleLoggerOptions>(options =>
+        options.LogToStandardErrorThreshold = LogLevel.Trace);
+}
 builder.Logging.SetMinimumLevel(ParseLogLevel(appConfig.LogLevel));
 
 var telemetry = builder.Services.AddOpenTelemetry()
@@ -144,6 +157,32 @@ builder.Services.AddSingleton<McpDispatcher>();
 builder.Services.AddSingleton(_ => ToolRegistryFactory.Create());
 
 var app = builder.Build();
+
+if (useStdio)
+{
+    using var shutdown = new CancellationTokenSource();
+    ConsoleCancelEventHandler cancel = (_, eventArgs) => { eventArgs.Cancel = true; shutdown.Cancel(); };
+    Console.CancelKeyPress += cancel;
+    using var termination = OperatingSystem.IsWindows() ? null : System.Runtime.InteropServices.PosixSignalRegistration.Create(
+        System.Runtime.InteropServices.PosixSignal.SIGTERM, context => { context.Cancel = true; shutdown.Cancel(); });
+    try
+    {
+        await StdioTransport.RunAsync(Console.OpenStandardInput(), Console.OpenStandardOutput(),
+            app.Services.GetRequiredService<McpDispatcher>(), appState, shutdown.Token).ConfigureAwait(false);
+    }
+    catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
+    {
+        // Client shutdown or server signal; do not write diagnostics to stdout.
+    }
+    finally
+    {
+        Console.CancelKeyPress -= cancel;
+        await app.DisposeAsync().ConfigureAwait(false);
+        await appState.DisposeAsync().ConfigureAwait(false);
+    }
+
+    return 0;
+}
 
 app.Use(connectionGuard.InvokeAsync);
 app.UseWebSockets();

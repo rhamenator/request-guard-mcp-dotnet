@@ -83,5 +83,12 @@ ping, sorted tool definitions/schemas and named standard calls using the same sc
 bounded dispatch as direct methods. `McpMessageTests`, `McpLifecycleTests` and
 `tests/protocol/run.py` trace these behaviors through unit, real HTTP/WebSocket and official
 Python SDK evidence. The historical envelope migration is explicit in `contract.py` and
-`test_contract_envelopes.py`; the historical Rust pin is unchanged. Full HTTP negotiation
-and stdio remain tracked by #24.
+`test_contract_envelopes.py`; the historical Rust pin is unchanged. Full HTTP negotiation remains tracked by #24.
+
+DR-011: `--stdio` opens no network listener and uses process ownership instead of HTTP
+Bearer headers. Bound UTF-8 newline-delimited input, drain oversized lines, keep stdout
+JSON-only with stderr diagnostics, isolate each subprocess's cache scope, and exit on
+EOF or shutdown without an unbounded stream wait. `StdioTransport`, Host mode selection,
+`StdioTransportTests` and `tests/stdio/run.py` implement/verify the Linux process contract
+and official SDK startup/calls. This transport is sequential and does not implement
+notification-based in-flight cancellation; packaged platform evidence remains open.
