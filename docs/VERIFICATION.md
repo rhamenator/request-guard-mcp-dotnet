@@ -53,9 +53,28 @@ checks 16 invalid envelopes and invalid JSON over HTTP and WebSocket, ignored me
 recovery and authenticated GET405. xUnit covers parser and lifecycle cases. CI runs both.
 
 Scope: JSON-response HTTP and custom WebSocket; this is not full Streamable HTTP compliance.
-HTTP negotiation/origin handling, stdio, stateful sessions, SSE and OAuth discovery are not
+HTTP negotiation/origin handling, stateful sessions, SSE and OAuth discovery are not
 established by this qualification. Pinned SDK packages are test-only and not shipped with the
 server. Requalification is required after SDK/dependency or transport changes.
+
+## Process-local stdio qualification
+
+After building the host and installing the pinned SDK requirements above:
+
+```bash
+/tmp/request-guard-sdk/bin/python tests/stdio/run.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
+```
+
+The actual-process runner reserves the configured HTTP port to prove no network bind,
+removes inherited server configuration and tokens, checks JSON-only stdout and stderr
+diagnostics, oversized-line and invalid-UTF-8 recovery, EOF shutdown and termination
+while waiting for input. The official SDK launches the server with `--stdio`, initializes,
+lists all 23 tools, classifies and receives an expected tool error. `StdioTransportTests`
+cover newline framing, invalid envelope/syntax handling, bounded input recovery,
+unterminated EOF, independent stable subprocess scopes, and cancellation even when a
+stream ignores it. CI runs the process runner on Linux. The transport is sequential;
+client cancellation notifications and Windows/macOS native packages remain unqualified.
 
 Coverage may be collected with:
 
