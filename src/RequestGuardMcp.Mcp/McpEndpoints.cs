@@ -51,7 +51,8 @@ public static class McpEndpoints
             return;
         }
 
-        using var socket = await context.WebSockets.AcceptWebSocketAsync().ConfigureAwait(false);
+        var subprotocol = context.WebSockets.WebSocketRequestedProtocols.Contains("mcp", StringComparer.Ordinal) ? "mcp" : null;
+        using var socket = await context.WebSockets.AcceptWebSocketAsync(subprotocol).ConfigureAwait(false);
         var handler = context.RequestServices.GetRequiredService<WebSocketConnectionHandler>();
         await handler.HandleAsync(socket, state, callerScope, context.RequestAborted).ConfigureAwait(false);
     }
@@ -98,9 +99,8 @@ public static class McpEndpoints
             // McpMessage serializer: transport decoding failed before an MCP message existed.
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             context.Response.ContentType = MediaTypeNames.Application.Json;
-            await context.Response.WriteAsync(
-                "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700,\"message\":\"Parse error: MCP messages must be UTF-8\"}}",
-                context.RequestAborted).ConfigureAwait(false);
+            await WriteResponseAsync(context,
+                "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700,\"message\":\"Parse error: MCP messages must be UTF-8\"}}").ConfigureAwait(false);
             return;
         }
 
@@ -114,7 +114,7 @@ public static class McpEndpoints
         }
 
         context.Response.ContentType = MediaTypeNames.Application.Json;
-        await context.Response.WriteAsync(response, context.RequestAborted).ConfigureAwait(false);
+        await WriteResponseAsync(context, response).ConfigureAwait(false);
     }
 
     private static async Task HandleHealthAsync(HttpContext context)
@@ -122,7 +122,7 @@ public static class McpEndpoints
         var state = context.RequestServices.GetRequiredService<AppState>();
         var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
         context.Response.ContentType = MediaTypeNames.Application.Json;
-        await System.Text.Json.JsonSerializer.SerializeAsync(context.Response.Body, health, McpJson.Options, context.RequestAborted)
+        await WriteWithDeadlineAsync(context, token => System.Text.Json.JsonSerializer.SerializeAsync(context.Response.Body, health, McpJson.Options, token))
             .ConfigureAwait(false);
     }
 
@@ -133,14 +133,14 @@ public static class McpEndpoints
         var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
         var ready = capacityAvailable && health.Status == "healthy";
         context.Response.StatusCode = ready ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable;
-        await context.Response.WriteAsync(ready ? "ready" : "not ready", context.RequestAborted).ConfigureAwait(false);
+        await WriteResponseAsync(context, ready ? "ready" : "not ready").ConfigureAwait(false);
     }
 
     private static Task HandleMetricsAsync(HttpContext context)
     {
         var state = context.RequestServices.GetRequiredService<AppState>();
         context.Response.ContentType = "text/plain; version=0.0.4; charset=utf-8";
-        return context.Response.WriteAsync(state.Metrics.RenderPrometheus(), context.RequestAborted);
+        return WriteResponseAsync(context, state.Metrics.RenderPrometheus());
     }
 
     private static string Authorize(HttpContext context, AppState state)
@@ -165,6 +165,26 @@ public static class McpEndpoints
         {
             context.Response.Headers.WWWAuthenticate = "Bearer";
         }
-        return context.Response.WriteAsync(error.Code, context.RequestAborted);
+        return WriteResponseAsync(context, error.Code);
     }
+    private static Task WriteResponseAsync(HttpContext context, string response) =>
+        WriteWithDeadlineAsync(context, token => context.Response.WriteAsync(response, token));
+
+    internal static async Task WriteWithDeadlineAsync(HttpContext context, Func<CancellationToken, Task> operation)
+    {
+        var state = context.RequestServices.GetRequiredService<AppState>();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+        deadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.HttpResponseWriteTimeoutSecs));
+        try
+        {
+            await operation(deadline.Token).WaitAsync(deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
+        {
+            // The response may already have started. Abort instead of appending a
+            // second envelope or retaining the request on an unresponsive writer.
+            context.Abort();
+        }
+    }
+
 }

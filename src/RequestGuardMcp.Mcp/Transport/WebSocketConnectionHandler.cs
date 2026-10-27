@@ -22,10 +22,15 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
             while (socket.State == WebSocketState.Open)
             {
                 using var messageStream = new MemoryStream();
+                using var messageDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                messageDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.WebSocketIdleTimeoutSecs));
                 WebSocketReceiveResult result;
                 do
                 {
-                    result = await socket.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
+                    // One budget covers the whole message, including all fragments. A peer
+                    // cannot retain a slot forever by trickling partial frames.
+                    result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), messageDeadline.Token)
+                        .WaitAsync(messageDeadline.Token).ConfigureAwait(false);
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
                         break;
@@ -33,7 +38,7 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
 
                     if (messageStream.Length + result.Count > state.Config.Limits.MaxRequestBytes)
                     {
-                        await socket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "request too large", cancellationToken).ConfigureAwait(false);
+                        await WriteBoundedAsync(token => socket.CloseOutputAsync(WebSocketCloseStatus.MessageTooBig, "request too large", token), state, cancellationToken).ConfigureAwait(false);
                         return;
                     }
 
@@ -42,7 +47,7 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, cancellationToken).ConfigureAwait(false);
+                    await WriteBoundedAsync(token => socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, token), state, cancellationToken).ConfigureAwait(false);
                     break;
                 }
 
@@ -55,7 +60,7 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
                 {
                     logger.LogWarning("received non-UTF-8 binary MCP message");
                     var parseError = Encoding.UTF8.GetBytes(Protocol.McpMessage.Error(null, -32700, "Parse error: MCP messages must be UTF-8"));
-                    await socket.SendAsync(parseError, WebSocketMessageType.Text, endOfMessage: true, cancellationToken).ConfigureAwait(false);
+                    await WriteBoundedAsync(token => socket.SendAsync(new ArraySegment<byte>(parseError), WebSocketMessageType.Text, endOfMessage: true, token), state, cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
@@ -63,13 +68,18 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
                 if (response is not null)
                 {
                     var payload = Encoding.UTF8.GetBytes(response);
-                    await socket.SendAsync(payload, WebSocketMessageType.Text, endOfMessage: true, cancellationToken).ConfigureAwait(false);
+                    await WriteBoundedAsync(token => socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text, endOfMessage: true, token), state, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            // Server shutting down or client disconnected; nothing to do.
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning("WebSocket message or write deadline expired");
+            }
+
+            socket.Abort();
         }
         catch (WebSocketException ex)
         {
@@ -77,8 +87,20 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
         }
         finally
         {
+            if (socket.State is WebSocketState.Open or WebSocketState.CloseSent or WebSocketState.CloseReceived)
+            {
+                socket.Abort();
+            }
+
             state.Metrics.ConnectionClosed();
             logger.LogInformation("WebSocket connection closed");
         }
     }
+    private static async Task WriteBoundedAsync(Func<CancellationToken, Task> operation, AppState state, CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.WebSocketWriteTimeoutSecs));
+        await operation(deadline.Token).WaitAsync(deadline.Token).ConfigureAwait(false);
+    }
+
 }

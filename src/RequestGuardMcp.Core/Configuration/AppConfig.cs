@@ -64,11 +64,23 @@ public sealed class AppConfig
             Limits.MaxConnections <= 0 ||
             Limits.HttpHeaderTimeoutSecs <= 0 ||
             Limits.HttpBodyTimeoutSecs <= 0 ||
+            Limits.HttpResponseWriteTimeoutSecs <= 0 ||
             Limits.Http2IdleTimeoutSecs <= 0 ||
+            Limits.WebSocketIdleTimeoutSecs <= 0 ||
+            Limits.WebSocketWriteTimeoutSecs <= 0 ||
             Limits.PerToolTimeoutSecs <= 0 ||
             Limits.ClassifyTimeoutSecs <= 0)
         {
             throw new ConfigValidationException("all request, batch, concurrency, and timeout limits must be positive");
+        }
+
+        // CancelAfter(TimeSpan) is bounded by UInt32 milliseconds. Reject values
+        // that would otherwise fail only after a client connects or calls a tool.
+        if (new[] { Limits.HttpHeaderTimeoutSecs, Limits.HttpBodyTimeoutSecs, Limits.HttpResponseWriteTimeoutSecs,
+                Limits.Http2IdleTimeoutSecs, Limits.WebSocketIdleTimeoutSecs, Limits.WebSocketWriteTimeoutSecs,
+                Limits.PerToolTimeoutSecs, Limits.ClassifyTimeoutSecs }.Any(seconds => seconds > 4_294_967))
+        {
+            throw new ConfigValidationException("timeout limits must not exceed 4294967 seconds");
         }
 
         if (Redis.PoolSize <= 0 || Redis.CacheTtlSecs <= 0)
@@ -176,7 +188,10 @@ public sealed class LimitsConfig
     public int MaxConnections { get; set; } = 256;
     public int HttpHeaderTimeoutSecs { get; set; } = 10;
     public int HttpBodyTimeoutSecs { get; set; } = 30;
+    public int HttpResponseWriteTimeoutSecs { get; set; } = 10;
     public int Http2IdleTimeoutSecs { get; set; } = 60;
+    public int WebSocketIdleTimeoutSecs { get; set; } = 60;
+    public int WebSocketWriteTimeoutSecs { get; set; } = 10;
     public int PerToolTimeoutSecs { get; set; } = 30;
     public int ClassifyTimeoutSecs { get; set; } = 5;
 }

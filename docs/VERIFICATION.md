@@ -99,7 +99,31 @@ lists all 23 tools, classifies and receives an expected tool error. `StdioTransp
 cover newline framing, invalid envelope/syntax handling, bounded input recovery,
 unterminated EOF, independent stable subprocess scopes, and cancellation even when a
 stream ignores it. CI runs the process runner on Linux. The transport is sequential;
-client cancellation notifications and Windows/macOS native packages remain unqualified.
+client cancellation notifications and OS installer/service integration remain unqualified;
+portable Windows/macOS SDK smoke is exercised by the native workflow.
+
+## WebSocket and output deadlines
+
+```bash
+/tmp/request-guard-sdk/bin/python tests/protocol/run.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll \
+  --allowed-origin https://client.test --ws-deadline-seconds 1
+```
+
+The running-build matrix verifies mcp subprotocol negotiation, UTF-8 split inside a
+fragmented text message, idle and unfinished-message expiry, oversized binary rejection
+and a fresh valid connection afterward. CI/native artifact qualification runs it with a
+one-second configured receive budget. This is not a default 60-second endurance record.
+`WebSocketDeadlineTests` verifies that cancellation-ignoring read/write/close operations
+and indefinitely trickled fragments cannot retain the handler or active metric. Real
+Kestrel tests expire an incomplete upgraded message and then recover the sole TCP permit.
+
+`HttpResponseDeadlineTests` independently verifies that output writers ignoring
+cancellation still end at the configured write budget and abort the response, while
+caller cancellation is preserved. The production helper wraps MCP, health/readiness,
+metrics and auth-error body writes. Configuration rejects nonpositive budgets and
+values exceeding the cancellation timer's range. These tests do not establish every
+slow-consumer/proxy/IIS behavior; those remain in #25.
 
 ## Native archive qualification
 

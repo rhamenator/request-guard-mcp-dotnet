@@ -8,6 +8,7 @@ import http.client
 import urllib.parse
 from pathlib import Path
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -133,6 +134,53 @@ def check_http_profile(url, allowed_origin=None):
     print(f'PASS HTTP profile: {len(cases)} negotiation/auth/origin cases, recovery; configured origin={bool(allowed_origin)}')
 
 
+def check_ws_lifetime(url, seconds):
+    client = WebSocket(url, TOKEN, subprotocol='mcp')
+    try:
+        payload = json.dumps({'jsonrpc': '2.0', 'id': 'fragmented', 'method': 'ping', 'params': {'text': 'café'}}, ensure_ascii=False).encode()
+        split = payload.index('é'.encode()) + 1
+        client.send(payload[:split], final=False)
+        client.send(payload[split:], opcode=0)
+        opcode, body = client.receive()
+        assert opcode == 1 and json.loads(body)['id'] == 'fragmented', body
+    finally:
+        client.close()
+    # Exactly one complete-message budget applies, including a stalled continuation.
+    for partial in (False, True):
+        client = WebSocket(url, TOKEN)
+        client.sock.settimeout(seconds + 3)
+        started = time.monotonic()
+        try:
+            if partial:
+                client.send(b'{', final=False)
+            try:
+                opcode, _ = client.receive()
+                assert opcode == 8, opcode
+            except (ConnectionError, OSError):
+                pass
+            assert time.monotonic() - started < seconds + 3
+        finally:
+            client.sock.close()
+    client = WebSocket(url, TOKEN)
+    try:
+        client.send(b'x' * (1024 * 1024 + 1), opcode=2)
+        try:
+            opcode, body = client.receive()
+            assert opcode == 8 and len(body) >= 2 and struct.unpack('!H', body[:2])[0] == 1009, (opcode, body[:128])
+        except (ConnectionError, OSError):
+            pass
+    finally:
+        client.sock.close()
+    # A fresh valid connection must work after every rejected/expired peer.
+    client = WebSocket(url, TOKEN)
+    try:
+        client.send(b'{"jsonrpc":"2.0","id":"recovered","method":"ping"}')
+        assert json.loads(client.receive()[1])['id'] == 'recovered'
+    finally:
+        client.close()
+    print(f'PASS WebSocket: mcp subprotocol, fragmented UTF-8, idle/unfinished-message {seconds}s expiry, oversize and recovery')
+
+
 async def check_sdk(url):
     async with streamablehttp_client(url + '/mcp', headers={'Authorization': f'Bearer {TOKEN}'}, timeout=timedelta(seconds=10)) as (read, write, get_session):
         async with ClientSession(read, write, read_timeout_seconds=timedelta(seconds=10)) as session:
@@ -188,10 +236,15 @@ def main():
     target.add_argument('--binary', type=Path)
     target.add_argument('--url', help='Explicit isolated test server; no host process is started')
     parser.add_argument('--allowed-origin', help='Configure/test one explicit origin on a spawned host; external URLs must already match')
+    parser.add_argument('--ws-deadline-seconds', type=int, help='Set/test a short receive budget on an isolated host (default message cap required)')
     args = parser.parse_args()
+    if args.ws_deadline_seconds is not None and args.ws_deadline_seconds < 1:
+        parser.error('WebSocket budget must be positive')
     if args.url:
         check_envelopes(args.url)
         check_http_profile(args.url, args.allowed_origin)
+        if args.ws_deadline_seconds:
+            check_ws_lifetime(args.url, args.ws_deadline_seconds)
         asyncio.run(check_sdk(args.url))
         return
     executable = (args.binary or args.dotnet_dll).resolve()
@@ -207,6 +260,8 @@ def main():
                        'AUTH_TOKENS': TOKEN, 'CACHE_SCOPE_HMAC_KEY': 'synthetic-protocol-cache-scope-key-32-bytes'}
         if args.allowed_origin:
             environment['MCP__AUTH__ALLOWED_ORIGINS__0'] = args.allowed_origin
+        if args.ws_deadline_seconds:
+            environment['MCP__LIMITS__WEBSOCKET_IDLE_TIMEOUT_SECS'] = str(args.ws_deadline_seconds)
         with open(Path(directory) / 'server.log', 'w+') as log:
             process = subprocess.Popen(command, cwd=directory, env=environment, stdout=log, stderr=subprocess.STDOUT)
             try:
@@ -223,6 +278,8 @@ def main():
                         time.sleep(0.1)
                 check_envelopes(url)
                 check_http_profile(url, args.allowed_origin)
+                if args.ws_deadline_seconds:
+                    check_ws_lifetime(url, args.ws_deadline_seconds)
                 asyncio.run(check_sdk(url))
             except BaseException:
                 log.seek(0)
