@@ -1,54 +1,137 @@
-name: Release
+name: Stable Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable MAJOR.MINOR.PATCH version (must match VersionPrefix)
+        required: true
+        type: string
+      review_issue:
+        description: Closed independent release-readiness review issue number
+        required: true
+        type: number
 
 permissions:
+  actions: read
   contents: write
   packages: write
+  checks: read
+  deployments: read
+  issues: read
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    environment: stable-release
     steps:
-      - name: Check out controlled baseline
+      - name: Check out exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - name: Install pinned .NET SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with: { global-json-file: global.json }
-      - name: Verify baseline
-        run: make ci
-      - name: Build native bundles and evidence
-        shell: bash
+      - name: Enforce protected review and exact-candidate qualification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          REVIEW_ISSUE: ${{ inputs.review_issue }}
+        run: |
+          mkdir -p dist
+          python3 scripts/stable_release_gate.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --version "$VERSION" \
+            --review-issue "$REVIEW_ISSUE" \
+            --actor "$GITHUB_ACTOR" \
+            --ref-name "$GITHUB_REF_NAME" \
+            --ref-type "$GITHUB_REF_TYPE" | tee dist/release-gate.txt
+      - name: Reject an existing stable version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          mkdir -p dist
+          tag="v$VERSION"
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            echo "::error::Tag $tag already exists"
+            exit 1
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists"
+            exit 1
+          fi
+      - name: Verify controlled baseline
+        run: make ci
+      - name: Download exact qualified native bundles and verify evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          run_id="$(gh run list --workflow native.yml --commit "$GITHUB_SHA" --status success --limit 10 --json databaseId,headSha --jq 'map(select(.headSha == env.GITHUB_SHA))[0].databaseId')"
+          if [[ -z "$run_id" || "$run_id" == "null" ]]; then
+            echo "::error::No successful exact-SHA native qualification run is available"
+            exit 1
+          fi
+          mkdir -p qualified
           for rid in linux-x64 win-x64 osx-x64 osx-arm64; do
-            python3 scripts/native_bundle.py --rid "$rid" --version "$version" --output-dir dist
+            directory="qualified/$rid"
+            gh run download "$run_id" --name "native-qualification-$rid" --dir "$directory"
+            archive="request-guard-mcp-dotnet-$VERSION-$rid.tar.gz"
+            (cd "$directory" && sha256sum -c "$archive.sha256")
+            jq -e --arg sha "$GITHUB_SHA" --arg rid "$rid" --arg archive "$archive" \
+              '.schema == 1 and .source_sha == $sha and .rid == $rid and .artifact == $archive and
+               .checks.http_ws_sdk == "passed" and .checks.configured_origin_sdk == "passed" and
+               .checks.stdio_sdk_process == "passed"' "$directory/qualification.json" >/dev/null
+            cp "$directory/$archive" "$directory/$archive.sha256" dist/
+            cp "$directory/qualification.json" "dist/qualification-$rid.json"
           done
           dotnet list RequestGuardMcp.slnx package --include-transitive --format json > dist/nuget-dependencies.json
-          (cd dist && sha256sum ./*.tar.gz nuget-dependencies.json > SHA256SUMS)
-      - name: Publish container image
-        shell: bash
+          (cd dist && sha256sum ./*.tar.gz ./*.sha256 qualification-*.json nuget-dependencies.json release-gate.txt > SHA256SUMS)
+          (cd dist && sha256sum -c SHA256SUMS)
+      - name: Build and qualify the exact container
         env:
-          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          image="ghcr.io/${GITHUB_REPOSITORY}"
-          echo "$GH_TOKEN" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
           docker build -f docker/Dockerfile \
-            --build-arg VERSION="$version" --build-arg GIT_COMMIT="$GITHUB_SHA" \
+            --build-arg VERSION="$VERSION" --build-arg GIT_COMMIT="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%FT%TZ)" \
-            --tag "$image:$version" --tag "$image:latest" .
-          docker push "$image:$version"
-          docker push "$image:latest"
-          docker image inspect "$image:$version" --format '{{index .RepoDigests 0}}' > dist/container-image.txt
-          (cd dist && sha256sum container-image.txt >> SHA256SUMS)
-      - name: Publish immutable release assets
+            --tag request-guard-mcp-dotnet:security .
+          python3 scripts/container_smoke.py
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.62.1@sha256:fc10faf341a1d8fa8256c5ff1a6662ef74dd38b65034c8ce42346cf958a02d5d \
+            image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            request-guard-mcp-dotnet:security
+      - name: Publish immutable version and latest container tags
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$image:$VERSION" >/dev/null 2>&1; then
+            echo "::error::Container version $image:$VERSION already exists"
+            exit 1
+          fi
+          docker tag request-guard-mcp-dotnet:security "$image:$VERSION"
+          docker push "$image:$VERSION"
+          docker image inspect "$image:$VERSION" --format '{{index .RepoDigests 0}}' > dist/container-image.txt
+          docker tag request-guard-mcp-dotnet:security "$image:latest"
+          docker push "$image:latest"
+          (cd dist && sha256sum container-image.txt >> SHA256SUMS)
+          (cd dist && sha256sum -c SHA256SUMS)
+      - name: Publish immutable stable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/* \
+            --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --latest

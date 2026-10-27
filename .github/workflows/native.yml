@@ -32,10 +32,16 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r tests/protocol/requirements.txt
+      - name: Read candidate version from source
+        id: version
+        shell: bash
+        run: |
+          version="$(python -c 'import xml.etree.ElementTree as E; print(E.parse("Directory.Build.props").findtext(".//VersionPrefix"))')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build tracked source with locked native dependencies
-        run: python scripts/native_bundle.py --rid ${{ matrix.rid }} --output-dir out/native
+        run: python scripts/native_bundle.py --rid ${{ matrix.rid }} --version ${{ steps.version.outputs.version }} --output-dir out/native
       - name: Verify and run the extracted artifact
-        run: python tests/protocol/qualify_bundle.py --archive out/native/request-guard-mcp-dotnet-0.1.0-dev-${{ matrix.rid }}.tar.gz --expected-rid ${{ matrix.rid }} --expected-source ${{ github.sha }} --report out/native/qualification.json
+        run: python tests/protocol/qualify_bundle.py --archive out/native/request-guard-mcp-dotnet-${{ steps.version.outputs.version }}-${{ matrix.rid }}.tar.gz --expected-rid ${{ matrix.rid }} --expected-source ${{ github.sha }} --report out/native/qualification.json
       - name: Reject native dependency drift
         if: matrix.rid == 'linux-x64'
         run: python tests/protocol/lock_negative.py

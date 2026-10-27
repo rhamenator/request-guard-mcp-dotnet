@@ -159,6 +159,23 @@ backends. They do not qualify native installers, code signing, OS service regist
 physical LAN/router or backend TLS/recovery. Archive checksums/manifests provide
 consistency/provenance records, not an independent cryptographic signature.
 
+## Stable-release negative controls
+
+```bash
+python3 -m unittest discover -s tests/release -p 'test_*.py'
+```
+
+These tests exercise the fail-closed release predicate without publishing: missing or bypassable
+environment protection, absent self-review prevention, non-main/stale candidates, failed required
+checks, mismatched/prerelease versions, self-approval and unresolved high-severity findings all
+fail. CI runs them on every candidate. The real workflow additionally queries GitHub for the
+configured environment, exact current main commit, named successful checks and durable review
+issue/comment before any build or registry write. It downloads the exact four native-workflow
+artifacts for that SHA while their seven-day retention is active and rechecks archive checksums,
+source/RID evidence and every artifact qualification result. A successful unit test does not
+substitute for configuring and approving the protected environment or completing the human review
+record.
+
 Coverage may be collected with:
 
 ```bash

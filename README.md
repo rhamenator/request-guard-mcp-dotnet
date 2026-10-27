@@ -194,10 +194,26 @@ No existing archive is overwritten. To update release locks intentionally, revie
 SDK/package changes, run `dotnet restore src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj
 -p:ReleaseBundle=true`, review all five release lock files and rerun qualification.
 
-The Native Bundle Qualification workflow builds and tests fresh extractions on matching
+The Native Bundle Qualification workflow builds `VersionPrefix` candidates and tests fresh extractions on matching
 Linux, Windows, Intel macOS and arm64 macOS runners. Its seven-day Actions artifacts are
 development candidates with exact archive checksum/source records; this does not publish
 a stable release or `latest`. See [verification](docs/VERIFICATION.md) for scope and commands.
+
+## Stable release gate
+
+Stable publication is manual and disabled until the repository owner configures the
+`stable-release` GitHub environment exactly as described in
+[the release-readiness review](docs/RELEASE-READINESS-REVIEW.md). The workflow accepts only
+a stable `MAJOR.MINOR.PATCH` matching `VersionPrefix`, only from the exact current protected
+`main` commit, and only after every named current-candidate CI, security, Redis and four-platform
+native job succeeds. It also requires a closed durable review issue and an exact approval comment
+from a configured reviewer other than the person who started the workflow. Development native
+artifacts remain private Actions candidates and never update the stable `latest` container tag.
+
+The stable workflow downloads the exact four platform-qualified bundles, verifies their reports
+and checksums, runs the baseline and container smoke/scan,
+rejects an existing tag/release/container version, then publishes the immutable version, `latest`
+and GitHub release. It cannot be used for prereleases. No stable release has been published.
 
 ## Development
 
