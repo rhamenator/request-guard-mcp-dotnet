@@ -144,6 +144,8 @@ def main():
         asyncio.run(check_sdk(args.url))
         return
     dll = args.dotnet_dll.resolve()
+    if not dll.is_file():
+        parser.error(f'build the host first; DLL not found: {dll}')
     with socket.socket() as reservation:
         reservation.bind(('127.0.0.1', 0))
         port = reservation.getsockname()[1]

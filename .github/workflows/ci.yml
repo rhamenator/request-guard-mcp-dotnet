@@ -54,6 +54,7 @@ jobs:
         run: python3 -m unittest discover -s tests/parity -p test_contract_envelopes.py
       - name: Official MCP SDK and running-build protocol contract
         run: |
+          dotnet build src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj --configuration Release --no-restore
           python3 -m venv /tmp/mcp-sdk
           /tmp/mcp-sdk/bin/pip install -r tests/protocol/requirements.txt
           /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
