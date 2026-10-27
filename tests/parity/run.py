@@ -56,7 +56,7 @@ def clean_environment() -> dict[str, str]:
 
 class Pair:
     def __init__(self, rust_binary: pathlib.Path, dotnet_dll: pathlib.Path, workdir: pathlib.Path, common: dict[str, str], rust_only: dict[str, str] | None = None, dotnet_only: dict[str, str] | None = None):
-        base = clean_environment()
+        base = {**clean_environment(), "MCP__HOST": "127.0.0.1"}
         rust_environment = {**base, **common, **(rust_only or {}), "MCP__PORT": str(RUST_PORT), "RUST_LOG": "error"}
         dotnet_environment = {**base, **common, **(dotnet_only or {}), "MCP__PORT": str(DOTNET_PORT)}
         self.logs: list[object] = []

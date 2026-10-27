@@ -53,9 +53,34 @@ checks 16 invalid envelopes and invalid JSON over HTTP and WebSocket, ignored me
 recovery and authenticated GET405. xUnit covers parser and lifecycle cases. CI runs both.
 
 Scope: JSON-response HTTP and custom WebSocket; this is not full Streamable HTTP compliance.
-HTTP negotiation/origin handling, stateful sessions, SSE and OAuth discovery are not
-established by this qualification. Pinned SDK packages are test-only and not shipped with the
+Stateful sessions, SSE and OAuth discovery are not implemented. Negotiation/origin
+handling is separately exercised below. Pinned SDK packages are test-only and not shipped with the
 server. Requalification is required after SDK/dependency or transport changes.
+
+## HTTP negotiation, authentication and origins
+
+The protocol runner additionally checks 17 real HTTP negotiation/auth/origin cases,
+including duplicate headers, content-type/charset, positive-quality Accept, protocol
+version, malformed/unknown tokens, default-denied origins and valid-request recovery.
+Run it both without an origin allowlist and with process configuration:
+
+```bash
+/tmp/request-guard-sdk/bin/python tests/protocol/run.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll \
+  --allowed-origin https://client.test
+```
+
+`HttpProfileTests` starts actual loopback Kestrel listeners, verifies the HTTP and WS
+origin boundary, duplicate Authorization rejection, allowed-origin authentication and
+negotiation status codes. Parser/configuration tests cover malformed tokens/origins,
+case/default-port normalization and fail-fast configuration. The incomplete-body socket
+test includes valid negotiation headers so it still exercises the 408 body deadline.
+All repository clients/examples now send the required Accept header. The historical
+pair runner explicitly binds both servers to loopback, rather than hiding the changed
+.NET default through payload normalization; a default-configuration test checks it. Missing protocol
+version is an explicit legacy/initialization compatibility path, not implicit support
+for every MCP revision. Reverse proxy/IIS, TLS/ALPN and broader browser clients remain
+separate qualification work in #25.
 
 ## Process-local stdio qualification
 

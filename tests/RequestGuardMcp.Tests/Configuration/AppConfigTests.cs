@@ -5,6 +5,9 @@ namespace RequestGuardMcp.Tests.Configuration;
 public class AppConfigTests
 {
     [Fact]
+    public void NativeDefaultListenerIsLoopback() => Assert.Equal("127.0.0.1", new AppConfig().Host);
+
+    [Fact]
     public void DefaultConfigWithAuthEnabledAndNoTokensFailsValidation()
     {
         var config = new AppConfig();

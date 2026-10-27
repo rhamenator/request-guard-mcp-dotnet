@@ -100,3 +100,14 @@ binary on matching operating systems before a platform claim. `ReleaseBundle`, r
 locks, `native_bundle.py`, `qualify_bundle.py`, `lock_negative.py` and `native.yml` map this
 requirement to build/provenance, negative-control and real-client evidence. No stable
 publication or signing/installer qualification is implied.
+
+DR-013: Before body dispatch, enforce UTF-8 JSON content-type, explicit acceptable JSON/SSE
+response types and supported present protocol version. Reject repeated/malformed Bearer
+headers, compare all allowed tokens with fixed-time comparison, and validate every present
+HTTP/WS browser Origin against a bare-origin allowlist even when auth is disabled. Empty
+allowlists deny every present Origin; missing Origin supports machine clients. Default
+native binding is loopback. `BearerToken`, `HttpOrigin`, `OriginPolicy`, `HttpProfile`,
+configuration validation and `McpEndpoints` implement this boundary. Auth/origin unit tests,
+real Kestrel `HttpProfileTests` and `tests/protocol/run.py` (default and explicitly configured
+origins) verify rejection, legitimate traffic and recovery before SDK calls. Missing protocol
+version remains an intentional direct-client/initialization compatibility extension.

@@ -5,7 +5,10 @@
 - `/health`: liveness and component status.
 - `/ready`: HTTP 200 only when capacity and configured dependencies are healthy.
 - `/metrics`: Prometheus text (path is configurable).
-- `/mcp`: authenticated HTTP POST or WebSocket JSON-RPC.
+- `/mcp`: authenticated JSON HTTP POST or WebSocket JSON-RPC. POST requires JSON UTF-8
+  content-type and Accept listing application/json plus text/event-stream. Present protocol
+  version must be2025-06-18. Browser Origin is denied unless configured in auth.allowed_origins.
+  See README for exact configuration and migration; origin permission never replaces a token.
 
 ## Common failures
 

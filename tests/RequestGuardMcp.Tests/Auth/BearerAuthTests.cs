@@ -80,4 +80,33 @@ public class BearerAuthTests
 
         Assert.StartsWith("caller:", scope, StringComparison.Ordinal);
     }
+    [Theory]
+    [InlineData("BEARER test-token-abc")]
+    [InlineData("bEaReR  test-token-abc")]
+    public void SchemeIsCaseInsensitiveAndAcceptsSpaces(string value) =>
+        Assert.StartsWith("caller:", BearerAuth.AuthenticatedCacheScope(AuthHeader(value), ["test-token-abc"]), StringComparison.Ordinal);
+
+    [Theory]
+    [InlineData("Bearer ")]
+    [InlineData("Bearer test token")]
+    [InlineData("Bearer test-token-abc, Bearer other")]
+    [InlineData("Bearer test-token-abc\t")]
+    [InlineData("Bearer tést")]
+    [InlineData("Bearer =")]
+    [InlineData("Bearer a=b")]
+    [InlineData("Bearer\ttest-token-abc")]
+    public void MalformedBearerHeadersAreUnauthenticated(string value)
+    {
+        var error = Assert.Throws<AppErrorException>(() => BearerAuth.AuthenticatedCacheScope(AuthHeader(value), ["test-token-abc"]));
+        Assert.Equal(AppErrorKind.Unauthenticated, error.Kind);
+    }
+
+    [Fact]
+    public void RepeatedAuthorizationIsRejectedInsteadOfSelectingFirst()
+    {
+        var headers = new HeaderDictionary { ["Authorization"] = new Microsoft.Extensions.Primitives.StringValues(["Bearer test-token-abc", "Bearer other"]) };
+        var error = Assert.Throws<AppErrorException>(() => BearerAuth.AuthenticatedCacheScope(headers, ["test-token-abc"]));
+        Assert.Equal(AppErrorKind.Unauthenticated, error.Kind);
+    }
+
 }

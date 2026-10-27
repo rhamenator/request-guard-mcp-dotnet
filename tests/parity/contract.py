@@ -142,7 +142,7 @@ def normalize_payload(value: Any) -> Any:
 
 
 def request(url: str, payload: bytes, token: str | None = None) -> tuple[int, bytes, dict[str, str]]:
-    headers = {"content-type": "application/json"}
+    headers = {"content-type": "application/json", "Accept": "application/json, text/event-stream"}
     if token is not None:
         headers["authorization"] = f"Bearer {token}"
     req = urllib.request.Request(f"{url}/mcp", payload, headers, method="POST")

@@ -44,7 +44,7 @@ def main():
             if error.code != 401:
                 raise
         request = urllib.request.Request(f"{base}/mcp", payload, headers={
-            "Content-Type": "application/json", "Authorization": f"Bearer {TOKEN}"})
+            "Content-Type": "application/json", "Accept": "application/json, text/event-stream", "Authorization": f"Bearer {TOKEN}"})
         with urllib.request.urlopen(request, timeout=5) as response:
             envelope = json.load(response)
         if envelope.get("error") is not None:

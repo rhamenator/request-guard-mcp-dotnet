@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using RequestGuardMcp.Core.Errors;
+using RequestGuardMcp.Core.Util;
 
 namespace RequestGuardMcp.Mcp.Auth;
 
@@ -28,7 +29,7 @@ public static class BearerAuth
     /// </summary>
     public static string AuthenticatedCacheScope(IHeaderDictionary headers, IReadOnlyList<string> allowed, byte[]? hmacKey = null)
     {
-        if (!headers.TryGetValue("Authorization", out var authValues) || authValues.Count == 0)
+        if (!headers.TryGetValue("Authorization", out var authValues) || authValues.Count != 1)
         {
             throw AppErrorException.Unauthenticated();
         }
@@ -39,28 +40,31 @@ public static class BearerAuth
             throw AppErrorException.Unauthenticated();
         }
 
-        string? token = null;
-        if (authHeader.StartsWith("Bearer ", StringComparison.Ordinal))
-        {
-            token = authHeader["Bearer ".Length..];
-        }
-        else if (authHeader.StartsWith("bearer ", StringComparison.Ordinal))
-        {
-            token = authHeader["bearer ".Length..];
-        }
-
-        if (token is null)
+        if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
             throw AppErrorException.Unauthenticated();
         }
 
-        if (!allowed.Contains(token, StringComparer.Ordinal))
+        var token = authHeader["Bearer".Length..].TrimStart(' ');
+        if (!BearerToken.IsValid(token))
+        {
+            throw AppErrorException.Unauthenticated();
+        }
+
+        var tokenBytes = Encoding.UTF8.GetBytes(token);
+        var matched = false;
+        foreach (var candidate in allowed)
+        {
+            matched |= CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(candidate), tokenBytes);
+        }
+
+        if (!matched)
         {
             throw AppErrorException.Forbidden();
         }
 
         var key = hmacKey ?? EphemeralScopeKey.Value;
-        var digest = Convert.ToHexStringLower(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(token)));
+        var digest = Convert.ToHexStringLower(HMACSHA256.HashData(key, tokenBytes));
         return $"caller:{digest}";
     }
 }

@@ -71,6 +71,12 @@ public static class McpEndpoints
             return;
         }
 
+        if (HttpProfile.RejectStatus(context.Request) is { } rejected)
+        {
+            context.Response.StatusCode = rejected;
+            return;
+        }
+
         string text;
         using var bodyDeadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
         bodyDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.HttpBodyTimeoutSecs));
@@ -139,6 +145,8 @@ public static class McpEndpoints
 
     private static string Authorize(HttpContext context, AppState state)
     {
+        OriginPolicy.Validate(context.Request.Headers, state.Config.Auth.AllowedOrigins);
+
         if (!state.Config.Auth.Enabled)
         {
             return "public";
@@ -153,6 +161,10 @@ public static class McpEndpoints
     private static Task WriteErrorAsync(HttpContext context, AppErrorException error)
     {
         context.Response.StatusCode = error.StatusCode;
+        if (error.StatusCode == StatusCodes.Status401Unauthorized)
+        {
+            context.Response.Headers.WWWAuthenticate = "Bearer";
+        }
         return context.Response.WriteAsync(error.Code, context.RequestAborted);
     }
 }
