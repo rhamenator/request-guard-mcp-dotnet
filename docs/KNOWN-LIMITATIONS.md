@@ -46,3 +46,11 @@ and native code signing are not provided. The native qualification workflow exer
 fresh portable extraction and SDK clients on matching hosted runners; backend TLS and
 real service/installer deployment are separate gates. Development Actions artifacts are
 not stable releases. File/archive checksums establish consistency, not signed provenance.
+
+HTTP POST now requires UTF-8 application/json and explicit positive-quality
+application/json plus text/event-stream in Accept, although responses remain JSON-only.
+A present MCP-Protocol-Version must be 2025-06-18; absence is retained for initialization
+and legacy direct callers. Default native binding is loopback. Present browser origins
+are denied unless explicitly allowed; this policy does not implement CORS or OAuth.
+These intentional differences from the August Rust pin are covered by dedicated tests;
+the historical differential clients send the new headers and still compare tool payloads.

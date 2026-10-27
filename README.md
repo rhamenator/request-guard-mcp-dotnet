@@ -14,8 +14,8 @@ Compatibility evidence currently targets an August 2026 Rust revision, not curre
 v0.1.5. Current parity work and unverified gaps are tracked in the
 [parity matrix](docs/PARITY-MATRIX.md). The `2025-06-18` lifecycle methods (`initialize`, `ping`, `tools/list`, `tools/call`)
 work alongside direct HTTP/WebSocket JSON-RPC calls. The pinned official Python SDK
-qualifies the JSON-response HTTP path and process-local `--stdio`. Full HTTP negotiation,
-browser-origin policy, SSE, sessions and OAuth discovery remain unqualified.
+qualifies the JSON-response HTTP path and process-local `--stdio`. Negotiation/auth/origin
+checks are exercised separately. SSE, sessions and OAuth discovery are not implemented.
 No stable .NET release has been published.
 
 The .NET port implements all 23 sibling Rust tool contracts, HTTP/WebSocket JSON-RPC transports,
@@ -40,12 +40,17 @@ cp .env.example .env
 dotnet run --project src/RequestGuardMcp.Host
 curl http://localhost:8085/health
 curl -H "Authorization: Bearer your-strong-token" -X POST http://localhost:8085/mcp \
-  -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"classify","params":{"user_agent":"GPTBot/1.0","path":"/"}}'
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","id":1,"method":"classify","params":{"user_agent":"GPTBot/1.0","path":"/"}}'
 ```
 
 ### Standard MCP calls
 
-Send authenticated POST requests to `/mcp` with `Content-Type: application/json`.
+Send authenticated POST requests to `/mcp` with `Content-Type: application/json` (UTF-8)
+and `Accept: application/json, text/event-stream`. Unsupported media/charset returns 415;
+missing/unacceptable Accept returns 406. After negotiation, send
+`MCP-Protocol-Version: 2025-06-18`; a present unsupported, empty or repeated version returns
+400. Missing version remains a compatibility path for initialization and existing direct
+clients. Responses are JSON only; no SSE stream or server-side session is created.
 `initialize` counteroffers `2025-06-18`; `tools/list` returns 23 sorted definitions and
 input schemas. For example, after initialization:
 
@@ -68,6 +73,33 @@ envelope fields must update. Tool payload null fields are unchanged.
 
 Reproduce the SDK and transport contract with the commands in
 [verification](docs/VERIFICATION.md). No .NET companion skill is distributed in this repository.
+
+### HTTP authentication and browser origins
+
+The native/default listener binds `127.0.0.1`; set `MCP__HOST=0.0.0.0` explicitly for a
+remote service. Container and Kubernetes examples retain explicit all-interface binding.
+Use TLS termination and restrict direct service access for remote Bearer traffic.
+
+One Authorization header is required when auth is enabled. The Bearer scheme is case
+insensitive; tokens are case sensitive and use RFC6750's ASCII token alphabet (letters,
+digits, `-._~+/`, optional trailing `=`). Repeated or malformed headers return 401 with a
+Bearer challenge; a well-formed unknown token returns 403. Malformed configured tokens
+fail startup. Token bytes are compared with `FixedTimeEquals`; caller HMAC scopes are unchanged.
+
+HTTP POST and WebSocket upgrades validate any present Origin even when auth is disabled.
+The default empty allowlist rejects every present Origin with 403; machine clients may
+omit Origin. To allow a specific browser origin, configure for example:
+
+```bash
+MCP__AUTH__ALLOWED_ORIGINS__0=https://client.example
+```
+
+Entries must be bare HTTP(S) origins, with no slash/path, query, fragment, userinfo or
+wildcard. Scheme/host case and default ports are normalized; other schemes/ports/hosts
+remain distinct. Repeated, malformed and opaque `Origin: null` values are rejected.
+An allowed origin still requires Bearer authentication. Origin checking does not enable
+CORS, implement OAuth discovery or replace authentication; proxies must preserve the
+original Origin.
 
 ### Process-local stdio
 

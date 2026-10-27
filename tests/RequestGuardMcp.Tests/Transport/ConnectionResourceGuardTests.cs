@@ -167,7 +167,7 @@ public class ConnectionResourceGuardTests
         using var client = new TcpClient();
         await client.ConnectAsync(IPAddress.Loopback, host.Port);
         await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes(
-            "POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{"));
+            "POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{"));
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(6));
         var buffer = new byte[4096];
         var read = await client.GetStream().ReadAsync(buffer, deadline.Token);

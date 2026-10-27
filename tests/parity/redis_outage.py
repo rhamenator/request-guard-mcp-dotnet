@@ -71,7 +71,7 @@ def main():
         payload = {"jsonrpc": "2.0", "id": counter, "method": "classify", "params": {
             "user_agent": "GPTBot/1.0", "path": path_override or f"/outage/{stage}/{counter}", "request_id": request_id}}
         request = urllib.request.Request(f"{base}/mcp", json.dumps(payload).encode(), headers={
-            "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+            "Authorization": f"Bearer {token}", "Content-Type": "application/json", "Accept": "application/json, text/event-stream"})
         started = time.monotonic()
         with urllib.request.urlopen(request, timeout=8) as response:
             value = json.load(response)

@@ -7,7 +7,7 @@ namespace RequestGuardMcp.Core.Configuration;
 /// </summary>
 public sealed class AppConfig
 {
-    public string Host { get; set; } = "0.0.0.0";
+    public string Host { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 8085;
     public AuthConfig Auth { get; set; } = new();
     public LimitsConfig Limits { get; set; } = new();
@@ -43,12 +43,17 @@ public sealed class AppConfig
             }
 
             if (Auth.Tokens.Any(token =>
-                    string.IsNullOrWhiteSpace(token) ||
+                    !BearerToken.IsValid(token) ||
                     token.Equals("replace_me", StringComparison.OrdinalIgnoreCase) ||
                     token.Equals("replace_me_with_a_strong_token", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ConfigValidationException("AUTH_TOKENS contains an empty or placeholder token");
+                throw new ConfigValidationException("AUTH_TOKENS contains a malformed or placeholder Bearer token");
             }
+        }
+
+        if (Auth.AllowedOrigins.Any(origin => HttpOrigin.Normalize(origin) is null))
+        {
+            throw new ConfigValidationException("auth.allowed_origins must contain bare HTTP(S) origins without paths, userinfo or wildcards");
         }
 
         ValidateSecretLength(Auth.CacheScopeHmacKey, "CACHE_SCOPE_HMAC_KEY");
@@ -158,6 +163,9 @@ public sealed class AuthConfig
     /// tokens. Leave unset to use a process-local random key.
     /// </summary>
     public string? CacheScopeHmacKey { get; set; }
+
+    /// <summary>Exact browser origins allowed for HTTP and WebSocket; empty rejects every present Origin.</summary>
+    public List<string> AllowedOrigins { get; set; } = [];
 }
 
 public sealed class LimitsConfig

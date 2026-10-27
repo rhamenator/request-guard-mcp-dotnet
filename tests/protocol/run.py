@@ -4,6 +4,8 @@ import argparse
 import asyncio
 from datetime import timedelta
 import json
+import http.client
+import urllib.parse
 from pathlib import Path
 import socket
 import subprocess
@@ -43,7 +45,7 @@ INVALID = [
 
 def post(url, text):
     request = urllib.request.Request(url + '/mcp', text.encode(), headers={
-        'Content-Type': 'application/json', 'Authorization': f'Bearer {TOKEN}'})
+        'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'Authorization': f'Bearer {TOKEN}'})
     with urllib.request.urlopen(request, timeout=5) as response:
         return response.status, response.read()
 
@@ -83,6 +85,52 @@ def check_envelopes(url):
     except urllib.error.HTTPError as error:
         assert error.code == 405 and error.headers['Allow'] == 'POST', error.code
     print(f'PASS envelope contract: {len(INVALID)} invalid envelopes + syntax error over HTTP and WS; ignored input/recovery; GET405')
+
+
+def check_http_profile(url, allowed_origin=None):
+    parsed = urllib.parse.urlparse(url)
+    payload = b'{"jsonrpc":"2.0","id":1,"method":"ping"}'
+    normal = [('Authorization', f'Bearer {TOKEN}'), ('Content-Type', 'application/json'),
+              ('Accept', 'application/json, text/event-stream')]
+
+    def send(headers):
+        connection = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=5)
+        try:
+            connection.putrequest('POST', '/mcp')
+            for key, value in headers:
+                connection.putheader(key, value)
+            connection.putheader('Content-Length', str(len(payload)))
+            connection.endheaders(payload)
+            response = connection.getresponse()
+            response.read()
+            return response.status
+        finally:
+            connection.close()
+
+    cases = [
+        ([entry for entry in normal if entry[0] != 'Content-Type'], 415),
+        ([(k, 'text/plain' if k == 'Content-Type' else v) for k, v in normal], 415),
+        ([(k, 'application/json; charset=utf-16' if k == 'Content-Type' else v) for k, v in normal], 415),
+        ([entry for entry in normal if entry[0] != 'Accept'], 406),
+        ([(k, 'application/json' if k == 'Accept' else v) for k, v in normal], 406),
+        ([(k, 'application/json, text/event-stream;q=0' if k == 'Accept' else v) for k, v in normal], 406),
+        (normal + [('MCP-Protocol-Version', '2024-11-05')], 400),
+        (normal + [('MCP-Protocol-Version', '2025-06-18'), ('MCP-Protocol-Version', '2025-06-18')], 400),
+        (normal + [('Authorization', f'Bearer {TOKEN}')], 401),
+        ([(k, f'Bearer {TOKEN}, Bearer other' if k == 'Authorization' else v) for k, v in normal], 401),
+        ([(k, 'Bearer wrong-token' if k == 'Authorization' else v) for k, v in normal], 403),
+        (normal + [('Origin', 'https://unlisted.test')], 403),
+        (normal + [('Origin', 'null')], 403),
+        (normal + [('Origin', 'https://client.test'), ('Origin', 'https://client.test')], 403),
+        ([(k, f'bEaReR {TOKEN}' if k == 'Authorization' else v) for k, v in normal], 200),
+        (normal + [('MCP-Protocol-Version', '2025-06-18')], 200),
+        (normal + [('Origin', allowed_origin or 'https://client.test')], 200 if allowed_origin else 403),
+    ]
+    for headers, expected in cases:
+        actual = send(headers)
+        assert actual == expected, (headers, expected, actual)
+    assert send(normal) == 200, 'valid traffic must recover after rejected headers'
+    print(f'PASS HTTP profile: {len(cases)} negotiation/auth/origin cases, recovery; configured origin={bool(allowed_origin)}')
 
 
 async def check_sdk(url):
@@ -139,9 +187,11 @@ def main():
     target.add_argument('--dotnet-dll', type=Path)
     target.add_argument('--binary', type=Path)
     target.add_argument('--url', help='Explicit isolated test server; no host process is started')
+    parser.add_argument('--allowed-origin', help='Configure/test one explicit origin on a spawned host; external URLs must already match')
     args = parser.parse_args()
     if args.url:
         check_envelopes(args.url)
+        check_http_profile(args.url, args.allowed_origin)
         asyncio.run(check_sdk(args.url))
         return
     executable = (args.binary or args.dotnet_dll).resolve()
@@ -155,6 +205,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='dotnet-protocol-') as directory:
         environment = {**clean_environment(), 'MCP__HOST': '127.0.0.1', 'MCP__PORT': str(port),
                        'AUTH_TOKENS': TOKEN, 'CACHE_SCOPE_HMAC_KEY': 'synthetic-protocol-cache-scope-key-32-bytes'}
+        if args.allowed_origin:
+            environment['MCP__AUTH__ALLOWED_ORIGINS__0'] = args.allowed_origin
         with open(Path(directory) / 'server.log', 'w+') as log:
             process = subprocess.Popen(command, cwd=directory, env=environment, stdout=log, stderr=subprocess.STDOUT)
             try:
@@ -170,6 +222,7 @@ def main():
                             raise TimeoutError('server startup')
                         time.sleep(0.1)
                 check_envelopes(url)
+                check_http_profile(url, args.allowed_origin)
                 asyncio.run(check_sdk(url))
             except BaseException:
                 log.seek(0)
