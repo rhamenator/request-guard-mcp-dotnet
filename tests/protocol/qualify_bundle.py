@@ -52,8 +52,10 @@ def main():
         environment = {**os.environ, 'DOTNET_ROOT': str(target / 'no-runtime'), 'DOTNET_ROOT_X64': str(target / 'no-runtime'),
                        'DOTNET_ROOT_ARM64': str(target / 'no-runtime'), 'DOTNET_MULTILEVEL_LOOKUP': '0'}
         checks = {}
-        for name, runner in [('http_ws_sdk', 'protocol'), ('stdio_sdk_process', 'stdio')]:
-            completed = subprocess.run([sys.executable, str(ROOT / 'tests' / runner / 'run.py'), '--binary', str(executable)],
+        for name, runner, extra in [('http_ws_sdk', 'protocol', []),
+                                    ('configured_origin_sdk', 'protocol', ['--allowed-origin', 'https://client.test']),
+                                    ('stdio_sdk_process', 'stdio', [])]:
+            completed = subprocess.run([sys.executable, str(ROOT / 'tests' / runner / 'run.py'), '--binary', str(executable), *extra],
                                        env=environment, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
             print(completed.stdout, end='')
             assert completed.returncode == 0, (name, completed.stdout)
