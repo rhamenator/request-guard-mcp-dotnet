@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Prove native locked restore rejects a changed dependency before publication."""
+import json
 from pathlib import Path
 import subprocess
 import tarfile
@@ -7,6 +8,15 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
+for path in (ROOT / 'src').glob('*/packages.release.lock.json'):
+    release = json.loads(path.read_text())['dependencies']
+    normal = json.loads(path.with_name('packages.lock.json').read_text())['dependencies']['net10.0']
+    assert set(release) == {'net10.0', 'net10.0/linux-x64', 'net10.0/win-x64', 'net10.0/osx-x64', 'net10.0/osx-arm64'}
+    packages = dict(release['net10.0'])
+    linker = packages.pop('Microsoft.NET.ILLink.Tasks')
+    assert linker['resolved'] and linker['contentHash']
+    assert packages == normal, f'release/normal package graphs drifted: {path}'
+print('PASS native lock inventory: four RIDs; existing packages/hashes unchanged; single-file task pinned')
 with tempfile.TemporaryDirectory(prefix='native-lock-negative-') as directory:
     work = Path(directory)
     archive = work / 'tracked.tar'
