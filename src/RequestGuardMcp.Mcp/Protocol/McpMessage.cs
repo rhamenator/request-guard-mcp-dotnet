@@ -17,6 +17,8 @@ public abstract record IncomingMcpMessage
     public sealed record Ignorable : IncomingMcpMessage;
 
     public sealed record ParseError : IncomingMcpMessage;
+
+    public sealed record InvalidRequest : IncomingMcpMessage;
 }
 
 /// <summary>The JSON-RPC error payload embedded in a response. Ports src/mcp/protocol.rs's <c>McpError</c>.</summary>
@@ -33,6 +35,12 @@ public static class McpMessage
         JsonNode? node;
         try
         {
+            using var document = System.Text.Json.JsonDocument.Parse(text);
+            if (HasDuplicateProperties(document.RootElement))
+            {
+                return new IncomingMcpMessage.InvalidRequest();
+            }
+
             node = JsonNode.Parse(text);
         }
         catch (System.Text.Json.JsonException)
@@ -40,30 +48,81 @@ public static class McpMessage
             return new IncomingMcpMessage.ParseError();
         }
 
-        if (node is not JsonObject obj)
+        if (node is not JsonObject obj || !IsString(obj["jsonrpc"], "2.0"))
         {
-            return new IncomingMcpMessage.ParseError();
+            return new IncomingMcpMessage.InvalidRequest();
         }
 
-        var hasMethod = obj.TryGetPropertyValue("method", out var methodNode) && methodNode is not null;
+        var hasMethod = obj.TryGetPropertyValue("method", out var methodNode);
         var hasId = obj.TryGetPropertyValue("id", out var idNode);
-
-        if (!hasMethod)
+        var hasResult = obj.ContainsKey("result");
+        var hasError = obj.ContainsKey("error");
+        if (hasMethod)
         {
-            // No "method": this is a response (or malformed). Either way, ignore it.
-            return new IncomingMcpMessage.Ignorable();
+            if (methodNode is not JsonValue methodValue || !methodValue.TryGetValue<string>(out var method)
+                || hasResult || hasError || (hasId && !IsId(idNode))
+                || (obj.ContainsKey("params") && obj["params"] is not JsonObject))
+            {
+                return new IncomingMcpMessage.InvalidRequest();
+            }
+
+            return hasId
+                ? new IncomingMcpMessage.Request(idNode, method, obj["params"])
+                : new IncomingMcpMessage.Ignorable();
         }
 
-        var method = methodNode!.GetValue<string>();
-
-        if (!hasId)
+        // Accept only well-formed responses. This server issues no client requests, so
+        // valid unsolicited responses are discarded without dispatch or side effects.
+        if (!hasId || (!IsId(idNode) && !(idNode is null && hasError)) || hasResult == hasError
+            || obj.ContainsKey("params"))
         {
-            // A "method" with no "id" is a one-way notification: ignore it.
-            return new IncomingMcpMessage.Ignorable();
+            return new IncomingMcpMessage.InvalidRequest();
         }
 
-        obj.TryGetPropertyValue("params", out var paramsNode);
-        return new IncomingMcpMessage.Request(idNode, method, paramsNode);
+        if (hasResult && obj["result"] is not JsonObject)
+        {
+            return new IncomingMcpMessage.InvalidRequest();
+        }
+
+        if (hasError && (obj["error"] is not JsonObject error || !IsInteger(error["code"])
+            || error["message"] is not JsonValue message || !message.TryGetValue<string>(out _)))
+        {
+            return new IncomingMcpMessage.InvalidRequest();
+        }
+
+        return new IncomingMcpMessage.Ignorable();
+    }
+
+    private static bool IsString(JsonNode? node, string expected) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) && text == expected;
+
+    private static bool IsId(JsonNode? node) =>
+        node is JsonValue value && (value.TryGetValue<string>(out _) || IsInteger(node));
+
+    private static bool IsInteger(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<System.Text.Json.JsonElement>(out var element)
+            && element.ValueKind == System.Text.Json.JsonValueKind.Number
+            && element.GetRawText().All(character => character is '-' or >= '0' and <= '9');
+
+    private static bool HasDuplicateProperties(System.Text.Json.JsonElement element)
+    {
+        if (element.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name) || HasDuplicateProperties(property.Value))
+                {
+                    return true;
+                }
+            }
+        }
+        else if (element.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            return element.EnumerateArray().Any(HasDuplicateProperties);
+        }
+
+        return false;
     }
 
     public static string Success(JsonNode? id, JsonNode? result) =>
@@ -81,11 +140,21 @@ public static class McpMessage
         {
             ["jsonrpc"] = "2.0",
             ["id"] = id?.DeepClone(),
-            ["result"] = error is null ? result?.DeepClone() : null,
-            ["error"] = error is null
-                ? null
-                : System.Text.Json.JsonSerializer.SerializeToNode(error, McpJson.Options),
         };
+        if (error is null)
+        {
+            envelope["result"] = result?.DeepClone();
+        }
+        else
+        {
+            var payload = new JsonObject { ["code"] = error.Code, ["message"] = error.Message };
+            if (error.Data is not null)
+            {
+                payload["data"] = error.Data.DeepClone();
+            }
+
+            envelope["error"] = payload;
+        }
 
         return envelope.ToJsonString(McpJson.Options);
     }

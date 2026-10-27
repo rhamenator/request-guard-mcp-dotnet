@@ -36,3 +36,6 @@ Thumbs.db
 
 # Kubernetes secrets rendered from the example (never commit real credentials)
 deploy/k8s/secret.yaml
+
+# Python qualification runners
+__pycache__/

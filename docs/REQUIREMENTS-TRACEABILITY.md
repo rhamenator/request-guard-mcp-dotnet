@@ -5,7 +5,7 @@ assurance process. It is engineering evidence, not a claim of certification or a
 
 | ID | Verifiable requirement | Design / implementation | Verification evidence |
 |---|---|---|---|
-| HLR-001 | Accept JSON-RPC 2.0 over HTTP POST and WebSocket at `/mcp`, including strict UTF-8 and Rust-compatible null fields. | `McpEndpoints`, `WebSocketConnectionHandler`, `McpDispatcher`, `McpMessage` | `McpMessageTests`, `McpDispatcherTests`, differential core transport phase |
+| HLR-001 | Accept JSON-RPC 2.0 over HTTP POST and WebSocket at `/mcp`, including strict UTF-8, validated MCP envelopes and exclusive result/error fields. | `McpEndpoints`, `WebSocketConnectionHandler`, `McpDispatcher`, `McpMessage` | `McpMessageTests`, `McpDispatcherTests`, differential core transport phase |
 | HLR-002 | Require a configured Bearer token before MCP dispatch. | `BearerAuth`, `McpEndpoints.Authorize` | `BearerAuthTests`, differential HTTP/WebSocket auth phase |
 | HLR-003 | Bound request bytes, concurrent work (reject saturation without queueing), batch size, and execution time. | `McpDispatcher`, `BatchClassifyTool`, `AppConfig.Limits` | `McpDispatcherTests`, `Phase3ToolsEndToEndTests`, `AppConfigTests`, database-lock timeout differential |
 | HLR-004 | Provide all 23 request-guard-mcp tool contracts. | `ToolRegistryFactory`, `RequestGuardMcp.Tools` | `CompleteRegistryTests.FactoryRegistersAllTwentyThreeContracts`, all-tool differential phase |
@@ -73,3 +73,15 @@ cancellation in either phase. `tests/parity/redis_outage.py` is the running-back
 including negative control, cold keys, expected output, three-sample latency distributions,
 actual Redis cache-read proof, fresh recovered writes and resource cleanup. See
 `REDIS-OUTAGE-QUALIFICATION.md` for commands, scope and exact evidence requirements.
+
+## MCP lifecycle follow-up (issue #24)
+
+DR-010: Validate the 2025-06-18 envelope before side effects. Reject malformed envelopes
+with -32600, distinguish invalid JSON (-32700), preserve string/integer IDs, ignore
+valid notifications/responses, and omit the unused response branch. Implement initialize,
+ping, sorted tool definitions/schemas and named standard calls using the same scoped,
+bounded dispatch as direct methods. `McpMessageTests`, `McpLifecycleTests` and
+`tests/protocol/run.py` trace these behaviors through unit, real HTTP/WebSocket and official
+Python SDK evidence. The historical envelope migration is explicit in `contract.py` and
+`test_contract_envelopes.py`; the historical Rust pin is unchanged. Full HTTP negotiation
+and stdio remain tracked by #24.

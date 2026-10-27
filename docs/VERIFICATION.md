@@ -21,13 +21,41 @@ make parity-integration
 ```
 
 `tests/parity/rust-baseline.txt` is the reviewed contract revision. The runner compares complete
-JSON values while normalizing only generated IDs/times/latencies, server ports, and language build
-metadata. Its core phase covers every one of the 23 tools, malformed/missing input, disabled
+tool payloads and error codes while normalizing generated IDs/times/latencies, server ports,
+and language build metadata. The historical Rust pin's redundant null envelope members are
+an explicit baseline-only migration exception: .NET must omit the unused branch. The runner
+also expects historical Rust notification 204 versus .NET 202. Regression tests ensure this
+exception cannot hide a candidate emitting both branches or discard application null fields. Its core phase covers every one of the 23 tools, malformed/missing input, disabled
 features, HTTP and text/binary WebSocket transport, strict UTF-8, auth, TLS attestation, and all six
 Rust config formats plus YAML's `.yml` alias and dotenv. The integration phase launches pinned
 Redis/PostgreSQL containers, downloads checksum-pinned Apache-licensed MaxMind upstream fixtures,
 tests persistence/replay/reports/reputation/canaries/queues, verifies two caller cache scopes, and
 forces a PostgreSQL lock to prove the tool deadline.
+
+## MCP lifecycle and envelope qualification
+
+```bash
+python3 -m venv /tmp/request-guard-sdk
+/tmp/request-guard-sdk/bin/pip install -r tests/protocol/requirements.txt
+dotnet build RequestGuardMcp.slnx --configuration Release
+/tmp/request-guard-sdk/bin/python tests/protocol/run.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
+python3 -m unittest discover -s tests/parity -p test_contract_envelopes.py
+```
+
+The runner starts a fresh loopback-only build with synthetic authentication, a temporary
+working directory and no configured backends. It terminates the host even on failure. The
+version-pinned official Python SDK `mcp==1.30.0` and pinned transitive dependencies qualify
+initialization/version counteroffer, initialized notification, ping, 23 JSON Schemas and one
+representative standard call for every tool. Calls are compared to direct contracts, including
+truthful errors for unavailable backends and unchanged application error codes. It separately
+checks 16 invalid envelopes and invalid JSON over HTTP and WebSocket, ignored messages,
+recovery and authenticated GET405. xUnit covers parser and lifecycle cases. CI runs both.
+
+Scope: JSON-response HTTP and custom WebSocket; this is not full Streamable HTTP compliance.
+HTTP negotiation/origin handling, stdio, stateful sessions, SSE and OAuth discovery are not
+established by this qualification. Pinned SDK packages are test-only and not shipped with the
+server. Requalification is required after SDK/dependency or transport changes.
 
 Coverage may be collected with:
 
