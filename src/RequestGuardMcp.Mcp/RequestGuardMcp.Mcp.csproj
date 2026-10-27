@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <EmbeddedResource Include="Registry/tool-schemas.json" />
     <!-- Lets this classlib define ASP.NET Core endpoint handlers (HttpContext, WebSockets)
          without requiring the Microsoft.NET.Sdk.Web SDK, so the executable host stays a thin
          composition root (see src/RequestGuardMcp.Host). -->

@@ -20,8 +20,9 @@ These are explicit scope boundaries, not untracked defects.
 - MaxMind results are only as current and precise as the operator-provided databases. IP location
   must not be treated as an exact physical address.
 
-The historical pinned suite found no behavioral or JSON wire difference within its tested
-23-tool contract. Current Rust has since changed; known gaps and required new evidence are
+The historical pinned suite originally found no behavioral or JSON wire difference within its tested
+23-tool contract. The MCP lifecycle update intentionally changes response envelope omission,
+notification HTTP 202 and GET405; the baseline migration is documented in `VERIFICATION.md`. Current Rust has since changed; known gaps and required new evidence are
 tracked in [PARITY-MATRIX.md](PARITY-MATRIX.md). Any new
 difference is a release blocker unless this document and the requirements/evidence are updated with
 an explicit disposition.

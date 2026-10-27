@@ -1,6 +1,6 @@
 # Rust / .NET parity maintenance matrix
 
-Assessment: 2026-10-22. **Full parity remains unverified.** Tool names, source similarity,
+Assessment: 2026-10-27. **Full parity remains unverified.** Tool names, source similarity,
 and historical test counts are not substitutes for running-build evidence. No stable
 .NET release is published; stable publication still requires owner review.
 
@@ -25,14 +25,14 @@ and historical test counts are not substitutes for running-build evidence. No st
 
 | Area | .NET implementation / evidence | Remaining qualification / issue |
 |---|---|---|
-| Tool surface | All 23 direct inbound tools have the historical differential gate | Official lifecycle definitions/wrappers, current schemas and SDK evidence: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| Tool surface | All 23 direct inbound tools have the historical differential gate | Lifecycle definitions/wrappers, schemas and official Python SDK 1.30.0 are implemented/tested; remaining protocol work: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
 | Classifier | #17 ports scanner boundaries and four-round byte-wise encoded-path rules; 31 expected-outcome running-build cases pass against both scoped Rust refs | Broader adversarial/current-main corpus: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
 | Cache identity | #18 replaces ambiguous delimiter encoding with structured inputs, covering all decision fields and verified TLS | Shared Rust/.NET byte identity, Unicode/numeric edge cases and mixed-runtime prefixes: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
 | Optional cache failure isolation | #30 bounds each read/write at 500 ms, preserves caller cancellation and passes the real-Redis scope below | Scoped work tracked in [#23](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/23); broader lookup/health behavior is not covered |
 | Dispatch admission / telemetry | #20 sheds saturated calls immediately and bounds unknown-method labels before Redis/tracing | Other log/sink/cardinality behavior: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
 | Redis operation records | #22 bounds each start/finish wait at 500 ms and preserves the separate tool execution budget | Not a global response SLA or evidence for every Redis method |
-| JSON-RPC envelopes | Historical permissive parser remains | Current ID/version/params/result/error/notification/response rules over HTTP/WS: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
-| HTTP negotiation | Direct HTTP POST works historically | Content-type/Accept/version negotiation and current notification/405 GET behavior: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| JSON-RPC envelopes | Strict version, ID, params, result/error and notification/response validation; real HTTP/WS negative tests | Broader current-reference qualification: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
+| HTTP negotiation | Direct POST and official SDK JSON-response calls pass; accepted messages return 202, authenticated GET405 | Content-type/Accept/version negotiation: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
 | Auth / browser origin | Historical Bearer/caller-scope tests | Current strict header parsing, allowed origins and configuration: [#25](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/25) |
 | Connections / deadlines | #21 adds shared TCP/upgrade admission, pre-first-request deadline, body timeout and HTTP/2 idle/age/count/drain controls with real socket tests | Same-port cleartext HTTP/2 detection, production-duration endurance, TLS/ALPN, slow consumers and proxies/IIS: [#25](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/25) |
 | WebSocket framing / lifetime | Historical transport checks plus #21 upgrade admission/survival test | New adversarial framing/UTF-8/close/write/idle matrix: [#25](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/25) |
@@ -41,7 +41,7 @@ and historical test counts are not substitutes for running-build evidence. No st
 | Configuration / redaction | Six file formats and dotenv have historical tests; new connection settings exist | Map all current fields/defaults/validation and snapshots; secret redaction: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
 | Containers | #19 patches pinned SDK/runtime and passes non-root/read-only auth/classifier smoke and vulnerability scan | Broader platform/backend TLS and exact-artifact qualification: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
 | Native packaging / installs | Four RIDs in the release workflow; no published .NET assets | Musl/arm64 disposition, archive/provenance checks and fresh installs: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
-| Clients / companion distribution | No equivalent current .NET server client-artifact matrix | Real Inspector/SDK/CLI/ASD tests and .NET-specific installer/skill/npm disposition: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
+| Clients / companion distribution | Pinned official Python SDK exercises lifecycle, schemas and all 23 calls on a running build | Real Inspector/CLI/ASD and packaged-artifact tests and .NET-specific installer/skill/npm disposition: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
 | Release gates | No stable .NET publication performed | Enforce owner-reviewed stable workflow and private/prerelease/latest separation: [#28](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/28) |
 | Outbound egress | Inbound classification only | No outbound egress enforcement is implemented or claimed |
 
@@ -79,7 +79,9 @@ source/artifact identities, commands, failures and explicit dispositions. Keep A
 verification record historical. Stable review, full parity and platform/client claims
 cannot inherit evidence from a different build or the Rust server.
 
-Hosted CI was used throughout this maintenance batch; no local Docker build, backend
-container or VM was started. Coordinate any future shared-host work with the canonical
-Request Guard chat. All remaining matrix rows have tracked issues; full parity remains
+The October 22 maintenance batch used hosted CI. Owner-authorized October 27 local
+qualification additionally passed 179 tests, Docker auth/classification, actual Redis
+pause/stop/recovery, and 40 correct Kali VM client calls on main `481d552`.
+These are scoped functional checks, not router-path or production approval. Further
+shared-host work is coordinated with the canonical Request Guard chat. All remaining matrix rows have tracked issues; full parity remains
 unverified until their applicable gates pass.

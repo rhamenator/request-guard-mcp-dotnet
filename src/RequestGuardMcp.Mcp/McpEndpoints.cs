@@ -46,7 +46,8 @@ public static class McpEndpoints
 
         if (!context.WebSockets.IsWebSocketRequest)
         {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.StatusCode = StatusCodes.Status405MethodNotAllowed;
+            context.Response.Headers.Allow = "POST";
             return;
         }
 
@@ -102,7 +103,7 @@ public static class McpEndpoints
 
         if (response is null)
         {
-            context.Response.StatusCode = StatusCodes.Status204NoContent;
+            context.Response.StatusCode = StatusCodes.Status202Accepted;
             return;
         }
 

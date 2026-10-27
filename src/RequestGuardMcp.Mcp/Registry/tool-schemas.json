@@ -1,0 +1,342 @@
+{
+  "classify": {
+    "type": "object",
+    "properties": {
+      "ip": {
+        "type": "string"
+      },
+      "user_agent": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "method": {
+        "type": "string"
+      },
+      "headers": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "body_snippet": {
+        "type": "string"
+      },
+      "referer": {
+        "type": "string"
+      },
+      "accept": {
+        "type": "string"
+      },
+      "request_id": {
+        "type": "string"
+      },
+      "timestamp": {
+        "type": "string"
+      },
+      "tls_ja3": {
+        "type": "string"
+      },
+      "tls_ja4": {
+        "type": "string"
+      },
+      "tls_fingerprint_source": {
+        "type": "string"
+      },
+      "tls_fingerprint_attestation": {
+        "type": "string"
+      },
+      "extra": {}
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "explain": {
+    "type": "object",
+    "properties": {
+      "classification": {},
+      "format": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "classification"
+    ],
+    "additionalProperties": false
+  },
+  "replay_decision": {
+    "type": "object",
+    "properties": {
+      "request_id": {
+        "type": "string"
+      },
+      "deterministic": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "request_id"
+    ],
+    "additionalProperties": false
+  },
+  "batch_classify": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "options": {
+        "type": "object",
+        "properties": {
+          "fail_fast": {
+            "type": "boolean"
+          },
+          "include_details": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "feedback": {
+    "type": "object",
+    "properties": {
+      "request_id": {
+        "type": "string"
+      },
+      "correct_verdict": {
+        "type": "string"
+      },
+      "notes": {
+        "type": "string"
+      },
+      "reporter": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "request_id",
+      "correct_verdict"
+    ],
+    "additionalProperties": false
+  },
+  "feature_flags": {
+    "type": "object",
+    "properties": {
+      "flag": {
+        "type": "string"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "warmup": {
+    "type": "object",
+    "properties": {
+      "target": {
+        "type": "string"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "redact_preview": {
+    "type": "object",
+    "properties": {
+      "payload": {},
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "payload"
+    ],
+    "additionalProperties": false
+  },
+  "enrich_ip": {
+    "type": "object",
+    "properties": {
+      "ip": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "ip"
+    ],
+    "additionalProperties": false
+  },
+  "enrich_asn": {
+    "type": "object",
+    "properties": {
+      "asn": {
+        "type": "integer"
+      }
+    },
+    "required": [
+      "asn"
+    ],
+    "additionalProperties": false
+  },
+  "enrich_ua": {
+    "type": "object",
+    "properties": {
+      "user_agent": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "user_agent"
+    ],
+    "additionalProperties": false
+  },
+  "threat_lookup": {
+    "type": "object",
+    "properties": {
+      "indicator": {
+        "type": "string"
+      },
+      "type": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "indicator"
+    ],
+    "additionalProperties": false
+  },
+  "canary_eval": {
+    "type": "object",
+    "properties": {
+      "token": {
+        "type": "string"
+      },
+      "context": {}
+    },
+    "required": [
+      "token"
+    ],
+    "additionalProperties": false
+  },
+  "abuse_pattern_match": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string"
+      },
+      "categories": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "text"
+    ],
+    "additionalProperties": false
+  },
+  "score_breakdown": {
+    "type": "object",
+    "properties": {
+      "request_id": {
+        "type": "string"
+      },
+      "signals": {}
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "validate_payload": {
+    "type": "object",
+    "properties": {
+      "tool": {
+        "type": "string"
+      },
+      "payload": {}
+    },
+    "required": [
+      "tool",
+      "payload"
+    ],
+    "additionalProperties": false
+  },
+  "drift_report": {
+    "type": "object",
+    "properties": {
+      "since": {
+        "type": "string"
+      },
+      "window_hours": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "calibration_report": {
+    "type": "object",
+    "properties": {
+      "window_hours": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "queue_status": {
+    "type": "object",
+    "properties": {
+      "queue": {
+        "type": "string"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "config_snapshot": {
+    "type": "object",
+    "properties": {
+      "redact_secrets": {
+        "type": "boolean"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "self_test": {
+    "type": "object",
+    "properties": {
+      "suite": {
+        "type": "string"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "health": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "model_info": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  }
+}

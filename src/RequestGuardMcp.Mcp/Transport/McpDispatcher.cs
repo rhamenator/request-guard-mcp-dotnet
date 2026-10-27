@@ -42,15 +42,61 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             return McpMessage.Error(null, -32700, "Parse error");
         }
 
+        if (parsed is IncomingMcpMessage.InvalidRequest)
+        {
+            return McpMessage.Error(null, -32600, "Invalid Request");
+        }
+
         if (parsed is not IncomingMcpMessage.Request request)
         {
             // Notifications and responses from the client are ignored.
             return null;
         }
 
-        var toolName = request.Method.StartsWith("tools/", StringComparison.Ordinal)
-            ? request.Method["tools/".Length..]
-            : request.Method;
+        switch (request.Method)
+        {
+            case "initialize":
+                if (request.Params?["protocolVersion"] is not JsonValue version || !version.TryGetValue<string>(out _))
+                {
+                    return McpMessage.Error(request.Id, -32602, "initialize requires a protocolVersion string");
+                }
+
+                return McpMessage.Success(request.Id, new JsonObject
+                {
+                    ["protocolVersion"] = "2025-06-18",
+                    ["capabilities"] = new JsonObject { ["tools"] = new JsonObject { ["listChanged"] = false } },
+                    ["serverInfo"] = new JsonObject { ["name"] = "request-guard-mcp-dotnet", ["version"] = state.BuildInfo.Version },
+                });
+            case "ping":
+                return McpMessage.Success(request.Id, new JsonObject());
+            case "tools/list":
+                return McpMessage.Success(request.Id, new JsonObject { ["tools"] = registry.Definitions() });
+        }
+
+        var standardCall = request.Method == "tools/call";
+        string toolName;
+        if (standardCall)
+        {
+            if (request.Params?["name"] is not JsonValue name || !name.TryGetValue<string>(out var value))
+            {
+                return McpMessage.Error(request.Id, -32602, "tools/call requires a tool name");
+            }
+
+            if (request.Params.AsObject().ContainsKey("arguments") && request.Params["arguments"] is not JsonObject)
+            {
+                return McpMessage.Error(request.Id, -32602, "tools/call arguments must be an object");
+            }
+
+            toolName = value;
+        }
+        else
+        {
+            toolName = request.Method.StartsWith("tools/", StringComparison.Ordinal)
+                ? request.Method["tools/".Length..]
+                : request.Method;
+        }
+
+        var toolArguments = standardCall ? request.Params!["arguments"] : request.Params;
         var stopwatch = Stopwatch.StartNew();
         if (!state.Semaphore.Wait(0, cancellationToken))
         {
@@ -98,7 +144,7 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             JsonNode? result;
             try
             {
-                result = await registry.DispatchAsync(state, request, callerScope, linkedCts.Token)
+                result = await registry.DispatchNamedAsync(state, toolName, toolArguments, callerScope, linkedCts.Token)
                     .WaitAsync(linkedCts.Token).ConfigureAwait(false);
             }
             catch (AppErrorException appError)
@@ -142,6 +188,16 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
 
             state.Metrics.Record(toolName, "ok", stopwatch.Elapsed.TotalSeconds);
             activity?.SetStatus(ActivityStatusCode.Ok);
+            if (standardCall)
+            {
+                result = new JsonObject
+                {
+                    ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = result?.ToJsonString() ?? "null" }),
+                    ["structuredContent"] = result,
+                    ["isError"] = false,
+                };
+            }
+
             return McpMessage.Success(request.Id, result);
         }
         finally

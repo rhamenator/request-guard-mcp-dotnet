@@ -50,6 +50,13 @@ jobs:
           global-json-file: global.json
       - run: dotnet restore RequestGuardMcp.slnx --locked-mode
       - run: dotnet test RequestGuardMcp.slnx --configuration Release --no-restore
+      - name: Historical envelope migration regressions
+        run: python3 -m unittest discover -s tests/parity -p test_contract_envelopes.py
+      - name: Official MCP SDK and running-build protocol contract
+        run: |
+          python3 -m venv /tmp/mcp-sdk
+          /tmp/mcp-sdk/bin/pip install -r tests/protocol/requirements.txt
+          /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
 
   audit:
     name: Dependency Audit
