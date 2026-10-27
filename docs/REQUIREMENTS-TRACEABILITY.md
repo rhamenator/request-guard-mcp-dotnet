@@ -111,3 +111,14 @@ configuration validation and `McpEndpoints` implement this boundary. Auth/origin
 real Kestrel `HttpProfileTests` and `tests/protocol/run.py` (default and explicitly configured
 origins) verify rejection, legitimate traffic and recovery before SDK calls. Missing protocol
 version remains an intentional direct-client/initialization compatibility extension.
+
+DR-014: Bound whole-message WebSocket reception (including unfinished/trickled fragments),
+response/close writes and HTTP response writes independently of tool execution. Even an
+I/O implementation ignoring cancellation must stop retaining the handler after its
+observer deadline; abort instead of appending a second response. Answer close output
+without awaiting another peer close, preserve client cancellation, release metrics/TCP
+permits and reject unsupported timer values at startup. `WebSocketConnectionHandler`,
+`McpEndpoints.WriteWithDeadlineAsync`, validated limits, `WebSocketDeadlineTests`,
+`HttpResponseDeadlineTests`, real incomplete-message admission recovery and the running
+protocol/native matrix trace these properties. Production-duration/slow-consumer and
+proxy/TLS evidence remain separately required.

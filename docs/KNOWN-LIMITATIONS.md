@@ -54,3 +54,9 @@ and legacy direct callers. Default native binding is loopback. Present browser o
 are denied unless explicitly allowed; this policy does not implement CORS or OAuth.
 These intentional differences from the August Rust pin are covered by dedicated tests;
 the historical differential clients send the new headers and still compare tool payloads.
+
+WebSocket receive budgets cover an entire message, not individual fragment activity;
+expiry can abort the connection without a graceful peer close. Output deadlines likewise
+abort a stalled HTTP/WS writer rather than returning a second error response. Expiry and
+recovery tests shorten configured WS budgets and use cancellation-ignoring I/O doubles;
+they do not establish default-duration endurance or every real slow-consumer/proxy case.

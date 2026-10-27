@@ -59,7 +59,7 @@ jobs:
           /tmp/mcp-sdk/bin/pip install -r tests/protocol/requirements.txt
           /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
       - name: Explicit browser-origin configuration
-        run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --allowed-origin https://client.test
+        run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --allowed-origin https://client.test --ws-deadline-seconds 1
       - name: Process-local stdio and official SDK
         run: /tmp/mcp-sdk/bin/python tests/stdio/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
 

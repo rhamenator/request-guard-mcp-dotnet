@@ -101,6 +101,28 @@ An allowed origin still requires Bearer authentication. Origin checking does not
 CORS, implement OAuth discovery or replace authentication; proxies must preserve the
 original Origin.
 
+### Transport output and WebSocket budgets
+
+WebSocket upgrades negotiate `mcp` when requested; clients without a subprotocol remain
+supported. `MCP__LIMITS__WEBSOCKET_IDLE_TIMEOUT_SECS` defaults to 60 and applies to receiving
+one whole message, including every fragment. An idle peer or unfinished/trickled message
+cannot reset that budget with partial frames. `limits.max_request_bytes` applies across
+all fragments. Responses and close frames use a separate
+`MCP__LIMITS__WEBSOCKET_WRITE_TIMEOUT_SECS` budget (default 10). Deadline expiry aborts the
+socket and releases its connection slot; a peer close is answered without waiting for a
+second close frame. Text and UTF-8 binary requests share the same dispatcher and auth scope.
+
+HTTP MCP, health/readiness, metrics and auth-error output use
+`MCP__LIMITS__HTTP_RESPONSE_WRITE_TIMEOUT_SECS` (default 10), starting when output begins.
+If the writer ignores cancellation, the independent wait still ends and the connection
+is aborted. A partially written response is never followed by a second JSON envelope.
+Body-read, tool-execution and optional-cache budgets remain separate. Timeout values
+must be positive and fit the cancellation timer's supported range (at most 4294967 seconds).
+
+These controls bound tested I/O paths; full-duration TLS/ALPN, slow-consumer and reverse
+proxy/IIS qualification remain separate work. The WebSocket test matrix uses a shorter
+configured receive budget for deterministic expiry/recovery tests.
+
 ### Process-local stdio
 
 ```bash
@@ -123,7 +145,8 @@ notifications produce no output. EOF exits cleanly; Ctrl+C/SIGTERM cancels pendi
 Output writes have a five-second deadline; a stuck reader causes process failure.
 This is a sequential transport: requests finish in input order, and notification-based
 in-flight cancellation is not implemented. SDK/process evidence is currently Linux;
-Windows/macOS packaged client qualification remains open.
+Portable Windows/macOS bundles are separately tested on matching hosted runners;
+installer, OS-service and additional client-specific qualification remains open.
 
 ## Why a .NET port?
 

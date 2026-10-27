@@ -104,7 +104,9 @@ public class HttpProfileTests
         using var accepted = new ClientWebSocket();
         accepted.Options.SetRequestHeader("Authorization", "bEaReR profile-token");
         accepted.Options.SetRequestHeader("Origin", "https://client.test");
+        accepted.Options.AddSubProtocol("mcp");
         await accepted.ConnectAsync(address, CancellationToken.None);
+        Assert.Equal("mcp", accepted.SubProtocol);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await accepted.SendAsync(Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}"), WebSocketMessageType.Text, true, deadline.Token);
         var bytes = new byte[1024];

@@ -252,6 +252,29 @@ public class ConnectionResourceGuardTests
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", deadline.Token);
     }
 
+    [Fact]
+    public async Task IncompleteWebSocketMessageExpiresAndReleasesTcpAdmission()
+    {
+        await using var host = await RunningServer.StartAsync(new LimitsConfig { MaxConnections = 1, WebSocketIdleTimeoutSecs = 1 }, HttpProtocols.Http1);
+        using var socket = new ClientWebSocket();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{host.Port}/mcp"), deadline.Token);
+        await socket.SendAsync(Encoding.UTF8.GetBytes("{").AsMemory(), WebSocketMessageType.Text, false, deadline.Token);
+        try
+        {
+            var result = await socket.ReceiveAsync(new byte[1024].AsMemory(), deadline.Token);
+            Assert.Equal(WebSocketMessageType.Close, result.MessageType);
+        }
+        catch (WebSocketException)
+        {
+            // Cancelling an incomplete receive aborts the underlying managed socket.
+        }
+
+        using var client = host.Client(http2: false);
+        using var response = await client.GetAsync("/", deadline.Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private sealed class RunningServer(WebApplication app, ConnectionResourceGuard guard, int port) : IAsyncDisposable
     {
         public int Port => port;

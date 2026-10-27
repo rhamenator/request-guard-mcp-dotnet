@@ -193,7 +193,7 @@ def normalize_generated_request_ids(value: Any) -> None:
 
 
 class WebSocket:
-    def __init__(self, url: str, token: str | None = None):
+    def __init__(self, url: str, token: str | None = None, subprotocol: str | None = None):
         parsed = urllib.parse.urlparse(url)
         self.sock = socket.create_connection((parsed.hostname or "127.0.0.1", parsed.port or 80), timeout=10)
         key = base64.b64encode(os.urandom(16)).decode()
@@ -205,6 +205,8 @@ class WebSocket:
             f"Sec-WebSocket-Key: {key}",
             "Sec-WebSocket-Version: 13",
         ]
+        if subprotocol is not None:
+            headers.append(f"Sec-WebSocket-Protocol: {subprotocol}")
         if token is not None:
             headers.append(f"Authorization: Bearer {token}")
         self.sock.sendall(("\r\n".join(headers) + "\r\n\r\n").encode())
@@ -213,6 +215,9 @@ class WebSocket:
         if status != 101:
             self.sock.close()
             raise ConnectionError(f"WebSocket upgrade returned {status}: {response.decode(errors='replace')}")
+        if subprotocol is not None and f"sec-websocket-protocol: {subprotocol}".lower().encode() not in response.lower():
+            self.sock.close()
+            raise ConnectionError("WebSocket subprotocol was not negotiated")
         accept = hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
         if f"sec-websocket-accept: {base64.b64encode(accept).decode()}".lower().encode() not in response.lower():
             raise ConnectionError("invalid Sec-WebSocket-Accept")
@@ -240,10 +245,10 @@ class WebSocket:
             data += chunk
         return data
 
-    def send(self, payload: bytes, opcode: int = 1) -> None:
+    def send(self, payload: bytes, opcode: int = 1, final: bool = True) -> None:
         mask = os.urandom(4)
         length = len(payload)
-        header = bytearray([0x80 | opcode])
+        header = bytearray([(0x80 if final else 0) | opcode])
         if length < 126:
             header.append(0x80 | length)
         elif length <= 0xFFFF:
