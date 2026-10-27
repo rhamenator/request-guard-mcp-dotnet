@@ -5,7 +5,9 @@ These are explicit scope boundaries, not untracked defects.
 - The assurance process is DO-178C-inspired. This repository is not certified, has not undergone
   certification-authority review, and is not represented as suitable for airborne use.
 - Independent human verification remains pending and is the only release-readiness gate that a
-  sole maintainer cannot complete. Follow `RELEASE-READINESS-REVIEW.md` before a stable release.
+  sole maintainer cannot complete. The stable workflow now fails closed unless the configured
+  protected environment and durable independent review record meet `RELEASE-READINESS-REVIEW.md`;
+  those owner-side controls have not yet been configured or approved.
 - Compatibility is established against the exact Rust revision in
   `tests/parity/rust-baseline.txt`. Advancing that revision requires review and a green differential
   suite; it is not assumed automatically.

@@ -37,3 +37,40 @@ Archive the following in a release issue, release notes, or another durable repo
 - the final recommendation: approved, approved with limitations, or not approved.
 
 Do not claim independent review while blocking high-severity findings remain unresolved or without an explicit, documented risk disposition.
+
+## Enforced stable publication setup
+
+The repository owner must create a GitHub Actions environment named `stable-release` before any
+stable run. Configure it with all of the following:
+
+1. required reviewers containing at least one named **user** with repository read access;
+2. **Prevent self-review** enabled;
+3. **Allow administrators to bypass configured protection rules** disabled; and
+4. deployment branches restricted to protected branches (the stable workflow additionally
+   requires the exact current `main` commit).
+
+An absent or weaker environment can let GitHub start the job, but `stable_release_gate.py` reads
+the environment through the GitHub API and fails before building or publishing. Team-only reviewer
+rules are not accepted because the durable issue approval must be attributable to a named account.
+The workflow token needs `actions:read`, `contents:write`, `packages:write`, `checks:read`,
+`deployments:read`, and `issues:read`; no long-lived registry password is required.
+
+Create the review issue with the **Stable release readiness review** template. Fill every field,
+including the exact 40-character source revision and stable version. A configured environment
+reviewer who did not start the workflow must post exactly:
+
+```text
+APPROVE STABLE vX.Y.Z FULL_40_CHARACTER_SHA
+```
+
+Resolve or disposition every finding, set `Blocking high-severity findings: none`, select an
+approved recommendation, add the `release-review-approved` label, and close the issue. Dispatch
+**Stable Release** from `main` with the version (without `v`) and issue number. GitHub first asks
+an environment reviewer to approve the job. The in-job gate then independently revalidates the
+environment, current main SHA, `VersionPrefix`, exact-candidate check runs, issue fields, reviewer
+identity and approval comment. It rejects prerelease versions and existing tags/releases/container
+versions. Do not create a tag manually; the workflow creates it only after all local build,
+checksum, container smoke and vulnerability gates pass. Dispatch within the native workflow's
+seven-day retention window: stable publication downloads the exact four matching-platform
+qualified archives and verifies their source, RID, report results and checksums instead of
+rebuilding untested replacement archives.
