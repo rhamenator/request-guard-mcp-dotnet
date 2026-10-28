@@ -26,7 +26,8 @@ from the historical parity suite. It creates one uniquely named volume for one-d
 server certificates and a uniquely named container with random credentials, a loopback-only
 published port, one CPU, 512 MiB memory and a 256-process limit. A resource-capped helper
 copies only the synthetic server certificate/key into that volume with PostgreSQL ownership.
-The runner removes both container and volume on exit.
+The runner removes the container with its anonymous database volume and then removes the
+named certificate volume on exit.
 
 ```bash
 dotnet restore RequestGuardMcp.slnx --locked-mode

@@ -185,10 +185,13 @@ def main() -> None:
                 raise AssertionError(f"{method}: expected success, received {response}")
             return response["result"]
 
-        def require_bounded_failure(method: str, parameters: dict, stage: str) -> None:
+        def require_bounded_failure(method: str, parameters: dict, stage: str, expected_code: int) -> None:
             response, duration = rpc(method, parameters)
             if response.get("result") is not None or not isinstance(response.get("error"), dict):
                 raise AssertionError(f"{stage}: backend-dependent tool did not fail: {response}")
+            if response["error"].get("code") != expected_code:
+                raise AssertionError(
+                    f"{stage}: expected JSON-RPC error {expected_code}, received {response['error']}")
             if duration > 6:
                 raise AssertionError(f"{stage}: backend failure took {duration:.3f}s")
             print(json.dumps({"stage": stage, "duration_seconds": duration,
@@ -275,7 +278,7 @@ def main() -> None:
                 if docker("inspect", "--format", "{{.State.Paused}}", container, capture=True) != "true":
                     raise AssertionError("Docker did not report PostgreSQL as paused")
                 require_bounded_failure("replay_decision", {"request_id": request_id, "deterministic": True},
-                                        "paused replay")
+                                        "paused replay", -504)
             finally:
                 docker("unpause", container)
                 paused = False
@@ -286,10 +289,10 @@ def main() -> None:
             if docker("inspect", "--format", "{{.State.Running}}", container, capture=True) != "false":
                 raise AssertionError("Docker did not report PostgreSQL as stopped")
             require_bounded_failure("replay_decision", {"request_id": request_id, "deterministic": True},
-                                    "stopped replay")
+                                    "stopped replay", -502)
             require_bounded_failure("classify", {
                 "request_id": f"{request_id}-outage", "user_agent": "GPTBot/1.0", "path": "/postgres-down"},
-                "stopped classify persistence")
+                "stopped classify persistence", -502)
             docker("start", container)
             wait_postgres()
             recover(request_id, "restarted")
@@ -308,7 +311,7 @@ def main() -> None:
                                stderr=subprocess.DEVNULL, timeout=15)
             stop_host()
             if created:
-                cleanup = subprocess.run(["docker", "rm", "--force", container],
+                cleanup = subprocess.run(["docker", "rm", "--force", "--volumes", container],
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
                 if cleanup.returncode:
                     raise RuntimeError(f"could not remove scoped test container {container}")
