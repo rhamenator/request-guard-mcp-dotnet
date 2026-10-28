@@ -242,6 +242,13 @@ Exercise HTTP and WebSocket calls, malformed JSON, oversize bodies, cancellation
 authentication failure, graceful shutdown, metrics scraping, and OTLP collector loss. Container
 image scanning belongs in release evidence.
 
+CI starts the running Release host and each exact current-Rust reference with a credentialed OTLP
+endpoint on a refused local port, generates traces, waits for the batch exporter to encounter the
+unavailable sink, and requires subsequent MCP responses to remain healthy. It also rejects either
+synthetic OTLP credential in captured JSON console logs. This proves failure isolation and
+credential non-disclosure; it does not claim that response-latency metrics include asynchronous
+exporter cleanup.
+
 ## Independence and residual limitations
 
 Automated tests and maintainer self-review are not independent verification. The readiness record
