@@ -4,10 +4,10 @@ These are explicit scope boundaries, not untracked defects.
 
 - The assurance process is DO-178C-inspired. This repository is not certified, has not undergone
   certification-authority review, and is not represented as suitable for airborne use.
-- Independent human verification remains pending and is the only release-readiness gate that a
-  sole maintainer cannot complete. The stable workflow now fails closed unless the configured
-  protected environment and durable independent review record meet `RELEASE-READINESS-REVIEW.md`;
-  those owner-side controls have not yet been configured or approved.
+- Independent human verification has not been performed. Official release-candidate records must
+  disclose that fact, but owner self-review and the production-level technical evidence in
+  `RELEASE-READINESS-REVIEW.md` are the publication gates. Self-review and automation are not
+  represented as independent verification.
 - Compatibility is established against the exact Rust revision in
   `tests/parity/rust-baseline.txt`. Advancing that revision requires review and a green differential
   suite; it is not assumed automatically.
@@ -47,7 +47,9 @@ musl/Alpine and Linux/Windows arm64 archives, platform installers, service regis
 and native code signing are not provided. The native qualification workflow exercises
 fresh portable extraction and SDK clients on matching hosted runners; backend TLS and
 real service/installer deployment are separate gates. Development Actions artifacts are
-not stable releases. File/archive checksums establish consistency, not signed provenance.
+not official release candidates or stable releases. File/archive checksums establish consistency,
+not signed provenance. The official release-candidate gate already requires installer jobs, so it
+cannot publish until issue #27 implements and qualifies them.
 
 HTTP POST now requires UTF-8 application/json and explicit positive-quality
 application/json plus text/event-stream in Accept, although responses remain JSON-only.

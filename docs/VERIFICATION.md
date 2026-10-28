@@ -159,22 +159,20 @@ backends. They do not qualify native installers, code signing, OS service regist
 physical LAN/router or backend TLS/recovery. Archive checksums/manifests provide
 consistency/provenance records, not an independent cryptographic signature.
 
-## Stable-release negative controls
+## Official release-candidate negative controls
 
 ```bash
 python3 -m unittest discover -s tests/release -p 'test_*.py'
 ```
 
-These tests exercise the fail-closed release predicate without publishing: missing or bypassable
-environment protection, absent self-review prevention, non-main/stale candidates, failed required
-checks, mismatched/prerelease versions, self-approval and unresolved high-severity findings all
-fail. CI runs them on every candidate. The real workflow additionally queries GitHub for the
-configured environment, exact current main commit, named successful checks and durable review
-issue/comment before any build or registry write. It downloads the exact four native-workflow
-artifacts for that SHA while their seven-day retention is active and rechecks archive checksums,
-source/RID evidence and every artifact qualification result. A successful unit test does not
-substitute for configuring and approving the protected environment or completing the human review
-record.
+These tests exercise the fail-closed release predicate without publishing: non-main or stale
+candidates, versions outside `0.MINOR.PATCH`, failed required checks, incomplete owner-readiness
+records, untrusted approval comments and unresolved high-severity findings all fail. CI runs them
+on every candidate. The real workflow additionally queries GitHub for exact current `main`, named
+successful checks and the durable readiness issue/comment before any build or registry write. The
+required check set already includes four installer jobs, so publication remains blocked until issue
+#27 implements them. A successful unit test does not substitute for the exact-candidate evidence or
+completed owner readiness record.
 
 Coverage may be collected with:
 
@@ -183,7 +181,7 @@ dotnet test --configuration Release --collect:"XPlat Code Coverage"
 ```
 
 A percentage is not presently an assurance claim. Branch and structural-coverage gaps must be
-reviewed against the requirements matrix before a stable release; MC/DC is not claimed.
+reviewed against the requirements matrix before an official release candidate; MC/DC is not claimed.
 
 ## Backend integration verification
 
@@ -216,9 +214,10 @@ image scanning belongs in release evidence.
 
 ## Independence and residual limitations
 
-Automated tests and maintainer self-review are not independent verification. Independent human
-review remains mandatory at the gate in `RELEASE-READINESS-REVIEW.md`. See
-`KNOWN-LIMITATIONS.md` for residual scope boundaries.
+Automated tests and maintainer self-review are not independent verification. The readiness record
+must disclose whether independent human review occurred, but independent review is not an official
+release-candidate publication blocker. See `RELEASE-READINESS-REVIEW.md` and
+`KNOWN-LIMITATIONS.md` for the enforced gate and residual scope boundaries.
 
 ## Container dependency refresh
 
@@ -229,4 +228,4 @@ The 2026-10-19 scheduled scan found fixed advisories in the old .NET 10.0.11 run
 The replacement pins select SDK 10.0.402 and ASP.NET runtime 10.0.13 from Microsoft
 Container Registry. Treat those versions as candidates until the hosted container scan
 passes; record the exact workflow run rather than inheriting August's scan result.
-No native bundles or stable release are published by this workflow.
+No native bundles, official release candidate or stable release are published by this workflow.

@@ -12,7 +12,7 @@ Normative certification work must use an authorized copy of RTCA DO-178C and app
 
 This repository is maintained by a solo developer. Independent human approval is not required for each development pull request. The maintainer may self-review and merge after the required automated quality, test, security, traceability, and change-control gates pass.
 
-Self-review and automated verification are not independent verification, and repository records must not represent them as such. Independent human review is deferred to the completed-project or first-stable-release readiness gate described in [`RELEASE-READINESS-REVIEW.md`](RELEASE-READINESS-REVIEW.md). A project-specific risk assessment may bring human review forward for a particular change.
+Self-review and automated verification are not independent verification, and repository records must not represent them as such. Official pre-1.0 release candidates require a durable owner self-review record and explicit disclosure of whether independent human review occurred, as described in [`RELEASE-READINESS-REVIEW.md`](RELEASE-READINESS-REVIEW.md). Independent human review is welcome but is not a publication blocker unless a future project-specific risk assessment requires it.
 
 ## Change-control objectives
 
@@ -23,7 +23,7 @@ Every non-trivial change must provide reviewable evidence for:
 3. **Implementation** — keep the change bounded, understandable, and under version control.
 4. **Verification** — add or update tests at the lowest effective level and record commands/results.
 5. **Traceability** — map the source to changed artifacts and verification evidence in the pull request.
-6. **Review** — perform explicit self-review during development; obtain independent human review at the release-readiness gate or earlier when a documented project risk requires it.
+6. **Review** — perform explicit self-review during development and for each official release candidate; disclose independent-review status and obtain independent review when a documented project risk requires it.
 
 Derived requirements and assumptions must be called out explicitly. A change must not silently weaken an existing safety, security, privacy, or compatibility constraint.
 
@@ -38,7 +38,7 @@ Derived requirements and assumptions must be called out explicitly. A change mus
 
 ## Configuration management and release evidence
 
-The default branch is the controlled baseline. Dependencies and automation actions should be locked or pinned where practical: NuGet dependency versions are pinned centrally in `Directory.Packages.props`, restored via a committed `packages.lock.json` per project (`dotnet restore --locked-mode` in CI), and GitHub Actions are pinned by commit SHA. Release evidence should include the source revision, build/test logs, dependency inventory, known-problem disposition, artifact checksums or signatures when artifacts are distributed, and the completed human-review record required by the release-readiness gate.
+The default branch is the controlled baseline. Dependencies and automation actions should be locked or pinned where practical: NuGet dependency versions are pinned centrally in `Directory.Packages.props`, restored via a committed `packages.lock.json` per project (`dotnet restore --locked-mode` in CI), and GitHub Actions are pinned by commit SHA. Release evidence should include the source revision, build/test logs, dependency inventory, known-problem disposition, artifact checksums or signatures when artifacts are distributed, and the completed owner readiness record required by the release-candidate gate.
 
 GitHub issues are the problem-reporting system. Security defects must be reported privately according to `SECURITY.md`. Closed problems must record a disposition such as fixed, duplicate, deferred with rationale, or not planned with rationale.
 

@@ -1,76 +1,67 @@
-# Release-Readiness Human Review
+# Official Release-Candidate Readiness
 
 ## Purpose
 
-Independent human review is a release-readiness activity for this solo-maintained repository, not a required approval on every development pull request.
+This repository publishes official release candidates below 1.0 only after they meet the same
+technical, security, compatibility, documentation, artifact and operational evidence standard
+expected of a production release. A release candidate is still a prerelease: it does not claim
+stable-v1 compatibility or move a `latest` tag.
 
-Complete this review before either:
+The solo maintainer performs and records the owner review. Independent human review is welcome but
+is not a publication blocker. The readiness record and release notes must state whether independent
+human review was performed and must not describe self-review or automation as independent review.
 
-- the first stable release;
-- declaring the project complete for its intended scope; or
-- representing the software as independently reviewed for downstream or production use.
+## Owner review packet
 
-Until then, development records may cite self-review and automated verification but must state that independent human review is pending.
+Review the following for the exact candidate revision:
 
-## Review packet
-
-Provide the reviewer with:
-
-1. the intended scope, requirements, assumptions, and documented exclusions;
-2. the architecture, trust boundaries, interfaces, and important design decisions;
+1. intended scope, supported platforms, requirements, assumptions and exclusions;
+2. architecture, trust boundaries, interfaces and important design decisions;
 3. traceability from requirements or objectives to implementation and verification;
-4. automated and manual test evidence, coverage claims, and known test limitations;
-5. security analysis, dependency state, static-analysis results, and unresolved alerts;
-6. known defects, deferred work, compatibility constraints, and residual risks;
-7. reproducible build and release instructions plus artifact provenance; and
-8. the exact source revision and release candidate being reviewed.
+4. automated and manual test evidence, coverage claims and known test limitations;
+5. security analysis, dependency state, static-analysis results and unresolved alerts;
+6. known defects, deferred work, compatibility constraints and residual risks;
+7. reproducible build and release instructions plus artifact provenance;
+8. native installer clean-install, launch, upgrade, uninstall and residue evidence for every
+   supported platform; and
+9. the exact source revision and proposed `0.MINOR.PATCH` release version.
 
-## Review record
+## Durable readiness record
 
-Archive the following in a release issue, release notes, or another durable repository record:
+Create an issue from the official release-candidate readiness template. Record:
 
-- reviewer name and relevant qualifications;
-- review date, scope, source revision, and release candidate;
-- findings and their severity;
-- resolution or explicit risk acceptance for each finding;
-- limitations of the review; and
-- the final recommendation: approved, approved with limitations, or not approved.
+- release version and exact 40-character source revision;
+- owner review date and scope;
+- verification evidence;
+- findings and their dispositions;
+- known limitations;
+- whether independent human review was performed;
+- an `approved`, `approved with limitations` or `not approved` recommendation; and
+- any blocking high-severity findings.
 
-Do not claim independent review while blocking high-severity findings remain unresolved or without an explicit, documented risk disposition.
+The repository owner or an authorized collaborator must post the exact approval comment shown in
+the issue template. Close the issue and apply `release-candidate-approved` only after every blocking
+high-severity finding is resolved or explicitly dispositioned. The workflow rejects incomplete,
+open, mismatched or unapproved records.
 
-## Enforced stable publication setup
+## Enforced publication
 
-The repository owner must create a GitHub Actions environment named `stable-release` before any
-stable run. Configure it with all of the following:
+The `Official Release Candidate` workflow is manually dispatched from `main`. Its in-job gate:
 
-1. required reviewers containing at least one named **user** with repository read access;
-2. **Prevent self-review** enabled;
-3. **Allow administrators to bypass configured protection rules** disabled; and
-4. deployment branches restricted to protected branches (the stable workflow additionally
-   requires the exact current `main` commit).
+- accepts only a `0.MINOR.PATCH` version matching `Directory.Build.props`;
+- requires the current exact `main` commit;
+- requires successful exact-candidate build, test, parity, dependency, security, Redis, container,
+  four-platform native-bundle and four-platform installer checks;
+- validates the closed owner readiness issue and exact approval comment; and
+- rejects an existing tag, GitHub release or container version.
 
-An absent or weaker environment can let GitHub start the job, but `stable_release_gate.py` reads
-the environment through the GitHub API and fails before building or publishing. Team-only reviewer
-rules are not accepted because the durable issue approval must be attributable to a named account.
-The workflow token needs `actions:read`, `contents:write`, `packages:write`, `checks:read`,
-`deployments:read`, and `issues:read`; no long-lived registry password is required.
+After the gate passes, the workflow re-runs the controlled baseline, downloads the exact qualified
+artifacts, verifies checksums and reports, rebuilds and scans the exact container, and publishes an
+immutable versioned container plus a GitHub prerelease. It does not publish `latest`.
 
-Create the review issue with the **Stable release readiness review** template. Fill every field,
-including the exact 40-character source revision and stable version. A configured environment
-reviewer who did not start the workflow must post exactly:
+Installer generation and qualification are tracked in issue #27. Because the gate already requires
+the four installer checks, official release-candidate publication remains fail closed until those
+jobs and artifacts are implemented and pass for the exact revision.
 
-```text
-APPROVE STABLE vX.Y.Z FULL_40_CHARACTER_SHA
-```
-
-Resolve or disposition every finding, set `Blocking high-severity findings: none`, select an
-approved recommendation, add the `release-review-approved` label, and close the issue. Dispatch
-**Stable Release** from `main` with the version (without `v`) and issue number. GitHub first asks
-an environment reviewer to approve the job. The in-job gate then independently revalidates the
-environment, current main SHA, `VersionPrefix`, exact-candidate check runs, issue fields, reviewer
-identity and approval comment. It rejects prerelease versions and existing tags/releases/container
-versions. Do not create a tag manually; the workflow creates it only after all local build,
-checksum, container smoke and vulnerability gates pass. Dispatch within the native workflow's
-seven-day retention window: stable publication downloads the exact four matching-platform
-qualified archives and verifies their source, RID, report results and checksums instead of
-rebuilding untested replacement archives.
+Stable 1.0 publication is outside the current workflow and requires an explicit future policy
+decision. Do not create release tags manually.
