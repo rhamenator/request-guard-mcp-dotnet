@@ -189,9 +189,11 @@ still are.
 
 Official release candidates also provide DEB and RPM installers for Linux x64, MSI for Windows x64,
 and PKG installers for Intel and arm64 macOS. They are unsigned, do not register a service, and are
-qualified for clean install, installed launch, synthetic-version upgrade, uninstall and residue on
-matching disposable systems. See [native installer instructions](docs/INSTALLERS.md), including
-package-manager dependencies, paths, uninstall commands and the macOS notarization limitation.
+qualified for clean install, installed payload integrity, pinned official Python MCP SDK stdio use,
+synthetic-version upgrade, uninstall and residue on matching disposable systems. Linux's RPM also
+passes a raw stdio lifecycle in a digest-pinned Fedora container. See
+[native installer instructions](docs/INSTALLERS.md), including package-manager dependencies, paths,
+uninstall commands and the macOS notarization limitation.
 
 The `ReleaseBundle` build profile uses separate committed `packages.release.lock.json`
 files including all four RIDs and the pinned single-file task. Dependency drift fails

@@ -156,8 +156,10 @@ updates require reviewing/regenerating native locks and rerunning all platforms.
 
 The follow-on installer matrix builds DEB/RPM, MSI and PKG only from these qualified archives. On
 matching disposable systems it verifies installer checksums/source linkage, clean install, installed
-payload hashes, stdio launch, a synthetic older-version upgrade, uninstall and residue. The Linux
-RPM lifecycle runs in a digest-pinned Fedora 42 container; synthetic older installers are discarded.
+payload hashes, pinned official Python SDK stdio operation after clean install and upgrade, a
+synthetic older-version upgrade, uninstall and residue. The Linux RPM lifecycle runs a raw stdio
+smoke in a digest-pinned Fedora 42 container; the DEB supplies Linux's installed-package SDK evidence.
+Synthetic older installers are discarded.
 See [installer instructions](INSTALLERS.md). These tests do not qualify code signing, notarization,
 OS service registration, physical LAN/router or backend TLS/recovery. Checksums/manifests provide
 consistency and traceability, not signed publisher identity.
