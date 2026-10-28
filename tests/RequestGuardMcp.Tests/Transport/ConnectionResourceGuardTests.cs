@@ -61,8 +61,7 @@ public class ConnectionResourceGuardTests
             // A reset is also a closed socket; cancellation is deliberately not swallowed.
         }
 
-        using var client = host.Client();
-        using var healthy = await client.GetAsync("/");
+        using var healthy = await GetEventuallyAsync(host);
         Assert.Equal(HttpStatusCode.OK, healthy.StatusCode);
     }
 
@@ -315,6 +314,26 @@ public class ConnectionResourceGuardTests
             await app.StopAsync();
             await app.DisposeAsync();
             guard.Dispose();
+        }
+    }
+
+    private static async Task<HttpResponseMessage> GetEventuallyAsync(RunningServer host)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+        while (true)
+        {
+            using var client = host.Client();
+            try
+            {
+                return await client.GetAsync("/", deadline.Token);
+            }
+            catch (HttpRequestException) when (!deadline.IsCancellationRequested)
+            {
+                // The peer can observe socket closure just before the connection middleware
+                // returns its admission permit. Retry with a fresh HTTP/2 connection while
+                // retaining a strict bound on capacity recovery.
+                await Task.Delay(TimeSpan.FromMilliseconds(25), deadline.Token);
+            }
         }
     }
 }
