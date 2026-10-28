@@ -174,6 +174,9 @@ def build_msi(bundle, version, output, wix):
     ET.ElementTree(wix_root).write(source, encoding='utf-8', xml_declaration=True)
     run([wix, 'build', '-arch', 'x64', '-out', output, source])
     source.unlink()
+    wix_symbols = output.with_suffix('.wixpdb')
+    if wix_symbols.exists():
+        wix_symbols.unlink()
 
 
 def build_pkg(bundle, version, output):
