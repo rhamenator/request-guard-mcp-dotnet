@@ -57,6 +57,13 @@ def qualify_deb(current_dir, prior_dir, version, prior):
     assert not install_root.exists() and not binary.exists()
     try:
         run(['sudo', 'apt-get', 'update'])
+        run(['sudo', 'apt-get', 'install', '-y', str(current)])
+        assert run(['dpkg-query', '-W', '-f=${Version}', PACKAGE], capture=True).stdout == version
+        verify_installed_payload(install_root)
+        stdio(binary)
+        run(['sudo', 'dpkg', '--purge', PACKAGE])
+        assert not install_root.exists() and not binary.exists()
+
         run(['sudo', 'apt-get', 'install', '-y', str(previous)])
         assert run(['dpkg-query', '-W', '-f=${Version}', PACKAGE], capture=True).stdout == prior
         run(['sudo', 'apt-get', 'install', '-y', str(current)])
@@ -76,6 +83,15 @@ def qualify_rpm(current_dir, prior_dir, version, prior, image, executable_sha256
     prior_inside = f'/packages/{prior_dir.name}/{previous.name}'
     script = f'''set -euo pipefail
 test ! -e /usr/bin/request-guard-mcp-dotnet
+dnf -y install {current_inside}
+test "$(rpm -q --qf '%{{VERSION}}' {PACKAGE})" = "{version}"
+echo '{executable_sha256}  /usr/lib/request-guard-mcp-dotnet/request-guard-mcp-dotnet' | sha256sum -c
+printf '{{"jsonrpc":"2.0","id":1,"method":"ping"}}\n' | timeout 20 /usr/bin/request-guard-mcp-dotnet --stdio | grep -F '"id":1'
+dnf -y remove {PACKAGE}
+test ! -e /usr/bin/request-guard-mcp-dotnet
+test ! -e /usr/lib/request-guard-mcp-dotnet
+! rpm -q {PACKAGE}
+
 dnf -y install {prior_inside}
 test "$(rpm -q --qf '%{{VERSION}}' {PACKAGE})" = "{prior}"
 dnf -y install {current_inside}
@@ -119,6 +135,13 @@ def qualify_msi(current_dir, prior_dir, version, prior):
     assert not install_root.exists() and windows_installed_version() is None
     log = current_dir / 'msi-install.log'
     try:
+        run(['msiexec.exe', '/i', current, '/qn', '/norestart', '/L*v', log])
+        assert windows_installed_version() == version
+        verify_installed_payload(install_root)
+        stdio(binary)
+        run(['msiexec.exe', '/x', current, '/qn', '/norestart', '/L*v', log])
+        assert not install_root.exists() and windows_installed_version() is None
+
         run(['msiexec.exe', '/i', previous, '/qn', '/norestart', '/L*v', log])
         assert windows_installed_version() == prior
         run(['msiexec.exe', '/i', current, '/qn', '/norestart', '/L*v', log])
@@ -147,6 +170,13 @@ def qualify_pkg(current_dir, prior_dir, version, prior):
     uninstaller = Path('/usr/local/share/request-guard-mcp-dotnet/uninstall.sh')
     assert not install_root.exists() and not binary.exists() and pkg_version() is None
     try:
+        run(['sudo', '/usr/sbin/installer', '-pkg', current, '-target', '/'])
+        assert pkg_version() == version
+        verify_installed_payload(install_root)
+        stdio(binary)
+        run(['sudo', uninstaller])
+        assert not install_root.exists() and not binary.exists() and not uninstaller.exists() and pkg_version() is None
+
         run(['sudo', '/usr/sbin/installer', '-pkg', previous, '-target', '/'])
         assert pkg_version() == prior
         run(['sudo', '/usr/sbin/installer', '-pkg', current, '-target', '/'])
@@ -193,7 +223,7 @@ def main():
     report = {'schema': 1, 'source_sha': args.source, 'rid': args.rid,
               'version': args.version, 'prior_version': args.prior_version,
               'unsigned': True, 'installers': metadata['installers'], 'checks': checks,
-              'scope': 'clean install, installed launch, synthetic prior-version upgrade, uninstall and residue'}
+              'scope': 'clean candidate install/launch/uninstall/residue, then separate synthetic prior-version upgrade/uninstall/residue'}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + '\n')
     print('PASS installer lifecycle:', args.rid)
