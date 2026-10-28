@@ -76,6 +76,22 @@ public class AppConfigTests
     }
 
     [Fact]
+    public void AuthenticatedPostgresRequiresStableCallerScopeKey()
+    {
+        var config = new AppConfig
+        {
+            Auth = new AuthConfig { Tokens = ["a-real-test-token"] },
+            Postgres = new PostgresConfig { Url = "Host=localhost;Database=test" },
+        };
+
+        var error = Assert.Throws<ConfigValidationException>(config.Validate);
+        Assert.Contains("CACHE_SCOPE_HMAC_KEY", error.Message, StringComparison.Ordinal);
+
+        config.Auth.CacheScopeHmacKey = "0123456789abcdef0123456789abcdef";
+        config.Validate();
+    }
+
+    [Fact]
     public void ZeroConcurrencyLimitFailsValidation()
     {
         var config = new AppConfig

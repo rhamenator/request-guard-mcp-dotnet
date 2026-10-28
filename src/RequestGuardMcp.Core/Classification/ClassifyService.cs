@@ -53,7 +53,7 @@ public static class ClassifyService
                 var result = cachedResponse.WithRequestIdAndLatency(requestId, (ulong)stopwatch.ElapsedMilliseconds);
                 if (persist)
                 {
-                    await PersistDecisionAsync(state, request, result, cancellationToken).ConfigureAwait(false);
+                    await PersistDecisionAsync(state, callerScope, request, result, cancellationToken).ConfigureAwait(false);
                 }
 
                 return result;
@@ -101,7 +101,7 @@ public static class ClassifyService
 
         if (persist)
         {
-            await PersistDecisionAsync(state, request, response, cancellationToken).ConfigureAwait(false);
+            await PersistDecisionAsync(state, callerScope, request, response, cancellationToken).ConfigureAwait(false);
         }
 
         return response;
@@ -131,7 +131,7 @@ public static class ClassifyService
         }
     }
 
-    private static async Task PersistDecisionAsync(AppState state, ClassifyRequest request, ClassifyResponse response, CancellationToken cancellationToken)
+    private static async Task PersistDecisionAsync(AppState state, string callerScope, ClassifyRequest request, ClassifyResponse response, CancellationToken cancellationToken)
     {
         if (!state.Postgres.IsAvailable)
         {
@@ -140,7 +140,7 @@ public static class ClassifyService
 
         try
         {
-            await state.Postgres.RecordDecisionAsync(request, response, cancellationToken).ConfigureAwait(false);
+            await state.Postgres.RecordDecisionAsync(callerScope, request, response, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

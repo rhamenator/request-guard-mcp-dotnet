@@ -109,6 +109,11 @@ public sealed class AppConfig
             throw new ConfigValidationException("postgres.url cannot be empty when configured");
         }
 
+        if (Auth.Enabled && Postgres.Url is not null && Auth.CacheScopeHmacKey is null)
+        {
+            throw new ConfigValidationException("CACHE_SCOPE_HMAC_KEY is required with PostgreSQL so caller-scoped decisions survive restarts");
+        }
+
         foreach (var (name, path) in new[]
                  {
                      ("geoip.city_mmdb_path", Geoip.CityMmdbPath),

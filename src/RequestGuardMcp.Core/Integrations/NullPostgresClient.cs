@@ -13,18 +13,18 @@ public sealed class NullPostgresClient : IPostgresClient
 
     public Task<bool> PingAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
 
-    public Task RecordDecisionAsync(ClassifyRequest request, ClassifyResponse response, CancellationToken cancellationToken = default) =>
+    public Task RecordDecisionAsync(string callerScope, ClassifyRequest request, ClassifyResponse response, CancellationToken cancellationToken = default) =>
         throw AppErrorException.IntegrationUnavailable("PostgreSQL integration is disabled");
 
-    public Task<PersistedDecision?> GetDecisionAsync(string requestId, CancellationToken cancellationToken = default) =>
+    public Task<PersistedDecision?> GetDecisionAsync(string callerScope, string requestId, CancellationToken cancellationToken = default) =>
         throw AppErrorException.IntegrationUnavailable("PostgreSQL integration is disabled");
 
-    public Task<string> RecordFeedbackAsync(string requestId, string correctVerdict, string? notes, string? reporter, CancellationToken cancellationToken = default) =>
+    public Task<string?> RecordFeedbackAsync(string callerScope, string requestId, string correctVerdict, string? notes, string? reporter, PersistedDecision expected, CancellationToken cancellationToken = default) =>
         throw AppErrorException.IntegrationUnavailable("PostgreSQL integration is disabled");
 
-    public Task<DriftSummary> DriftSummaryAsync(DateTimeOffset start, DateTimeOffset midpoint, CancellationToken cancellationToken = default) =>
+    public Task<DriftSummary> DriftSummaryAsync(string callerScope, DateTimeOffset start, DateTimeOffset midpoint, CancellationToken cancellationToken = default) =>
         throw AppErrorException.IntegrationUnavailable("PostgreSQL integration is disabled");
 
-    public Task<CalibrationSummary> CalibrationSummaryAsync(DateTimeOffset start, CancellationToken cancellationToken = default) =>
+    public Task<CalibrationSummary> CalibrationSummaryAsync(string callerScope, DateTimeOffset start, CancellationToken cancellationToken = default) =>
         throw AppErrorException.IntegrationUnavailable("PostgreSQL integration is disabled");
 }

@@ -71,6 +71,13 @@ class Pair:
                 self.processes.append(subprocess.Popen(command, cwd=workdir, env=environment, stdout=log, stderr=subprocess.STDOUT))
             self._wait_ready()
         except BaseException:
+            for log in self.logs:
+                log.flush()
+            for name in ("rust", "dotnet"):
+                path = workdir / f"{name}.log"
+                if path.exists():
+                    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+                    print(f"--- {name} startup log (last 80 lines) ---\n" + "\n".join(lines[-80:]), file=sys.stderr)
             self.stop()
             raise
 
@@ -129,6 +136,7 @@ class IntegrationBackends:
             self._wait()
             for database in ("parity_rust", "parity_dotnet"):
                 self._create_database(database)
+            self._seed_dotnet_legacy_schema()
         except BaseException:
             self.stop()
             raise
@@ -160,6 +168,33 @@ class IntegrationBackends:
                 return
             time.sleep(0.25)
         raise TimeoutError(f"PostgreSQL did not remain ready long enough to create {database}")
+
+    def _seed_dotnet_legacy_schema(self) -> None:
+        sql = """
+            CREATE TABLE mcp_decisions (
+                request_id TEXT PRIMARY KEY,
+                request_payload JSONB NOT NULL,
+                response_payload JSONB NOT NULL,
+                verdict TEXT NOT NULL,
+                score DOUBLE PRECISION NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX idx_mcp_decisions_created_at ON mcp_decisions (created_at DESC);
+            CREATE INDEX idx_mcp_decisions_verdict ON mcp_decisions (verdict, created_at DESC);
+            CREATE TABLE mcp_feedback (
+                feedback_id TEXT PRIMARY KEY,
+                request_id TEXT NOT NULL REFERENCES mcp_decisions(request_id) ON DELETE CASCADE,
+                correct_verdict TEXT NOT NULL,
+                notes TEXT,
+                reporter TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX idx_mcp_feedback_request_id ON mcp_feedback (request_id);
+            CREATE INDEX idx_mcp_feedback_created_at ON mcp_feedback (created_at DESC);
+            INSERT INTO mcp_decisions (request_id, request_payload, response_payload, verdict, score)
+            VALUES ('legacy-unscoped-row', '{}'::jsonb, '{}'::jsonb, 'allow', 0);
+        """
+        self.postgres("psql", "-U", "postgres", "-d", "parity_dotnet", "-v", "ON_ERROR_STOP=1", "-c", sql)
 
     def redis(self, *arguments: str, capture: bool = False) -> str:
         result = subprocess.run(["docker", "exec", self.redis_name, "redis-cli", "--no-auth-warning", "-a", self.password, *arguments], check=True, text=True, stdout=subprocess.PIPE if capture else subprocess.DEVNULL)
@@ -196,6 +231,23 @@ class IntegrationBackends:
             count = int(self.redis("--scan", "--pattern", f"{prefix}:cache:*", capture=True).count("\n") + 1)
             if count < 2:
                 raise AssertionError(f"expected at least two caller-scoped cache keys for {prefix}, found {count}")
+
+    def assert_dotnet_postgres_hardening(self) -> None:
+        unscoped = self.postgres_query("parity_dotnet", "SELECT COUNT(*) FROM mcp_decisions WHERE caller_scope IS NULL")
+        raw_ids = self.postgres_query(
+            "parity_dotnet",
+            "SELECT COUNT(*) FROM mcp_decisions WHERE request_id IN ('parity-persist', 'dotnet-caller-isolation')",
+        )
+        sensitive = self.postgres_query(
+            "parity_dotnet",
+            "SELECT COUNT(*) FROM mcp_decisions WHERE request_payload->>'ip' IS NOT NULL OR request_payload->>'body_snippet' IS NOT NULL OR request_payload->>'referer' IS NOT NULL OR request_payload->>'request_id' IS NOT NULL OR request_payload->>'timestamp' IS NOT NULL OR request_payload->>'extra' IS NOT NULL OR request_payload->>'tls_ja3' IS NOT NULL OR request_payload->>'tls_ja4' IS NOT NULL OR request_payload->>'tls_fingerprint_source' IS NOT NULL OR request_payload->>'tls_fingerprint_attestation' IS NOT NULL OR request_payload->>'path' ~ '[?#]' OR EXISTS (SELECT 1 FROM jsonb_each_text(CASE WHEN jsonb_typeof(request_payload->'headers') = 'object' THEN request_payload->'headers' ELSE '{}'::jsonb END) AS header WHERE header.key NOT IN ('accept', 'accept-language') OR header.value <> '')",
+        )
+        scopes = self.postgres_query("parity_dotnet", "SELECT COUNT(DISTINCT caller_scope) FROM mcp_decisions")
+        if (unscoped, raw_ids, sensitive) != ("1", "0", "0") or int(scopes) < 2:
+            raise AssertionError(
+                "PostgreSQL hardening failed: "
+                f"unscoped={unscoped}, raw_ids={raw_ids}, sensitive_snapshots={sensitive}, scopes={scopes}"
+            )
 
     def lock_feedback_tables(self) -> list[subprocess.Popen[bytes]]:
         locks = []
@@ -345,11 +397,12 @@ def main() -> int:
                     try:
                         run_contract("integration", "--token", token)
                     except subprocess.CalledProcessError:
-                        score_query = "SELECT response_payload->>'score' FROM mcp_decisions WHERE request_id='parity-persist'"
+                        score_query = "SELECT response_payload->>'score' FROM mcp_decisions ORDER BY created_at LIMIT 1"
                         for database in ("parity_rust", "parity_dotnet"):
                             print(f"DEBUG {database} persisted score: {backends.postgres_query(database, score_query)}", file=sys.stderr)
                         raise
                     backends.assert_caller_scopes()
+                    backends.assert_dotnet_postgres_hardening()
                     locks = backends.lock_feedback_tables()
                     try:
                         run_contract("timeout", "--token", token)

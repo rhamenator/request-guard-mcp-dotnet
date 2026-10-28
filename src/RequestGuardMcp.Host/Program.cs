@@ -84,6 +84,15 @@ appConfig.TlsFingerprints.KnownBadJa4 = SplitList(CompatibilityValue("TLS_KNOWN_
 if (useStdio)
 {
     appConfig.Auth.Enabled = false;
+    // Stdio uses a deliberately process-random caller scope to isolate child
+    // processes sharing Redis. PostgreSQL rows outlive that scope and would be
+    // unreachable after restart, so match the maintained Rust server and reject
+    // this configuration until a stable per-client persistence identity exists.
+    if (appConfig.Postgres.Url is not null)
+    {
+        Console.Error.WriteLine("configuration error: PostgreSQL is not yet supported in stdio mode");
+        return 1;
+    }
 }
 
 try

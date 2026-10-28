@@ -461,6 +461,52 @@ def run_integration(rust_url: str, dotnet_url: str, token: str) -> int:
     for identifier, case in enumerate(cases, 1300):
         compare_case(rust_url, dotnet_url, case, identifier, token)
 
+    # The maintained Rust server added caller-scoped persistence after the frozen
+    # differential baseline. Exercise the port directly so the historical pin
+    # cannot mask a cross-tenant replay, feedback, or reporting regression.
+    shared_id = "dotnet-caller-isolation"
+    suspicious = Case("classify", {"request_id": shared_id, "user_agent": "GPTBot/1.0", "path": "/.env"}, "postgres/scope-a")
+    a_classification = rpc(dotnet_url, suspicious, 1380, token)[1]
+    for identifier, method, params in (
+        (1381, "replay_decision", {"request_id": shared_id, "deterministic": True}),
+        (1382, "feedback", {"request_id": shared_id, "correct_verdict": "allow"}),
+    ):
+        response = rpc(dotnet_url, Case(method, params, f"postgres/cross-scope-{method}"), identifier, "parity-token-two")[1]
+        if response.get("error", {}).get("code") != -400:
+            raise AssertionError(f"cross-caller {method} unexpectedly accessed a decision: {response}")
+    b_empty_report = rpc(dotnet_url, Case("drift_report", {"window_hours": 1}, "postgres/scope-b-empty"), 1383, "parity-token-two")[1]
+    if b_empty_report["result"]["metrics"]["samples"] != 0:
+        raise AssertionError(f"caller B report included caller A rows: {b_empty_report}")
+
+    benign = Case("classify", {"request_id": shared_id, "user_agent": "Mozilla/5.0", "path": "/welcome"}, "postgres/scope-b")
+    b_classification = rpc(dotnet_url, benign, 1384, "parity-token-two")[1]
+    if a_classification["result"]["verdict"] == b_classification["result"]["verdict"]:
+        raise AssertionError("caller isolation fixture did not produce distinct decisions")
+    for identifier, supplied, expected in ((1385, token, a_classification), (1386, "parity-token-two", b_classification)):
+        replay = rpc(dotnet_url, Case("replay_decision", {"request_id": shared_id, "deterministic": True}, "postgres/scoped-replay"), identifier, supplied)[1]
+        if replay["result"]["original"]["verdict"] != expected["result"]["verdict"]:
+            raise AssertionError(f"same request_id crossed caller scopes: {replay}")
+
+    replacement_id = "dotnet-feedback-replacement"
+    replacement_suspicious = {"request_id": replacement_id, "user_agent": "sqlmap/1.7", "path": "/.env"}
+    rpc(dotnet_url, Case("classify", replacement_suspicious, "postgres/replacement-original"), 1387, token)
+    rpc(dotnet_url, Case("feedback", {"request_id": replacement_id, "correct_verdict": "allow"}, "postgres/replacement-feedback"), 1388, token)
+    before = rpc(dotnet_url, Case("calibration_report", {"window_hours": 1}, "postgres/replacement-before"), 1389, token)[1]["result"]["samples"]
+    rpc(dotnet_url, Case("classify", replacement_suspicious, "postgres/replacement-retry"), 1390, token)
+    after_retry = rpc(dotnet_url, Case("calibration_report", {"window_hours": 1}, "postgres/replacement-after-retry"), 1391, token)[1]["result"]["samples"]
+    rpc(dotnet_url, Case("classify", {"request_id": replacement_id, "user_agent": "Mozilla/5.0", "path": "/welcome"}, "postgres/replacement-new"), 1392, token)
+    after_replacement = rpc(dotnet_url, Case("calibration_report", {"window_hours": 1}, "postgres/replacement-after"), 1393, token)[1]["result"]["samples"]
+    if after_retry != before or after_replacement != before - 1:
+        raise AssertionError(
+            f"feedback lifecycle mismatch: before={before}, after_retry={after_retry}, after_replacement={after_replacement}"
+        )
+
+    query_replay_id = "dotnet-query-replay"
+    rpc(dotnet_url, Case("classify", {"request_id": query_replay_id, "user_agent": "Mozilla/5.0", "path": "/search?next=/admin"}, "postgres/query-classify"), 1394, token)
+    query_replay = rpc(dotnet_url, Case("replay_decision", {"request_id": query_replay_id, "deterministic": True}, "postgres/query-replay"), 1395, token)[1]
+    if not query_replay["result"]["matches_original"]:
+        raise AssertionError(f"privacy-minimized query replay changed the decision: {query_replay}")
+
     cache_params = {"ip": "192.0.2.44", "user_agent": "Mozilla/5.0", "path": "/cache-scope", "method": "GET"}
     for url in (rust_url, dotnet_url):
         first = Case("classify", {**cache_params, "request_id": "scope-one"}, "cache/scope-one")
@@ -470,8 +516,8 @@ def run_integration(rust_url: str, dotnet_url: str, token: str) -> int:
         if first_result["result"]["request_id"] != "scope-one" or second_result["result"]["request_id"] != "scope-two":
             raise AssertionError(f"caller-scoped cache isolation failed for {url}")
 
-    print(f"PASS integrations: {len(cases)} Redis/PostgreSQL/MaxMind cases and caller-scoped cache behavior")
-    return len(cases) + 4
+    print(f"PASS integrations: {len(cases)} Redis/PostgreSQL/MaxMind cases, caller-scoped persistence, and caller-scoped cache behavior")
+    return len(cases) + 20
 
 
 def run_timeout(rust_url: str, dotnet_url: str, token: str) -> int:

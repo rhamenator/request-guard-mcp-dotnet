@@ -23,10 +23,15 @@ consumed before caching or persistence.
 
 ## Data handling
 
-PostgreSQL stores classification requests/responses and operator-supplied feedback. These may
-contain IP addresses, user agents, headers, paths, and body snippets; establish retention and access
-controls appropriate to the deployment. Logs use structured events and must not include Bearer
-tokens, connection strings, attestation keys, full canary tokens, or raw request bodies.
+PostgreSQL stores classification responses, operator-supplied feedback, and a minimized replay
+snapshot. The snapshot retains only current rule inputs: user agent, method, a path with query and
+fragment removed, and the presence (not values) of `accept`/`accept-language` headers. It does not
+retain IP addresses, bodies, referrers, timestamps, arbitrary extra fields, request IDs, TLS
+fingerprints, or attestation data. Server-keyed caller scopes isolate decision lookup, feedback,
+drift, and calibration; public request IDs are not database keys. User agents, paths, responses,
+feedback notes, and reporter names can still be sensitive, so establish retention and database
+access controls appropriate to the deployment. Logs use structured events and must not include
+Bearer tokens, connection strings, attestation keys, full canary tokens, or raw request bodies.
 
 `config_snapshot` reports only configuration presence/counts and redacts the OTLP endpoint by
 default. Secret values are never returned. `redact_preview` is a preview helper, not a substitute

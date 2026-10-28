@@ -60,7 +60,10 @@ public sealed class FeedbackTool : IMcpTool
     public string Name => "feedback";
     public string Description => "Submit feedback on a classification";
 
-    public async Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
+    public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken) =>
+        CallScopedAsync(state, parameters, "internal", cancellationToken);
+
+    public async Task<JsonNode?> CallScopedAsync(AppState state, JsonNode? parameters, string callerScope, CancellationToken cancellationToken)
     {
         var request = McpJson.RequiredParams<FeedbackRequest>(parameters);
         if (!state.Config.Features.EnableFeedback || !state.Postgres.IsAvailable)
@@ -74,12 +77,17 @@ public sealed class FeedbackTool : IMcpTool
             throw AppErrorException.InvalidRequest("correct_verdict must be allow, block, flag, or challenge");
         }
 
-        if (await ToolResult.UpstreamAsync(() => state.Postgres.GetDecisionAsync(request.RequestId, cancellationToken)).ConfigureAwait(false) is null)
+        var expected = await ToolResult.UpstreamAsync(() => state.Postgres.GetDecisionAsync(callerScope, request.RequestId, cancellationToken)).ConfigureAwait(false);
+        if (expected is null)
         {
             throw AppErrorException.InvalidRequest($"classification request id '{request.RequestId}' was not found");
         }
 
-        var id = await ToolResult.UpstreamAsync(() => state.Postgres.RecordFeedbackAsync(request.RequestId, verdict, request.Notes, request.Reporter, cancellationToken)).ConfigureAwait(false);
+        var id = await ToolResult.UpstreamAsync(() => state.Postgres.RecordFeedbackAsync(callerScope, request.RequestId, verdict, request.Notes, request.Reporter, expected, cancellationToken)).ConfigureAwait(false);
+        if (id is null)
+        {
+            throw AppErrorException.InvalidRequest($"classification request id '{request.RequestId}' changed or was not found");
+        }
         return ToolResult.Json(new FeedbackResponse(true, id, "Feedback accepted. Thank you."));
     }
 }
@@ -89,7 +97,10 @@ public sealed class ReplayDecisionTool : IMcpTool
     public string Name => "replay_decision";
     public string Description => "Replay a previous decision";
 
-    public async Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
+    public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken) =>
+        CallScopedAsync(state, parameters, "internal", cancellationToken);
+
+    public async Task<JsonNode?> CallScopedAsync(AppState state, JsonNode? parameters, string callerScope, CancellationToken cancellationToken)
     {
         var request = McpJson.RequiredParams<ReplayRequest>(parameters);
         if (!state.Postgres.IsAvailable)
@@ -102,7 +113,7 @@ public sealed class ReplayDecisionTool : IMcpTool
             throw AppErrorException.InvalidRequest("only deterministic replay is supported");
         }
 
-        var original = await ToolResult.UpstreamAsync(() => state.Postgres.GetDecisionAsync(request.RequestId, cancellationToken)).ConfigureAwait(false)
+        var original = await ToolResult.UpstreamAsync(() => state.Postgres.GetDecisionAsync(callerScope, request.RequestId, cancellationToken)).ConfigureAwait(false)
             ?? throw AppErrorException.InvalidRequest($"classification request id '{request.RequestId}' was not found");
         original.Request.RequestId = $"replay-{Guid.NewGuid()}";
         var replayed = await ClassifyService.RunEphemeralAsync(state, original.Request, cancellationToken).ConfigureAwait(false);

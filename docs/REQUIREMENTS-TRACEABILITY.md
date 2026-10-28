@@ -10,9 +10,9 @@ assurance process. It is engineering evidence, not a claim of certification or a
 | HLR-003 | Bound request bytes, concurrent work (reject saturation without queueing), batch size, and execution time. | `McpDispatcher`, `BatchClassifyTool`, `AppConfig.Limits` | `McpDispatcherTests`, `Phase3ToolsEndToEndTests`, `AppConfigTests`, database-lock timeout differential |
 | HLR-004 | Provide all 23 request-guard-mcp tool contracts. | `ToolRegistryFactory`, `RequestGuardMcp.Tools` | `CompleteRegistryTests.FactoryRegistersAllTwentyThreeContracts`, all-tool differential phase |
 | HLR-005 | Produce behaviorally compatible classification signals, score, verdict, explanation, UA enrichment, and replay. | engines, `ClassifyService`, `WootheeUaParser`, replay tool | engine tests (including scanner boundaries and bounded encoded-path regressions), 238-case Woothee corpus verification, core and integration differential phases |
-| HLR-006 | Keep cached decisions isolated by authenticated caller and all scoring inputs. | `BearerAuth`, `RequestFingerprint`, `ClassifyService` | unit cache tests (field/header delimiter collisions, all decision inputs, recursive object ordering) plus two-token/two-key Redis differential assertion |
+| HLR-006 | Keep cached and persisted decisions, feedback, and reports isolated by authenticated caller. | `BearerAuth`, `RequestFingerprint`, `ClassifyService`, `PostgresClient`, scoped persistence tools | unit cache tests plus two-token Redis and PostgreSQL adversarial assertions for duplicate public request IDs, replay, feedback, and reports |
 | HLR-007 | Treat Redis, PostgreSQL, and MaxMind as optional; never synthesize backend data. | integration interfaces/null clients, concrete clients, backend-dependent tools | `CompleteRegistryTests.BackendDependentToolFailsTruthfullyWhenDisabled` |
-| HLR-008 | Persist decisions and feedback and support deterministic replay, drift, and calibration. | `PostgresClient`, reporting/replay/feedback tools | unit tests and disposable-PostgreSQL differential round trip |
+| HLR-008 | Persist privacy-minimized replay inputs and responses; transactionally preserve feedback only for an unchanged decision; support deterministic replay, drift, and calibration. | `PostgresClient`, reporting/replay/feedback tools | disposable-PostgreSQL round trip, row-content inspection, retry/replacement feedback lifecycle, and forced-lock timeout |
 | HLR-009 | Use Redis for distributed cache, reputation, canaries, and queue telemetry. | `RedisClient`, `ReputationClient`, security/queue tools | unit tests and seeded disposable-Redis differential phase |
 | HLR-010 | Use configured MaxMind databases for City, ASN, and anonymous-IP enrichment. | `GeoipClient`, `EnrichIpTool`, `EnrichAsnTool` | checksum-pinned official MaxMind test databases in differential CI |
 | HLR-011 | Ignore TLS fingerprints unless a fresh request-bound HMAC attestation verifies. | `TlsAttestation`, `ClassifyService`, `RuleEngine` | `TlsAttestationTests`, signed/tampered differential phase |
@@ -28,7 +28,8 @@ assurance process. It is engineering evidence, not a claim of certification or a
 - DR-001: Authenticated caller cache scopes use HMAC rather than a bare token hash to resist
   offline guessing from shared Redis keys.
 - DR-002: Attestation keys and caller-scope HMAC keys are distinct secrets with at least 32 UTF-8
-  bytes. Rotation accepts one previous TLS key.
+  bytes. Rotation accepts one previous TLS key. Authenticated PostgreSQL deployments require a
+  stable caller-scope key so persisted ownership survives restarts and replicas.
 - DR-003: A configured backend that cannot initialize prevents startup. A backend that fails
   later makes readiness unhealthy and produces an upstream error, while Redis cache operations
   degrade to the local cache.
