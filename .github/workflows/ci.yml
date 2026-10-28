@@ -122,9 +122,9 @@ jobs:
       fail-fast: false
       matrix:
         revision:
-          # Published v0.1.5 and inspected main; scoped classifier gate only.
+          # Published v0.1.5 and inspected current main; scoped classifier gate only.
           - f76ff9d2558fac705f091d9b858d3bc180b4f0bd
-          - 6dc433d9cc9cf1805e5074e8a8bf95a65dddfc30
+          - 2660c1fbfd71b38108dfc7b9decd309e4a8e480c
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
