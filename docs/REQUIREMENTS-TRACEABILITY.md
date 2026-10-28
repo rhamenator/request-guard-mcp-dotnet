@@ -89,17 +89,20 @@ DR-011: `--stdio` opens no network listener and uses process ownership instead o
 Bearer headers. Bound UTF-8 newline-delimited input, drain oversized lines, keep stdout
 JSON-only with stderr diagnostics, isolate each subprocess's cache scope, and exit on
 EOF or shutdown without an unbounded stream wait. `StdioTransport`, Host mode selection,
-`StdioTransportTests` and `tests/stdio/run.py` implement/verify the Linux process contract
-and official SDK startup/calls. This transport is sequential and does not implement
-notification-based in-flight cancellation; packaged platform evidence remains open.
+`StdioTransportTests`, `tests/stdio/run.py` and the native installer matrix implement/verify the
+process contract and official SDK startup/calls, including installed binaries on each supported
+platform. This transport is sequential and does not implement notification-based in-flight
+cancellation.
 
 DR-012: Build native archives from tracked source with a pinned SDK and separate locked
 RID/single-file dependency graph. Reject dependency drift, exclude local config/debug
 artifacts, include source/RID/SDK and file/archive checksums, and test the exact extracted
 binary on matching operating systems before a platform claim. `ReleaseBundle`, release
 locks, `native_bundle.py`, `qualify_bundle.py`, `lock_negative.py` and `native.yml` map this
-requirement to build/provenance, negative-control and real-client evidence. No stable
-publication or signing/installer qualification is implied.
+requirement to build/provenance, negative-control and real-client evidence. `native_installer.py`,
+`tests/installers/qualify.py` and the installer jobs extend the same exact-artifact chain through
+DEB/RPM, MSI and PKG clean install, payload integrity, launch, upgrade, uninstall and residue.
+No stable publication, code signing or notarization is implied.
 
 DR-013: Before body dispatch, enforce UTF-8 JSON content-type, explicit acceptable JSON/SSE
 response types and supported present protocol version. Reject repeated/malformed Bearer

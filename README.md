@@ -145,9 +145,9 @@ with -413; invalid UTF-8/JSON and unterminated EOF messages return -32700. Valid
 notifications produce no output. EOF exits cleanly; Ctrl+C/SIGTERM cancels pending work.
 Output writes have a five-second deadline; a stuck reader causes process failure.
 This is a sequential transport: requests finish in input order, and notification-based
-in-flight cancellation is not implemented. SDK/process evidence is currently Linux;
-Portable Windows/macOS bundles are separately tested on matching hosted runners;
-installer, OS-service and additional client-specific qualification remains open.
+in-flight cancellation is not implemented. SDK/process and installed-binary evidence runs on
+Linux, Windows, Intel macOS and arm64 macOS hosted runners. OS-service and additional
+client-specific qualification remain open.
 
 ## Why a .NET port?
 
@@ -185,7 +185,13 @@ and a source/RID/SDK manifest with file checksums. A sibling SHA-256 file identi
 archive. Extract the entire top-level folder, configure secrets through the environment,
 and launch `request-guard-mcp-dotnet` (`.exe` on Windows), adding `--stdio` for a subprocess
 client. A .NET installation is not required; operating-system native runtime libraries
-still are. Native installer and signing integration remain open under issue #27.
+still are.
+
+Official release candidates also provide DEB and RPM installers for Linux x64, MSI for Windows x64,
+and PKG installers for Intel and arm64 macOS. They are unsigned, do not register a service, and are
+qualified for clean install, installed launch, synthetic-version upgrade, uninstall and residue on
+matching disposable systems. See [native installer instructions](docs/INSTALLERS.md), including
+package-manager dependencies, paths, uninstall commands and the macOS notarization limitation.
 
 The `ReleaseBundle` build profile uses separate committed `packages.release.lock.json`
 files including all four RIDs and the pinned single-file task. Dependency drift fails
@@ -195,11 +201,12 @@ No existing archive is overwritten. To update release locks intentionally, revie
 SDK/package changes, run `dotnet restore src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj
 -p:ReleaseBundle=true`, review all five release lock files and rerun qualification.
 
-The Native Bundle Qualification workflow builds `VersionPrefix` candidates and tests fresh extractions on matching
-Linux, Windows, Intel macOS and arm64 macOS runners. Its seven-day Actions artifacts are
-development candidates with exact archive checksum/source records; this does not publish
-an official release candidate, a stable release or `latest`. See [verification](docs/VERIFICATION.md)
-for scope and commands.
+The Native Bundle Qualification workflow builds `VersionPrefix` candidates, tests fresh extractions,
+builds platform installers only from those qualified archives, and exercises the full installer
+lifecycle on matching Linux, Windows, Intel macOS and arm64 macOS runners. Its seven-day Actions
+artifacts are development candidates with exact archive/installer checksum and source records; this
+does not publish an official release candidate, stable release or `latest`. See
+[verification](docs/VERIFICATION.md) for scope and commands.
 
 ## Official release-candidate gate
 
@@ -213,9 +220,8 @@ never represented as independent review.
 
 The workflow verifies exact qualified artifacts, runs the baseline and container smoke/scan, rejects
 an existing tag/release/container version, then publishes an immutable versioned container and
-GitHub prerelease. It never updates `latest`. The four installer jobs required by the gate remain
-unimplemented, so publication remains blocked until issue #27 is completed. Stable 1.0 publication
-is outside the current workflow.
+GitHub prerelease containing the native archives and qualified unsigned installers. It never updates
+`latest`. Stable 1.0 publication and signed/notarized packages are outside the current workflow.
 
 ## Development
 
