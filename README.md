@@ -347,7 +347,9 @@ HTTP/2 prior knowledge on the same cleartext port as Rust does. The socket tests
 an explicit HTTP/2 listener. TLS/ALPN, proxy/IIS deployments, slow response consumers
 and full current-Rust transport qualification remain unverified. Existing
 `config_snapshot` keeps its historical schema; these new limits are configured via
-startup settings and are not yet listed by that tool. No outbound enforcement is added.
+startup settings and are not yet listed by that tool. Snapshots are always secret-safe:
+`redact_secrets` may be true or omitted, while false is rejected. A configured OTLP endpoint
+is reported only as `[REDACTED]`; an absent endpoint is null. No outbound enforcement is added.
 
 ### Best-effort Redis operation records
 

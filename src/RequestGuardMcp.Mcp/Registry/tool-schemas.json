@@ -311,7 +311,8 @@
     "type": "object",
     "properties": {
       "redact_secrets": {
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Must be true or omitted; unredacted snapshots are unavailable through MCP"
       }
     },
     "required": [],

@@ -1,5 +1,5 @@
 import unittest
-from contract import normalize
+from contract import Case, migrate_historical_config_absence, normalize
 
 
 class EnvelopeMigrationTests(unittest.TestCase):
@@ -21,3 +21,20 @@ class EnvelopeMigrationTests(unittest.TestCase):
     def test_application_null_fields_are_preserved(self):
         value = {'jsonrpc': '2.0', 'id': 1, 'result': {'error': None, 'value': None}}
         self.assertEqual(normalize(value), value)
+
+    def test_historical_absent_otlp_redaction_is_narrow(self):
+        case = Case('config_snapshot', {'redact_secrets': True}, 'config_snapshot/redacted')
+        legacy = {'result': {'snapshot': {'telemetry': {'otlp_endpoint': '[REDACTED]'}}}}
+        current = {'result': {'snapshot': {'telemetry': {'otlp_endpoint': None}}}}
+        migrate_historical_config_absence(legacy, current, case)
+        self.assertIsNone(legacy['result']['snapshot']['telemetry']['otlp_endpoint'])
+
+        configured = {'result': {'snapshot': {'telemetry': {'otlp_endpoint': '[REDACTED]'}}}}
+        migrate_historical_config_absence(configured, configured, case)
+        self.assertEqual('[REDACTED]', configured['result']['snapshot']['telemetry']['otlp_endpoint'])
+
+        unredacted = {'result': {'snapshot': {'telemetry': {'otlp_endpoint': 'https://secret'}}}}
+        migrate_historical_config_absence(
+            unredacted, current,
+            Case('config_snapshot', {'redact_secrets': False}, 'config_snapshot/unredacted'))
+        self.assertEqual('https://secret', unredacted['result']['snapshot']['telemetry']['otlp_endpoint'])

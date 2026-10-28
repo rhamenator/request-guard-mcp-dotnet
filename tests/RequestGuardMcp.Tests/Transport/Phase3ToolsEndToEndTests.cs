@@ -211,6 +211,28 @@ public class Phase3ToolsEndToEndTests
         var node = await DispatchAsync(dispatcher, state, "config_snapshot");
 
         Assert.Equal(2, node["result"]!["snapshot"]!["auth"]!["token_count"]!.GetValue<int>());
+        Assert.Null(node["result"]!["snapshot"]!["telemetry"]!["otlp_endpoint"]);
+    }
+
+    [Fact]
+    public async Task ConfigSnapshotRejectsUnredactedSecretsAndRedactsConfiguredEndpoint()
+    {
+        const string endpoint = "https://user:secret@collector.example:4317";
+        var config = new AppConfig
+        {
+            Auth = new AuthConfig { Enabled = false },
+            Telemetry = new TelemetryConfig { OtlpEndpoint = endpoint },
+        };
+        var (dispatcher, state) = NewDispatcher(config);
+
+        var unredacted = await DispatchAsync(dispatcher, state, "config_snapshot", """{"redact_secrets":false}""");
+        var redacted = await DispatchAsync(dispatcher, state, "config_snapshot", """{"redact_secrets":true}""");
+
+        Assert.Equal(-400, unredacted["error"]!["code"]!.GetValue<int>());
+        Assert.Equal("INVALID_REQUEST", unredacted["error"]!["message"]!.GetValue<string>());
+        Assert.Equal("[REDACTED]", redacted["result"]!["snapshot"]!["telemetry"]!["otlp_endpoint"]!.GetValue<string>());
+        Assert.DoesNotContain("secret", redacted.ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("collector.example", redacted.ToJsonString(), StringComparison.Ordinal);
     }
 
     [Fact]

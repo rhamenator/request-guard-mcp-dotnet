@@ -77,7 +77,6 @@ CORE_CASES = [
     Case("calibration_report", {"window_hours": 24}, "calibration_report/disabled-backend"),
     Case("queue_status", {}, "queue_status/disabled-backend"),
     Case("config_snapshot", {"redact_secrets": True}, "config_snapshot/redacted"),
-    Case("config_snapshot", {"redact_secrets": False}, "config_snapshot/plain"),
     Case("self_test", {}, "self_test"),
 ]
 
@@ -141,6 +140,19 @@ def normalize_payload(value: Any) -> Any:
     return value
 
 
+def migrate_historical_config_absence(rust_value: Any, dotnet_value: Any, case: Case) -> None:
+    """Narrow exception for the old pin that redacted an absent OTLP endpoint."""
+    if case.name != "config_snapshot" or not isinstance(case.params, dict) or case.params.get("redact_secrets") is not True:
+        return
+    try:
+        rust_endpoint = rust_value["result"]["snapshot"]["telemetry"]["otlp_endpoint"]
+        dotnet_endpoint = dotnet_value["result"]["snapshot"]["telemetry"]["otlp_endpoint"]
+    except (KeyError, TypeError):
+        return
+    if rust_endpoint == "[REDACTED]" and dotnet_endpoint is None:
+        rust_value["result"]["snapshot"]["telemetry"]["otlp_endpoint"] = None
+
+
 def request(url: str, payload: bytes, token: str | None = None) -> tuple[int, bytes, dict[str, str]]:
     headers = {"content-type": "application/json", "Accept": "application/json, text/event-stream"}
     if token is not None:
@@ -164,6 +176,7 @@ def compare_case(rust_url: str, dotnet_url: str, case: Case, identifier: int, to
     dotnet = rpc(dotnet_url, case, identifier, token)
     rust_value = normalize(rust[1], legacy_envelope=True)
     dotnet_value = normalize(dotnet[1])
+    migrate_historical_config_absence(rust_value, dotnet_value, case)
     if case.name == "classify" and isinstance(case.params, dict) and not case.params.get("request_id"):
         normalize_generated_request_ids(rust_value)
         normalize_generated_request_ids(dotnet_value)
@@ -404,7 +417,7 @@ def run_tls(rust_url: str, dotnet_url: str, key: str) -> int:
 
 
 def run_config(rust_url: str, dotnet_url: str) -> int:
-    case = Case("config_snapshot", {"redact_secrets": False}, "config-file/snapshot")
+    case = Case("config_snapshot", {"redact_secrets": True}, "config-file/snapshot")
     compare_case(rust_url, dotnet_url, case, 1200)
     for url in (rust_url, dotnet_url):
         _, response = rpc(url, case, 1201)

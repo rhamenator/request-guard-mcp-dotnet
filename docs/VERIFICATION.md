@@ -22,10 +22,12 @@ make parity-integration
 
 `tests/parity/rust-baseline.txt` is the reviewed contract revision. The runner compares complete
 tool payloads and error codes while normalizing generated IDs/times/latencies, server ports,
-and language build metadata. The historical Rust pin's redundant null envelope members are
-an explicit baseline-only migration exception: .NET must omit the unused branch. The runner
-also expects historical Rust notification 204 versus .NET 202. Regression tests ensure this
-exception cannot hide a candidate emitting both branches or discard application null fields. Its core phase covers every one of the 23 tools, malformed/missing input, disabled
+and language build metadata. The historical Rust pin's redundant null envelope members and its
+`[REDACTED]` marker for an absent OTLP endpoint are explicit baseline-only migration exceptions:
+.NET must omit the unused envelope branch and follow current Rust's null-for-absent snapshot.
+The runner also expects historical Rust notification 204 versus .NET 202. Regression tests ensure
+these exceptions cannot hide a candidate emitting both branches, discard application null fields,
+or expose a configured endpoint. Its core phase covers every one of the 23 tools, malformed/missing input, disabled
 features, HTTP and text/binary WebSocket transport, strict UTF-8, auth, TLS attestation, and all six
 Rust config formats plus YAML's `.yml` alias and dotenv. The integration phase launches pinned
 Redis/PostgreSQL containers, downloads checksum-pinned Apache-licensed MaxMind upstream fixtures,
@@ -33,6 +35,11 @@ tests persistence/replay/reports/reputation/canaries/queues, verifies two caller
 scopes, rejects cross-caller replay/feedback/report access, checks feedback invalidation on decision
 replacement, inspects privacy-minimized hashed-key rows, and forces a PostgreSQL lock to prove the
 tool deadline.
+
+The scoped current-Rust jobs additionally require both v0.1.5 and the pinned current-main
+reference to reject `config_snapshot(redact_secrets=false)`, return null for an absent OTLP
+endpoint in a redacted snapshot, and match the .NET redacted snapshot after volatile fields are
+normalized. This security behavior intentionally supersedes the older differential pin.
 
 PostgreSQL transport trust and running-backend recovery have a separate disposable gate:
 

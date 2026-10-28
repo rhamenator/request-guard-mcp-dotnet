@@ -33,8 +33,9 @@ feedback notes, and reporter names can still be sensitive, so establish retentio
 access controls appropriate to the deployment. Logs use structured events and must not include
 Bearer tokens, connection strings, attestation keys, full canary tokens, or raw request bodies.
 
-`config_snapshot` reports only configuration presence/counts and redacts the OTLP endpoint by
-default. Secret values are never returned. `redact_preview` is a preview helper, not a substitute
+`config_snapshot` reports only configuration presence/counts, redacts a configured OTLP endpoint,
+and rejects `redact_secrets=false`; unredacted snapshots are unavailable through MCP. Secret values
+are never returned. `redact_preview` is a preview helper, not a substitute
 for storage/logging policy.
 
 ## Operational controls

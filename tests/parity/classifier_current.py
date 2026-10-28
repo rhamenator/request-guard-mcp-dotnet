@@ -7,7 +7,7 @@ import pathlib
 import subprocess
 import tempfile
 
-from contract import Case, rpc
+from contract import Case, normalize, rpc
 from run import DOTNET_PORT, ROOT, RUST_PORT, Pair, build
 
 
@@ -70,7 +70,24 @@ def main():
                                      if key not in {"latency_ms", "model_version"}})
                 if outcomes[0] != outcomes[1]:
                     raise AssertionError(json.dumps({"case": fields, "outcomes": outcomes}, sort_keys=True))
-    print(f"PASS: {len(CASES)} classifier cases, independent expectations and differential results at {actual}")
+
+            snapshots = []
+            for port in (RUST_PORT, DOTNET_PORT):
+                url = f"http://127.0.0.1:{port}"
+                status, rejected = rpc(url, Case("config_snapshot", {"redact_secrets": False},
+                                                  "config-snapshot/unredacted"), 1000, token)
+                if status != 200 or rejected.get("error", {}).get("code") != -400:
+                    raise AssertionError((port, status, rejected))
+                status, redacted = rpc(url, Case("config_snapshot", {"redact_secrets": True},
+                                                  "config-snapshot/redacted"), 1001, token)
+                if status != 200 or redacted.get("error") is not None:
+                    raise AssertionError((port, status, redacted))
+                if redacted["result"]["snapshot"]["telemetry"]["otlp_endpoint"] is not None:
+                    raise AssertionError((port, redacted))
+                snapshots.append(normalize(redacted, legacy_envelope=port == RUST_PORT))
+            if snapshots[0] != snapshots[1]:
+                raise AssertionError(json.dumps({"config_snapshots": snapshots}, sort_keys=True))
+    print(f"PASS: {len(CASES)} classifier cases plus redacted/unredacted config snapshot security at {actual}")
 
 
 if __name__ == "__main__":
