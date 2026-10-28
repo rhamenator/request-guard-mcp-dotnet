@@ -1,6 +1,6 @@
 # Rust / .NET parity maintenance matrix
 
-Assessment: 2026-10-27. **Full parity remains unverified.** Tool names, source similarity,
+Assessment: 2026-10-28. **Full parity remains unverified.** Tool names, source similarity,
 and historical test counts are not substitutes for running-build evidence. No official release
 candidate or stable .NET release is published; pre-1.0 publication requires owner review and the
 exact technical gates described in `RELEASE-READINESS-REVIEW.md`.
@@ -15,12 +15,11 @@ exact technical gates described in `RELEASE-READINESS-REVIEW.md`.
 - Published Rust v0.1.5 tag: `f76ff9d2558fac705f091d9b858d3bc180b4f0bd`.
   GitHub's latest-release selector returned v0.1.4 at inspection, so it is not used
   as the identity of the v0.1.5 artifacts.
-- Current Rust maintenance reference:
-  `899a4b7264a34a5e6c2b60027cb26288e96be30d`, including #160/#162/#163.
-  These development fixes are not part of public v0.1.5.
-- Scoped classifier jobs pin v0.1.5 and `6dc433d9cc9cf1805e5074e8a8bf95a65dddfc30`.
-  They do not establish full differential compatibility with `899a4b7` or the moving
-  private v1 candidate. Reconcile new main/candidate fixes before claiming parity.
+- Current Rust main classifier reference:
+  `2660c1fbfd71b38108dfc7b9decd309e4a8e480c`.
+- Scoped classifier jobs pin v0.1.5 and that exact current-main revision. They do not
+  establish full differential compatibility with current Rust outside the classifier
+  cases. Reconcile new main/candidate fixes before claiming broader parity.
 
 ## Current matrix
 
@@ -54,8 +53,11 @@ maintainer/automation results, not independent human verification.
 
 - Classifier: [run 39732536875](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39732536875)
   at `fb4d3b3` passed 141 unit tests, historical integration differential and 31 classifier
-  cases against each scoped Rust ref. Only measured latency/model build metadata is
-  excluded from the classifier comparison; score/signals/verdict/confidence/category match.
+  cases against its scoped Rust refs. On 2026-10-28, the same 31 independently expected
+  cases passed locally against exact current Rust main `2660c1f`; hosted evidence is
+  required before this reference becomes an RC gate. Only measured latency/model build
+  metadata is excluded from the classifier comparison; score/signals/verdict/confidence/category
+  match.
 - Connection controls follow Rust #160 (pre-auth incomplete first request) and #162
   (HTTP/2 idle 60 s, age 120 s, exact 128 admitted requests, synchronous excess 503 and
   bounded GOAWAY drain). .NET #21 tests actual sockets, including an unresponsive peer,

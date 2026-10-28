@@ -48,6 +48,10 @@ def comments(association="OWNER"):
 
 class ReleaseCandidateGateTests(unittest.TestCase):
     def test_happy_path_components(self):
+        self.assertIn(
+            "Current Rust Classifier (2660c1fbfd71b38108dfc7b9decd309e4a8e480c)",
+            gate.REQUIRED_CHECKS,
+        )
         gate.require_exact_main({"commit": {"sha": SHA}}, SHA, "main", "branch")
         gate.require_checks({"check_runs": [
             {"name": name, "status": "completed", "conclusion": "success"}
