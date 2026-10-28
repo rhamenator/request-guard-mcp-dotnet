@@ -42,8 +42,10 @@ for storage/logging policy.
 - Terminate TLS before the service and restrict direct network access.
 - Use distinct high-entropy values for auth, cache-scope HMAC, TLS attestation, Redis, and database
   credentials; rotate them through the platform secret store.
-- Restrict Redis/PostgreSQL to the application network and enable their authentication/TLS for
-  cross-host deployments.
+- Restrict Redis/PostgreSQL to the application network. For cross-host PostgreSQL, use
+  `SSL Mode=VerifyFull` with a trusted CA so both the chain and host name are verified;
+  `Require` alone does not authenticate the server. Redis TLS is not implemented, so keep
+  Redis on a trusted isolated link or terminate an independently secured tunnel at loopback.
 - Mount MMDB files read-only and verify provenance/checksums during updates.
 - Run the image as non-root with a read-only filesystem and dropped capabilities.
 - Treat `/metrics` as operational data and restrict it if tool names or traffic volumes are

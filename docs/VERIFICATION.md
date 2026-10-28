@@ -34,6 +34,19 @@ scopes, rejects cross-caller replay/feedback/report access, checks feedback inva
 replacement, inspects privacy-minimized hashed-key rows, and forces a PostgreSQL lock to prove the
 tool deadline.
 
+PostgreSQL transport trust and running-backend recovery have a separate disposable gate:
+
+```bash
+python3 tests/parity/postgres_tls_recovery.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
+```
+
+It proves `VerifyFull` trusted-CA success, untrusted-CA and host-name rejection, an encrypted
+session observed by PostgreSQL, bounded truthful failures during pause/stop, and replay recovery
+after unpause/restart without restarting the MCP server. See
+[`POSTGRES-TLS-RECOVERY.md`](POSTGRES-TLS-RECOVERY.md) for prerequisites, resource limits,
+required observations, and exclusions.
+
 ## MCP lifecycle and envelope qualification
 
 ```bash
