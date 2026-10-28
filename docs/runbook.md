@@ -46,5 +46,5 @@ Rotate Bearer tokens with an overlap period; cache scopes intentionally change w
 
 Run `make ci` and `make parity-integration` before producing an image. Validate Kubernetes and
 workflow files and scan the final immutable image for known vulnerabilities. Record exact tool,
-source, baseline, and image digests with the release evidence. Independent human review remains a
-separate mandatory stable-release gate.
+source, baseline, and image digests with the release evidence. Record owner review and explicitly
+disclose whether independent human review occurred; it is not a pre-1.0 publication blocker.

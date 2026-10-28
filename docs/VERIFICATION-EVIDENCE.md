@@ -27,7 +27,9 @@ The MaxMind phase downloads only public upstream test fixtures at commit
 `e1120013c4b5cbc830b958b2b7e73fba444d316d` and rejects any SHA-256 mismatch. Redis and PostgreSQL
 data are disposable and use distinct namespaces/databases for the two implementations.
 
-## Open release gate
+## Open release-candidate gate
 
-The independent review described in `RELEASE-READINESS-REVIEW.md` remains pending. No stable-release
-or certification claim may treat this automated and maintainer-generated evidence as independent.
+Independent human review was not performed for this historical evidence record. The current owner
+readiness gate requires that disclosure and production-level exact-candidate evidence; it also
+requires installer jobs that remain open under issue #27. No certification or independent-review
+claim may treat this automated and maintainer-generated evidence as independent.

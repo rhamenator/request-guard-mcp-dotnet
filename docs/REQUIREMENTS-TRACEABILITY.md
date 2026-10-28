@@ -123,12 +123,12 @@ permits and reject unsupported timer values at startup. `WebSocketConnectionHand
 protocol/native matrix trace these properties. Production-duration/slow-consumer and
 proxy/TLS evidence remain separately required.
 
-DR-015: Stable publication must fail before build or external write unless a protected
-`stable-release` environment has named reviewers, self-review and administrator bypass are
-disabled, the candidate is exact current protected `main`, every named current security/runtime/
-integration/native check succeeded, and a closed independent-review record contains the exact
-version/SHA plus an approval comment from a configured reviewer other than the run actor.
-`stable_release_gate.py`, its negative-control suite, the release workflow and
-`RELEASE-READINESS-REVIEW.md` implement and verify this gate. Development archives remain
-short-lived workflow artifacts; prereleases are not published and only a gated stable run may
-update `latest`.
+DR-015: Official release-candidate publication must fail before build or external write unless the
+version is `0.MINOR.PATCH`, the candidate is exact current protected `main`, every named current
+security/runtime/integration/native-bundle/installer check succeeded, and a closed owner-readiness
+record contains the exact version/SHA, evidence and limitation fields, independent-review disclosure,
+no blocking high-severity findings and an exact approval comment from an owner or collaborator.
+`release_candidate_gate.py`, its negative-control suite, the release-candidate workflow and
+`RELEASE-READINESS-REVIEW.md` implement and verify this gate. Development artifacts remain
+short-lived; a successful run publishes an immutable versioned container and GitHub prerelease but
+does not update `latest`. Stable 1.0 publication is outside the current workflow.

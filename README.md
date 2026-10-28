@@ -16,7 +16,7 @@ v0.1.5. Current parity work and unverified gaps are tracked in the
 work alongside direct HTTP/WebSocket JSON-RPC calls. The pinned official Python SDK
 qualifies the JSON-response HTTP path and process-local `--stdio`. Negotiation/auth/origin
 checks are exercised separately. SSE, sessions and OAuth discovery are not implemented.
-No stable .NET release has been published.
+No official .NET release candidate or stable release has been published.
 
 The .NET port implements all 23 sibling Rust tool contracts, HTTP/WebSocket JSON-RPC transports,
 Bearer authentication, bounded concurrency/timeouts, two-level caching, PostgreSQL persistence and
@@ -29,8 +29,9 @@ authentication, TLS attestation, both transports, all supported configuration fo
 isolation, timeouts, Redis, PostgreSQL, and checksum-pinned official MaxMind test databases.
 
 The assurance baseline is DO-178C-inspired and appropriate to a sole-maintainer project; it is not
-a claim of certification or airborne suitability. Independent review remains required before the
-first stable release.
+a claim of certification or airborne suitability. Official pre-1.0 candidates require a durable
+owner self-review record and disclose whether independent human review occurred; independent review
+is not a publication blocker.
 
 ### Try it
 
@@ -170,7 +171,7 @@ tests/
 
 ## Native development bundles
 
-No stable bundles are published yet. Build a development archive from the **committed**
+No official release-candidate bundles are published yet. Build a development archive from the **committed**
 Git revision with Python 3.12+ and the exact SDK in `global.json`:
 
 ```bash
@@ -184,7 +185,7 @@ and a source/RID/SDK manifest with file checksums. A sibling SHA-256 file identi
 archive. Extract the entire top-level folder, configure secrets through the environment,
 and launch `request-guard-mcp-dotnet` (`.exe` on Windows), adding `--stdio` for a subprocess
 client. A .NET installation is not required; operating-system native runtime libraries
-still are. macOS/Windows signing and installer integration are not supplied.
+still are. Native installer and signing integration remain open under issue #27.
 
 The `ReleaseBundle` build profile uses separate committed `packages.release.lock.json`
 files including all four RIDs and the pinned single-file task. Dependency drift fails
@@ -197,23 +198,24 @@ SDK/package changes, run `dotnet restore src/RequestGuardMcp.Host/RequestGuardMc
 The Native Bundle Qualification workflow builds `VersionPrefix` candidates and tests fresh extractions on matching
 Linux, Windows, Intel macOS and arm64 macOS runners. Its seven-day Actions artifacts are
 development candidates with exact archive checksum/source records; this does not publish
-a stable release or `latest`. See [verification](docs/VERIFICATION.md) for scope and commands.
+an official release candidate, a stable release or `latest`. See [verification](docs/VERIFICATION.md)
+for scope and commands.
 
-## Stable release gate
+## Official release-candidate gate
 
-Stable publication is manual and disabled until the repository owner configures the
-`stable-release` GitHub environment exactly as described in
-[the release-readiness review](docs/RELEASE-READINESS-REVIEW.md). The workflow accepts only
-a stable `MAJOR.MINOR.PATCH` matching `VersionPrefix`, only from the exact current protected
-`main` commit, and only after every named current-candidate CI, security, Redis and four-platform
-native job succeeds. It also requires a closed durable review issue and an exact approval comment
-from a configured reviewer other than the person who started the workflow. Development native
-artifacts remain private Actions candidates and never update the stable `latest` container tag.
+Official release-candidate publication is manual and fail closed as described in
+[the release-readiness review](docs/RELEASE-READINESS-REVIEW.md). The workflow accepts only a
+`0.MINOR.PATCH` matching `VersionPrefix`, only from the exact current protected `main` commit, and
+only after every named current-candidate CI, security, Redis, native-bundle and native-installer job
+succeeds. It also requires a closed durable owner readiness issue, an exact approval comment and an
+explicit statement of whether independent human review occurred. Self-review and automation are
+never represented as independent review.
 
-The stable workflow downloads the exact four platform-qualified bundles, verifies their reports
-and checksums, runs the baseline and container smoke/scan,
-rejects an existing tag/release/container version, then publishes the immutable version, `latest`
-and GitHub release. It cannot be used for prereleases. No stable release has been published.
+The workflow verifies exact qualified artifacts, runs the baseline and container smoke/scan, rejects
+an existing tag/release/container version, then publishes an immutable versioned container and
+GitHub prerelease. It never updates `latest`. The four installer jobs required by the gate remain
+unimplemented, so publication remains blocked until issue #27 is completed. Stable 1.0 publication
+is outside the current workflow.
 
 ## Development
 
@@ -255,8 +257,8 @@ configured dependency fails; they do not return synthetic success data.
 - [docs/architecture.md](docs/architecture.md) — target architecture and delivery phases
 - [docs/DO-178C-ASSURANCE-POLICY.md](docs/DO-178C-ASSURANCE-POLICY.md) — the change-control and
   verification baseline this repository follows
-- [docs/RELEASE-READINESS-REVIEW.md](docs/RELEASE-READINESS-REVIEW.md) — the independent human
-  review gate required before a first stable release
+- [docs/RELEASE-READINESS-REVIEW.md](docs/RELEASE-READINESS-REVIEW.md) — owner review, evidence and
+  publication rules for an official pre-1.0 release candidate
 - [docs/REQUIREMENTS-TRACEABILITY.md](docs/REQUIREMENTS-TRACEABILITY.md) — requirements mapped to
   implementation and verification evidence
 - [docs/VERIFICATION.md](docs/VERIFICATION.md) — automated, integration, and deployment checks

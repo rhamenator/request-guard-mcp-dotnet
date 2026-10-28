@@ -1,14 +1,14 @@
-name: Stable Release
+name: Official Release Candidate
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Stable MAJOR.MINOR.PATCH version (must match VersionPrefix)
+        description: Official 0.MINOR.PATCH version (must match VersionPrefix)
         required: true
         type: string
-      review_issue:
-        description: Closed independent release-readiness review issue number
+      readiness_issue:
+        description: Closed owner release-candidate readiness issue number
         required: true
         type: number
 
@@ -21,13 +21,12 @@ permissions:
   issues: read
 
 concurrency:
-  group: stable-release
+  group: official-release-candidate
   cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-24.04
-    environment: stable-release
     steps:
       - name: Check out exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,22 +34,21 @@ jobs:
       - name: Install pinned .NET SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with: { global-json-file: global.json }
-      - name: Enforce protected review and exact-candidate qualification
+      - name: Enforce owner review and exact-candidate qualification
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
-          REVIEW_ISSUE: ${{ inputs.review_issue }}
+          READINESS_ISSUE: ${{ inputs.readiness_issue }}
         run: |
           mkdir -p dist
-          python3 scripts/stable_release_gate.py \
+          python3 scripts/release_candidate_gate.py \
             --repository "$GITHUB_REPOSITORY" \
             --sha "$GITHUB_SHA" \
             --version "$VERSION" \
-            --review-issue "$REVIEW_ISSUE" \
-            --actor "$GITHUB_ACTOR" \
+            --readiness-issue "$READINESS_ISSUE" \
             --ref-name "$GITHUB_REF_NAME" \
-            --ref-type "$GITHUB_REF_TYPE" | tee dist/release-gate.txt
-      - name: Reject an existing stable version
+            --ref-type "$GITHUB_REF_TYPE" | tee dist/release-candidate-gate.txt
+      - name: Reject an existing release-candidate version
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
@@ -92,7 +90,7 @@ jobs:
             cp "$directory/qualification.json" "dist/qualification-$rid.json"
           done
           dotnet list RequestGuardMcp.slnx package --include-transitive --format json > dist/nuget-dependencies.json
-          (cd dist && sha256sum ./*.tar.gz ./*.sha256 qualification-*.json nuget-dependencies.json release-gate.txt > SHA256SUMS)
+          (cd dist && sha256sum ./*.tar.gz ./*.sha256 qualification-*.json nuget-dependencies.json release-candidate-gate.txt > SHA256SUMS)
           (cd dist && sha256sum -c SHA256SUMS)
       - name: Build and qualify the exact container
         env:
@@ -109,7 +107,7 @@ jobs:
             aquasec/trivy:0.62.1@sha256:fc10faf341a1d8fa8256c5ff1a6662ef74dd38b65034c8ce42346cf958a02d5d \
             image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
             request-guard-mcp-dotnet:security
-      - name: Publish immutable version and latest container tags
+      - name: Publish immutable versioned container tag
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
@@ -124,14 +122,13 @@ jobs:
           docker tag request-guard-mcp-dotnet:security "$image:$VERSION"
           docker push "$image:$VERSION"
           docker image inspect "$image:$VERSION" --format '{{index .RepoDigests 0}}' > dist/container-image.txt
-          docker tag request-guard-mcp-dotnet:security "$image:latest"
-          docker push "$image:latest"
           (cd dist && sha256sum container-image.txt >> SHA256SUMS)
           (cd dist && sha256sum -c SHA256SUMS)
-      - name: Publish immutable stable release assets
+      - name: Publish immutable official release-candidate assets
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           gh release create "v$VERSION" dist/* \
-            --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --latest
+            --target "$GITHUB_SHA" --title "v$VERSION (official release candidate)" \
+            --generate-notes --prerelease

@@ -1,8 +1,9 @@
 # Rust / .NET parity maintenance matrix
 
 Assessment: 2026-10-27. **Full parity remains unverified.** Tool names, source similarity,
-and historical test counts are not substitutes for running-build evidence. No stable
-.NET release is published; stable publication still requires owner review.
+and historical test counts are not substitutes for running-build evidence. No official release
+candidate or stable .NET release is published; pre-1.0 publication requires owner review and the
+exact technical gates described in `RELEASE-READINESS-REVIEW.md`.
 
 ## Controlled references
 
@@ -42,7 +43,7 @@ and historical test counts are not substitutes for running-build evidence. No st
 | Containers | #19 patches pinned SDK/runtime and passes non-root/read-only auth/classifier smoke and vulnerability scan | Broader platform/backend TLS and exact-artifact qualification: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
 | Native packaging / installs | Four-RID locked native bundle profile, tracked-source archives and checksummed manifests; matching-platform qualification workflow | Review exact-artifact run results; installers/signing, additional architecture disposition: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
 | Clients / companion distribution | Pinned official Python SDK exercises lifecycle, schemas and all 23 calls on a running build | Real Inspector/CLI/ASD and packaged-artifact tests and .NET-specific installer/skill/npm disposition: [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) |
-| Release gates | No stable .NET publication performed | Enforce owner-reviewed stable workflow and private/prerelease/latest separation: [#28](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/28) |
+| Release gates | Owner-reviewed `0.MINOR.PATCH` gate publishes immutable GitHub prereleases and versioned containers without moving `latest`; independent-review status is disclosed | Installer checks intentionally keep publication blocked until [#27](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/27) is complete; policy origin: [#28](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/28) |
 | Outbound egress | Inbound classification only | No outbound egress enforcement is implemented or claimed |
 
 ## Evidence and boundaries
