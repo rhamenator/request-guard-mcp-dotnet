@@ -52,9 +52,10 @@ Apple-notarized, so macOS security policy can require an explicit local exceptio
 
 Every installer has a sibling SHA-256 file and a machine-readable manifest linking its hash to the
 source revision and qualified native-bundle hash. The matching hosted runner checks a clean install,
-installed payload integrity, launch through the stdio protocol, a synthetic older-package upgrade,
-uninstall and residue. Linux runs both DEB and RPM tests, with RPM qualification in a digest-pinned
-Fedora 42 container. Synthetic older packages are test fixtures and are never release assets.
+installed payload integrity, and the installed executable through the pinned official Python MCP SDK
+after both clean install and a synthetic older-package upgrade, followed by uninstall and residue.
+Linux runs the official-SDK check through the DEB and a raw stdio RPM check in a digest-pinned Fedora
+42 container. Synthetic older packages are test fixtures and are never release assets.
 
 The packages are currently unsigned because commercial signing/notarization is deferred. SHA-256
 records detect accidental changes but are not a substitute for publisher identity or platform code

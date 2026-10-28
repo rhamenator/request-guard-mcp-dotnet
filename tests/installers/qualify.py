@@ -209,7 +209,7 @@ def main():
     metadata = verify(current_dir, args.rid, args.version, args.source)
     verify(prior_dir, args.rid, args.prior_version, args.source)
     checks = {'manifest_and_checksums': 'passed', 'installed_payload': 'passed', 'clean_install': 'passed', 'launch': 'passed',
-              'upgrade': 'passed', 'uninstall': 'passed', 'residue': 'passed'}
+              'official_python_sdk_stdio': 'passed', 'upgrade': 'passed', 'uninstall': 'passed', 'residue': 'passed'}
     if args.rid == 'linux-x64':
         assert platform.system() == 'Linux'
         qualify_deb(current_dir, prior_dir, args.version, args.prior_version)
@@ -227,7 +227,7 @@ def main():
     report = {'schema': 1, 'source_sha': args.source, 'rid': args.rid,
               'version': args.version, 'prior_version': args.prior_version,
               'unsigned': True, 'installers': metadata['installers'], 'checks': checks,
-              'scope': 'clean candidate install/launch/uninstall/residue, then separate synthetic prior-version upgrade/uninstall/residue'}
+              'scope': 'clean candidate install/official Python SDK stdio/uninstall/residue, then separate synthetic prior-version upgrade/official Python SDK stdio/uninstall/residue; RPM uses raw stdio smoke'}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + '\n')
     print('PASS installer lifecycle:', args.rid)
