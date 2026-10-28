@@ -59,9 +59,11 @@ After the gate passes, the workflow re-runs the controlled baseline, downloads t
 artifacts, verifies checksums and reports, rebuilds and scans the exact container, and publishes an
 immutable versioned container plus a GitHub prerelease. It does not publish `latest`.
 
-Installer generation and qualification are tracked in issue #27. Because the gate already requires
-the four installer checks, official release-candidate publication remains fail closed until those
-jobs and artifacts are implemented and pass for the exact revision.
+The installer jobs build DEB/RPM, MSI and both macOS PKG variants only from the exact qualified
+native archives. They retain checksum/provenance records and must pass clean install, payload
+integrity, installed launch, synthetic-version upgrade, uninstall and residue checks. Packages are
+unsigned and the readiness record must preserve that limitation; signing/notarization remains
+tracked separately under issue #27.
 
 Stable 1.0 publication is outside the current workflow and requires an explicit future policy
 decision. Do not create release tags manually.

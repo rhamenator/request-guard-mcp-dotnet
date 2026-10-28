@@ -88,9 +88,34 @@ jobs:
                .checks.stdio_sdk_process == "passed"' "$directory/qualification.json" >/dev/null
             cp "$directory/$archive" "$directory/$archive.sha256" dist/
             cp "$directory/qualification.json" "dist/qualification-$rid.json"
+
+            installer_directory="qualified/installer-$rid"
+            gh run download "$run_id" --name "installer-qualification-$rid" --dir "$installer_directory"
+            jq -e --arg sha "$GITHUB_SHA" --arg rid "$rid" --arg version "$VERSION" \
+              '.schema == 1 and .source_sha == $sha and .rid == $rid and .version == $version and
+               .unsigned == true and .checks.manifest_and_checksums == "passed" and
+               .checks.installed_payload == "passed" and .checks.clean_install == "passed" and
+               .checks.launch == "passed" and .checks.upgrade == "passed" and
+               .checks.uninstall == "passed" and .checks.residue == "passed"' \
+              "$installer_directory/qualification.json" >/dev/null
+            mapfile -d '' installers < <(find "$installer_directory" -maxdepth 1 -type f \
+              \( -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.pkg' \) -print0)
+            if [[ "${#installers[@]}" -eq 0 ]]; then
+              echo "::error::No installer was retained for $rid"
+              exit 1
+            fi
+            for installer in "${installers[@]}"; do
+              sidecar="$installer.sha256"
+              (cd "$installer_directory" && sha256sum -c "$(basename "$sidecar")")
+              cp "$installer" "$sidecar" dist/
+            done
+            cp "$installer_directory/installer-manifest.json" "dist/installer-manifest-$rid.json"
+            cp "$installer_directory/qualification.json" "dist/installer-qualification-$rid.json"
           done
           dotnet list RequestGuardMcp.slnx package --include-transitive --format json > dist/nuget-dependencies.json
-          (cd dist && sha256sum ./*.tar.gz ./*.sha256 qualification-*.json nuget-dependencies.json release-candidate-gate.txt > SHA256SUMS)
+          sums="$(mktemp)"
+          (cd dist && find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) > "$sums"
+          mv "$sums" dist/SHA256SUMS
           (cd dist && sha256sum -c SHA256SUMS)
       - name: Build and qualify the exact container
         env:

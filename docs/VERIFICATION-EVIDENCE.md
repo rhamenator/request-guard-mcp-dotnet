@@ -30,6 +30,6 @@ data are disposable and use distinct namespaces/databases for the two implementa
 ## Open release-candidate gate
 
 Independent human review was not performed for this historical evidence record. The current owner
-readiness gate requires that disclosure and production-level exact-candidate evidence; it also
-requires installer jobs that remain open under issue #27. No certification or independent-review
-claim may treat this automated and maintainer-generated evidence as independent.
+readiness gate requires that disclosure and production-level exact-candidate evidence, including
+the four platform-installer lifecycle jobs. No certification or independent-review claim may treat
+this automated and maintainer-generated evidence as independent.

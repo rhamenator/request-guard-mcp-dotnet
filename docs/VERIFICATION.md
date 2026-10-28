@@ -99,8 +99,8 @@ lists all 23 tools, classifies and receives an expected tool error. `StdioTransp
 cover newline framing, invalid envelope/syntax handling, bounded input recovery,
 unterminated EOF, independent stable subprocess scopes, and cancellation even when a
 stream ignores it. CI runs the process runner on Linux. The transport is sequential;
-client cancellation notifications and OS installer/service integration remain unqualified;
-portable Windows/macOS SDK smoke is exercised by the native workflow.
+client cancellation notifications and OS service integration remain unqualified; portable
+Windows/macOS SDK and installed-binary smoke are exercised by the native workflow.
 
 ## WebSocket and output deadlines
 
@@ -154,10 +154,13 @@ The original locked single-file publish failed NU1004 for missing RID/ILLink ent
 local release-lock restore/publish succeeds without rewriting the five locks. SDK
 updates require reviewing/regenerating native locks and rerunning all platforms.
 
-These tests cover fresh portable extraction and process/HTTP clients without external
-backends. They do not qualify native installers, code signing, OS service registration,
-physical LAN/router or backend TLS/recovery. Archive checksums/manifests provide
-consistency/provenance records, not an independent cryptographic signature.
+The follow-on installer matrix builds DEB/RPM, MSI and PKG only from these qualified archives. On
+matching disposable systems it verifies installer checksums/source linkage, clean install, installed
+payload hashes, stdio launch, a synthetic older-version upgrade, uninstall and residue. The Linux
+RPM lifecycle runs in a digest-pinned Fedora 42 container; synthetic older installers are discarded.
+See [installer instructions](INSTALLERS.md). These tests do not qualify code signing, notarization,
+OS service registration, physical LAN/router or backend TLS/recovery. Checksums/manifests provide
+consistency and traceability, not signed publisher identity.
 
 ## Official release-candidate negative controls
 
@@ -170,9 +173,8 @@ candidates, versions outside `0.MINOR.PATCH`, failed required checks, incomplete
 records, untrusted approval comments and unresolved high-severity findings all fail. CI runs them
 on every candidate. The real workflow additionally queries GitHub for exact current `main`, named
 successful checks and the durable readiness issue/comment before any build or registry write. The
-required check set already includes four installer jobs, so publication remains blocked until issue
-#27 implements them. A successful unit test does not substitute for the exact-candidate evidence or
-completed owner readiness record.
+required check set includes all four installer jobs. A successful unit test does not substitute for
+exact-candidate installer evidence or the completed owner readiness record.
 
 Coverage may be collected with:
 

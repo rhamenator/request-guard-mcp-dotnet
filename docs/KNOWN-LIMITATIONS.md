@@ -42,14 +42,15 @@ TLS/ALPN and reverse-proxy hosting need independent client qualification. The 12
 production age limit is exercised with a shorter injected clock budget in tests; this
 is not an exact 120-second artifact endurance record.
 
-Native archives target glibc Linux x64, Windows x64, Intel macOS and arm64 macOS. Linux
-musl/Alpine and Linux/Windows arm64 archives, platform installers, service registration
-and native code signing are not provided. The native qualification workflow exercises
-fresh portable extraction and SDK clients on matching hosted runners; backend TLS and
-real service/installer deployment are separate gates. Development Actions artifacts are
-not official release candidates or stable releases. File/archive checksums establish consistency,
-not signed provenance. The official release-candidate gate already requires installer jobs, so it
-cannot publish until issue #27 implements and qualifies them.
+Native archives and installers target glibc Linux x64, Windows x64, Intel macOS and arm64 macOS.
+Linux musl/Alpine and Linux/Windows arm64 artifacts and OS service registration are not provided.
+Linux packages are DEB and RPM only. The Windows MSI does not modify `PATH`; macOS removal uses the
+installed uninstall script because PKG has no native uninstall transaction. Packages are unsigned
+and macOS packages are not notarized. Matching hosted runners qualify fresh portable extraction,
+SDK clients and installer install/launch/upgrade/uninstall/residue; backend TLS, physical LAN/router,
+enterprise deployment systems and every supported-distribution version remain separate evidence.
+Development Actions artifacts are not official release candidates or stable releases. Checksums and
+workflow manifests establish consistency and traceability, not signed publisher identity.
 
 HTTP POST now requires UTF-8 application/json and explicit positive-quality
 application/json plus text/event-stream in Accept, although responses remain JSON-only.
