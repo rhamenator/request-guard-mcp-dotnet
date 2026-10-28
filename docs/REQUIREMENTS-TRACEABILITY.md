@@ -22,6 +22,7 @@ assurance process. It is engineering evidence, not a claim of certification or a
 | HLR-015 | Provide least-privilege container and Kubernetes deployment examples. | `docker/`, `deploy/k8s/` | Docker build and manifest validation procedure |
 | HLR-016 | Load the same CONFIG_FILE formats and snake_case keys as Rust, with environment overrides. | `RustConfigFileParser`, Host composition root | parser tests and JSON/INI/TOML/YAML/RON/JSON5/dotenv differential phases |
 | HLR-017 | Warm engines and cache before accepting traffic. | Host startup, `WarmupTool` | startup inspection plus warmup differential case |
+| HLR-018 | Never disclose secret configuration through `config_snapshot`; reject unredacted requests and reveal an OTLP endpoint only as present-and-redacted. | `ConfigSnapshotTool`, tool schema | end-to-end snapshot security test plus exact current-Rust classifier/configuration gates |
 
 ## Derived requirements and assumptions
 

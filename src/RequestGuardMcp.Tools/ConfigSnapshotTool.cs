@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using RequestGuardMcp.Core.Errors;
 using RequestGuardMcp.Core.Json;
 using RequestGuardMcp.Core.Models.Request;
 using RequestGuardMcp.Core.Models.Response;
@@ -22,7 +23,12 @@ public sealed class ConfigSnapshotTool : IMcpTool
     public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
     {
         var request = McpJson.ParamsOrDefault<ConfigSnapshotRequest>(parameters);
-        var redact = request.RedactSecrets ?? true;
+        if (request.RedactSecrets == false)
+        {
+            throw AppErrorException.InvalidRequest(
+                "unredacted configuration snapshots are not available through MCP");
+        }
+
         var cfg = state.Config;
 
         var snapshot = new JsonObject
@@ -53,9 +59,9 @@ public sealed class ConfigSnapshotTool : IMcpTool
             {
                 ["service_name"] = cfg.Telemetry.ServiceName,
                 ["metrics_path"] = cfg.Telemetry.MetricsPath,
-                // Rust deliberately hides whether an endpoint is configured when redaction is
-                // requested, so even an absent value is represented by the placeholder.
-                ["otlp_endpoint"] = redact ? JsonRedaction.RedactedPlaceholder : cfg.Telemetry.OtlpEndpoint,
+                ["otlp_endpoint"] = cfg.Telemetry.OtlpEndpoint is null
+                    ? null
+                    : JsonRedaction.RedactedPlaceholder,
             },
             ["redis"] = new JsonObject
             {
