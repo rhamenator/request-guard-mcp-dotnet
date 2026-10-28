@@ -100,14 +100,18 @@ def require_checks(checks: dict[str, object]) -> None:
         raise GateError("check-runs response is missing check_runs")
     if checks.get("total_count", len(runs)) > len(runs):
         raise GateError("check-runs response was truncated")
-    results: dict[str, list[tuple[object, object]]] = {}
-    for run in runs:
+    results: dict[str, tuple[int, object, object]] = {}
+    for position, run in enumerate(runs):
         if isinstance(run, dict) and isinstance(run.get("name"), str):
-            results.setdefault(run["name"], []).append((run.get("status"), run.get("conclusion")))
+            identifier = run.get("id")
+            order = identifier if isinstance(identifier, int) else position
+            previous = results.get(run["name"])
+            if previous is None or order > previous[0]:
+                results[run["name"]] = (order, run.get("status"), run.get("conclusion"))
     missing = sorted(REQUIRED_CHECKS - results.keys())
     failed = sorted(
         name for name in REQUIRED_CHECKS
-        if any(status != "completed" or conclusion != "success" for status, conclusion in results.get(name, []))
+        if results.get(name, (-1, None, None))[1:] != ("completed", "success")
     )
     if missing:
         raise GateError(f"required exact-candidate checks are missing: {', '.join(missing)}")
