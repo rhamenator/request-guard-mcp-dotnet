@@ -12,6 +12,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = 'request-guard-mcp-dotnet'
+COMMAND_TIMEOUT = 600
+INSTALLER_TIMEOUT = 300
 
 
 def digest(path):
@@ -21,6 +23,7 @@ def digest(path):
 
 def run(command, *, capture=False, **kwargs):
     print('+', ' '.join(map(str, command)), flush=True)
+    kwargs.setdefault('timeout', COMMAND_TIMEOUT)
     return subprocess.run(list(map(str, command)), check=True, text=True,
                           stdout=subprocess.PIPE if capture else None, **kwargs)
 
@@ -135,21 +138,22 @@ def qualify_msi(current_dir, prior_dir, version, prior):
     assert not install_root.exists() and windows_installed_version() is None
     log = current_dir / 'msi-install.log'
     try:
-        run(['msiexec.exe', '/i', current, '/qn', '/norestart', '/L*v', log])
+        run(['msiexec.exe', '/i', current, '/qn', '/norestart', '/L*v', log], timeout=INSTALLER_TIMEOUT)
         assert windows_installed_version() == version
         verify_installed_payload(install_root)
         stdio(binary)
-        run(['msiexec.exe', '/x', current, '/qn', '/norestart', '/L*v', log])
+        run(['msiexec.exe', '/x', current, '/qn', '/norestart', '/L*v', log], timeout=INSTALLER_TIMEOUT)
         assert not install_root.exists() and windows_installed_version() is None
 
-        run(['msiexec.exe', '/i', previous, '/qn', '/norestart', '/L*v', log])
+        run(['msiexec.exe', '/i', previous, '/qn', '/norestart', '/L*v', log], timeout=INSTALLER_TIMEOUT)
         assert windows_installed_version() == prior
-        run(['msiexec.exe', '/i', current, '/qn', '/norestart', '/L*v', log])
+        run(['msiexec.exe', '/i', current, '/qn', '/norestart', '/L*v', log], timeout=INSTALLER_TIMEOUT)
         assert windows_installed_version() == version
         verify_installed_payload(install_root)
         stdio(binary)
     finally:
-        subprocess.run(['msiexec.exe', '/x', current, '/qn', '/norestart', '/L*v', log], check=False)
+        subprocess.run(['msiexec.exe', '/x', current, '/qn', '/norestart', '/L*v', log],
+                       check=False, timeout=INSTALLER_TIMEOUT)
     assert not install_root.exists() and windows_installed_version() is None
 
 
