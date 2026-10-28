@@ -298,6 +298,13 @@ request ID; replay, feedback, drift, and calibration queries also require the ma
 Existing legacy rows without a caller scope remain available for offline migration but are not
 visible through MCP tools.
 
+For PostgreSQL across a host boundary, use `SSL Mode=VerifyFull` and a trusted CA; `Require`
+encrypts without authenticating the server. For example, append
+`SSL Mode=VerifyFull;Root Certificate=/run/secrets/postgres-ca.crt` to the Npgsql connection
+string and mount that CA read-only. The local Compose URL is development-only. See the
+[TLS and recovery gate](docs/POSTGRES-TLS-RECOVERY.md) for permissions, limitations, and a
+reproducible trusted/untrusted/hostname/outage test.
+
 ## Community
 
 - [GitHub Discussions](https://github.com/rhamenator/request-guard-mcp-dotnet/discussions) for

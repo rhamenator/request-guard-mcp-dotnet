@@ -136,3 +136,9 @@ no blocking high-severity findings and an exact approval comment from an owner o
 `RELEASE-READINESS-REVIEW.md` implement and verify this gate. Development artifacts remain
 short-lived; a successful run publishes an immutable versioned container and GitHub prerelease but
 does not update `latest`. Stable 1.0 publication is outside the current workflow.
+
+DR-016: Cross-host PostgreSQL deployments use `SSL Mode=VerifyFull` with a trusted CA. A
+configured database that fails later produces a bounded timeout/upstream error for dependent
+tools and recovers after the same backend returns without restarting the MCP server.
+`tests/parity/postgres_tls_recovery.py` verifies trusted/untrusted/host-name paths, observes an
+encrypted session, pauses and stops the real backend, and replays persisted state after recovery.
