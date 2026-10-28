@@ -79,6 +79,18 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         with self.assertRaises(gate.GateError):
             gate.require_checks({"check_runs": runs})
 
+    def test_latest_check_attempt_controls_retry_result(self):
+        runs = [
+            {"id": index, "name": name, "status": "completed", "conclusion": "success"}
+            for index, name in enumerate(gate.REQUIRED_CHECKS, 100)
+        ]
+        retried = runs[0]["name"]
+        runs.append({"id": 1, "name": retried, "status": "completed", "conclusion": "failure"})
+        gate.require_checks({"check_runs": runs})
+        runs.append({"id": 1000, "name": retried, "status": "in_progress", "conclusion": None})
+        with self.assertRaises(gate.GateError):
+            gate.require_checks({"check_runs": runs})
+
     def test_readiness_record_rejects_untrusted_approval_or_unresolved_finding(self):
         with self.assertRaises(gate.GateError):
             gate.require_readiness_record(issue(), comments("NONE"), VERSION, SHA)
