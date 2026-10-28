@@ -4,7 +4,11 @@ using RequestGuardMcp.Core.Models.Response;
 namespace RequestGuardMcp.Core.Integrations;
 
 /// <summary>Ports src/integrations/postgres.rs's <c>PersistedDecision</c>.</summary>
-public sealed record PersistedDecision(ClassifyRequest Request, ClassifyResponse Response);
+public sealed record PersistedDecision(
+    ClassifyRequest Request,
+    ClassifyResponse Response,
+    string RequestPayload,
+    string ResponsePayload);
 
 /// <summary>Ports src/integrations/postgres.rs's <c>DriftSummary</c>.</summary>
 public sealed record DriftSummary(
@@ -37,13 +41,13 @@ public interface IPostgresClient
 
     public Task<bool> PingAsync(CancellationToken cancellationToken = default);
 
-    public Task RecordDecisionAsync(ClassifyRequest request, ClassifyResponse response, CancellationToken cancellationToken = default);
+    public Task RecordDecisionAsync(string callerScope, ClassifyRequest request, ClassifyResponse response, CancellationToken cancellationToken = default);
 
-    public Task<PersistedDecision?> GetDecisionAsync(string requestId, CancellationToken cancellationToken = default);
+    public Task<PersistedDecision?> GetDecisionAsync(string callerScope, string requestId, CancellationToken cancellationToken = default);
 
-    public Task<string> RecordFeedbackAsync(string requestId, string correctVerdict, string? notes, string? reporter, CancellationToken cancellationToken = default);
+    public Task<string?> RecordFeedbackAsync(string callerScope, string requestId, string correctVerdict, string? notes, string? reporter, PersistedDecision expected, CancellationToken cancellationToken = default);
 
-    public Task<DriftSummary> DriftSummaryAsync(DateTimeOffset start, DateTimeOffset midpoint, CancellationToken cancellationToken = default);
+    public Task<DriftSummary> DriftSummaryAsync(string callerScope, DateTimeOffset start, DateTimeOffset midpoint, CancellationToken cancellationToken = default);
 
-    public Task<CalibrationSummary> CalibrationSummaryAsync(DateTimeOffset start, CancellationToken cancellationToken = default);
+    public Task<CalibrationSummary> CalibrationSummaryAsync(string callerScope, DateTimeOffset start, CancellationToken cancellationToken = default);
 }

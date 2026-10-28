@@ -110,7 +110,12 @@ public sealed partial class RuleEngine
 
     private static void EvaluatePath(string path, SignalSet signals)
     {
-        var normalized = NormalizePathForSignals(path);
+        // Query and fragment text are not URL path segments. Match the maintained
+        // Rust classifier and the privacy-minimized replay snapshot by evaluating
+        // only the route portion.
+        var delimiter = path.IndexOfAny(['?', '#']);
+        var pathOnly = delimiter >= 0 ? path[..delimiter] : path;
+        var normalized = NormalizePathForSignals(pathOnly);
         if (SensitivePath().IsMatch(normalized))
         {
             signals.Add(new Signal("path_sensitive", 1.0, 0.6, SignalSource.RuleEngine, "Request targets a sensitive path"));

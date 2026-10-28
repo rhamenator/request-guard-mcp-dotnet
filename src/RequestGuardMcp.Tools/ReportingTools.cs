@@ -14,7 +14,10 @@ public sealed class DriftReportTool : IMcpTool
     public string Name => "drift_report";
     public string Description => "Report on score and signal drift";
 
-    public async Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
+    public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken) =>
+        CallScopedAsync(state, parameters, "internal", cancellationToken);
+
+    public async Task<JsonNode?> CallScopedAsync(AppState state, JsonNode? parameters, string callerScope, CancellationToken cancellationToken)
     {
         var request = McpJson.ParamsOrDefault<DriftReportRequest>(parameters);
         if (!state.Postgres.IsAvailable)
@@ -59,7 +62,7 @@ public sealed class DriftReportTool : IMcpTool
         }
 
         var midpoint = start + TimeSpan.FromTicks((now - start).Ticks / 2);
-        var summary = await ToolResult.UpstreamAsync(() => state.Postgres.DriftSummaryAsync(start, midpoint, cancellationToken)).ConfigureAwait(false);
+        var summary = await ToolResult.UpstreamAsync(() => state.Postgres.DriftSummaryAsync(callerScope, start, midpoint, cancellationToken)).ConfigureAwait(false);
         var drift = summary.PreviousSamples > 0 && summary.CurrentSamples > 0 &&
                     (Math.Abs(summary.ScoreMean - summary.PreviousScoreMean) >= 0.10 || summary.SignalDrift.Values.Any(value => Math.Abs(value) >= 0.25));
         return ToolResult.Json(new DriftReportResponse(windowHours, drift,
@@ -72,7 +75,10 @@ public sealed class CalibrationReportTool : IMcpTool
     public string Name => "calibration_report";
     public string Description => "Precision and recall calibration report";
 
-    public async Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
+    public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken) =>
+        CallScopedAsync(state, parameters, "internal", cancellationToken);
+
+    public async Task<JsonNode?> CallScopedAsync(AppState state, JsonNode? parameters, string callerScope, CancellationToken cancellationToken)
     {
         var request = McpJson.ParamsOrDefault<CalibrationReportRequest>(parameters);
         if (!state.Postgres.IsAvailable)
@@ -84,7 +90,7 @@ public sealed class CalibrationReportTool : IMcpTool
         {
             throw AppErrorException.InvalidRequest("window_hours must be between 1 and 8760");
         }
-        var summary = await ToolResult.UpstreamAsync(() => state.Postgres.CalibrationSummaryAsync(DateTimeOffset.UtcNow.AddHours(-hours), cancellationToken)).ConfigureAwait(false);
+        var summary = await ToolResult.UpstreamAsync(() => state.Postgres.CalibrationSummaryAsync(callerScope, DateTimeOffset.UtcNow.AddHours(-hours), cancellationToken)).ConfigureAwait(false);
         var precision = Ratio(summary.TruePositives, summary.TruePositives + summary.FalsePositives);
         var recall = Ratio(summary.TruePositives, summary.TruePositives + summary.FalseNegatives);
         var f1 = precision + recall == 0 ? 0 : 2 * precision * recall / (precision + recall);

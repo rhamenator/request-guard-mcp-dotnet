@@ -5,6 +5,17 @@ namespace RequestGuardMcp.Tests.Engines;
 
 public class RuleEngineTests
 {
+    [Theory]
+    [InlineData("/search?next=/admin")]
+    [InlineData("/search?q=/%61dmin")]
+    [InlineData("/search#fragment=/admin")]
+    public void QueryAndFragmentTextDoNotCreatePathSignals(string path)
+    {
+        var signals = RuleEngine.Evaluate(new ClassifyRequest { Path = path });
+
+        Assert.DoesNotContain(signals.Signals, signal => signal.Name == "path_sensitive");
+    }
+
     [Fact]
     public void DetectsGptBot()
     {

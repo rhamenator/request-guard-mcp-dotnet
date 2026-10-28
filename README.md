@@ -26,7 +26,8 @@ Prometheus metrics, optional OTLP traces, and container/Kubernetes deployment as
 Behavioral and wire compatibility is continuously checked against the pinned Rust baseline by a
 black-box differential suite. It exercises every tool, error envelopes, disabled features,
 authentication, TLS attestation, both transports, all supported configuration formats, caller cache
-isolation, timeouts, Redis, PostgreSQL, and checksum-pinned official MaxMind test databases.
+and PostgreSQL isolation, privacy-minimized replay snapshots, transactional feedback replacement,
+timeouts, Redis, PostgreSQL, and checksum-pinned official MaxMind test databases.
 
 The assurance baseline is DO-178C-inspired and appropriate to a sole-maintainer project; it is not
 a claim of certification or airborne suitability. Official pre-1.0 candidates require a durable
@@ -134,8 +135,10 @@ Configure a subprocess-capable MCP client to launch that command with an absolut
 path. Build the host first with the pinned .NET SDK; a runtime or self-contained native
 bundle is required on the client machine. Stdio opens no TCP listener, needs no Bearer
 header or `AUTH_TOKENS`, and is authorized by ownership of the launched process. It
-supports the same 23 tools, configuration, feature flags and optional backends as HTTP.
-Supply backend credentials through the child environment/secret manager; the subprocess
+supports the same 23 tools, configuration, and feature flags as HTTP. Redis and MaxMind remain
+optional in this mode. PostgreSQL is rejected because its durable rows cannot safely use stdio's
+process-random caller identity; use authenticated HTTP/WebSocket for persistence tools.
+Supply supported backend credentials through the child environment/secret manager; the subprocess
 has the launching user's file/network permissions and configured backend costs.
 
 Each process gets a distinct cache scope. Send one UTF-8 JSON-RPC message per LF/CRLF
@@ -287,6 +290,13 @@ docker compose -f docker/docker-compose.yml up --build
 
 Kubernetes examples are under `deploy/k8s`. Copy `secret.example.yaml` to `secret.yaml`, replace
 every placeholder, and keep that generated file out of version control.
+
+When authentication and PostgreSQL are enabled together, `CACHE_SCOPE_HMAC_KEY` is required and
+must contain at least 32 non-placeholder bytes. It keeps server-derived caller scopes stable across
+restarts and replicas. PostgreSQL decision keys are SHA-256 digests of that scope plus the public
+request ID; replay, feedback, drift, and calibration queries also require the matching scope.
+Existing legacy rows without a caller scope remain available for offline migration but are not
+visible through MCP tools.
 
 ## Community
 

@@ -29,8 +29,10 @@ exception cannot hide a candidate emitting both branches or discard application 
 features, HTTP and text/binary WebSocket transport, strict UTF-8, auth, TLS attestation, and all six
 Rust config formats plus YAML's `.yml` alias and dotenv. The integration phase launches pinned
 Redis/PostgreSQL containers, downloads checksum-pinned Apache-licensed MaxMind upstream fixtures,
-tests persistence/replay/reports/reputation/canaries/queues, verifies two caller cache scopes, and
-forces a PostgreSQL lock to prove the tool deadline.
+tests persistence/replay/reports/reputation/canaries/queues, verifies two caller cache and database
+scopes, rejects cross-caller replay/feedback/report access, checks feedback invalidation on decision
+replacement, inspects privacy-minimized hashed-key rows, and forces a PostgreSQL lock to prove the
+tool deadline.
 
 ## MCP lifecycle and envelope qualification
 
@@ -98,7 +100,9 @@ while waiting for input. The official SDK launches the server with `--stdio`, in
 lists all 23 tools, classifies and receives an expected tool error. `StdioTransportTests`
 cover newline framing, invalid envelope/syntax handling, bounded input recovery,
 unterminated EOF, independent stable subprocess scopes, and cancellation even when a
-stream ignores it. CI runs the process runner on Linux. The transport is sequential;
+stream ignores it. The process runner also proves PostgreSQL configuration is rejected before
+connection because durable rows cannot use the process-random stdio scope. CI runs the process
+runner on Linux. The transport is sequential;
 client cancellation notifications and OS service integration remain unqualified; portable
 Windows/macOS SDK and installed-binary smoke are exercised by the native workflow.
 
@@ -199,7 +203,9 @@ manual verification, use isolated Redis and PostgreSQL instances with non-produc
    calibration reports; and confirm no connection string or token appears in responses/logs.
 4. Register test-only threat and canary records directly in the disposable Redis instance, invoke
    the corresponding tools, and verify queue telemetry ages out.
-5. Restart one replica and confirm the shared cache remains caller-scoped.
+5. Restart one replica and confirm the shared cache and PostgreSQL decisions remain caller-scoped.
+   Startup must reject authenticated PostgreSQL configuration without a stable
+   `CACHE_SCOPE_HMAC_KEY`.
 
 The automated runner fetches only MaxMind's public upstream test databases at a pinned commit and
 verifies their SHA-256 hashes. Never substitute or commit commercial databases.

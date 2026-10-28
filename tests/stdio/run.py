@@ -75,6 +75,12 @@ def main():
         assert responses[-1] == {'jsonrpc': '2.0', 'id': 'last', 'result': {}}, responses
         assert result.stderr, 'expected tool-error diagnostics on stderr'
         print('PASS actual-process stdio: no HTTP bind/auth requirement; JSON-only stdout, stderr diagnostics; bounded oversized/UTF-8 input recovery and EOF exit')
+        postgres_environment = {**environment, 'MCP__POSTGRES__URL': 'Host=127.0.0.1;Port=1;Database=unreachable'}
+        postgres = subprocess.run(command, input=b'', cwd=directory, env=postgres_environment,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+        assert postgres.returncode == 1 and b'PostgreSQL is not yet supported in stdio mode' in postgres.stderr, postgres
+        assert not postgres.stdout, postgres.stdout
+        print('PASS actual-process stdio: PostgreSQL persistence is rejected before connection')
         with open(Path(directory) / 'sdk.log', 'w+') as log:
             asyncio.run(sdk(prefix, environment, directory, log))
         # Check termination while waiting for more input, after the process is ready.
