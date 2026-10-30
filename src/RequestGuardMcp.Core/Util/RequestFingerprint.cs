@@ -1,41 +1,35 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using RequestGuardMcp.Core.Configuration;
 using RequestGuardMcp.Core.Models.Request;
 
 namespace RequestGuardMcp.Core.Util;
 
 /// <summary>
-/// Computes a stable, unambiguous cache key from the authenticated caller scope and all
-/// decision inputs. TLS values participate only after request-bound server verification.
-/// Request IDs, timestamps and the consumed attestation are deliberately excluded.
+/// Computes a stable cache key from the authenticated caller scope, classification build/policy
+/// domain, and fields consumed by the rule engine. TLS values participate only after request-bound
+/// server verification. Metadata ignored by classification is deliberately excluded.
 /// </summary>
 public static class RequestFingerprint
 {
-    public static string Compute(string callerScope, ClassifyRequest request)
+    public static string Compute(string callerScope, ClassifyRequest request, string cacheDomain)
     {
-        JsonObject? headers = null;
-        if (request.Headers is { } values)
-        {
-            headers = new JsonObject();
-            foreach (var (name, value) in values)
-            {
-                headers[AsciiCase(name, upper: false)] = value.Trim();
-            }
-        }
+        JsonArray? headerPresence = request.Headers is { } values
+            ? new JsonArray(
+                values.Keys.Any(name => name.Equals("accept", StringComparison.OrdinalIgnoreCase)),
+                values.Keys.Any(name => name.Equals("accept-language", StringComparison.OrdinalIgnoreCase)))
+            : null;
+        var pathOnly = request.Path?.Split(['?', '#'], 2)[0];
 
         var input = new JsonObject
         {
+            ["cache_domain"] = cacheDomain,
             ["caller_scope"] = callerScope,
-            ["ip"] = request.Ip,
             ["user_agent"] = request.UserAgent,
-            ["path"] = request.Path,
+            ["path"] = pathOnly,
             ["method"] = request.Method is { } method ? AsciiCase(method, upper: true) : null,
-            ["headers"] = headers,
-            ["body_snippet"] = request.BodySnippet,
-            ["referer"] = request.Referer,
-            ["accept"] = request.Accept,
-            ["extra"] = request.Extra?.DeepClone(),
+            ["header_presence"] = headerPresence,
             ["verified_tls"] = request.TlsFingerprintVerified ? new JsonObject
             {
                 ["ja3"] = request.TlsJa3,
@@ -44,19 +38,38 @@ public static class RequestFingerprint
             } : null,
         };
 
-        // Sort objects recursively so caller-controlled dictionary insertion order cannot
-        // partition an otherwise identical request. Arrays retain their semantic order.
-        var canonical = Canonicalize(input)!.ToJsonString();
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        return Sha256(input.ToJsonString());
     }
 
-    private static JsonNode? Canonicalize(JsonNode? node) => node switch
+    public static string ComputeCacheDomain(TlsFingerprintConfig tls, string version, string gitCommit)
     {
-        JsonObject obj => new JsonObject(obj.OrderBy(pair => pair.Key, StringComparer.Ordinal)
-            .Select(pair => KeyValuePair.Create(pair.Key, Canonicalize(pair.Value)))),
-        JsonArray array => new JsonArray(array.Select(Canonicalize).ToArray()),
-        _ => node?.DeepClone(),
-    };
+        var ja3 = tls.KnownBadJa3
+            .Select(value => TlsAttestation.NormalizeJa3(value))
+            .Where(value => value is not null)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Select(value => JsonValue.Create(value))
+            .ToArray();
+        var ja4 = tls.KnownBadJa4
+            .Select(value => TlsAttestation.NormalizeJa4(value))
+            .Where(value => value is not null)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Select(value => JsonValue.Create(value))
+            .ToArray();
+        var input = new JsonObject
+        {
+            ["schema"] = "classification-v3",
+            ["version"] = version,
+            ["git_commit"] = gitCommit,
+            ["known_bad_ja3"] = new JsonArray(ja3),
+            ["known_bad_ja4"] = new JsonArray(ja4),
+        };
+        return Sha256(input.ToJsonString());
+    }
+
+    private static string Sha256(string value) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static string AsciiCase(string value, bool upper) => string.Create(value.Length, (value, upper), static (span, state) =>
     {

@@ -20,6 +20,7 @@ public sealed class AppState : IAsyncDisposable
     public AppConfig Config { get; }
     public SemaphoreSlim Semaphore { get; }
     public BuildInfo BuildInfo { get; }
+    public string ClassificationCacheDomain { get; }
     public ICacheStore Cache { get; }
     public IRedisClient Redis { get; private set; } = NullRedisClient.Instance;
     public IPostgresClient Postgres { get; private set; } = NullPostgresClient.Instance;
@@ -34,6 +35,8 @@ public sealed class AppState : IAsyncDisposable
         Config = config;
         Semaphore = new SemaphoreSlim(config.Limits.GlobalConcurrency, config.Limits.GlobalConcurrency);
         BuildInfo = BuildInfo.Current();
+        ClassificationCacheDomain = Util.RequestFingerprint.ComputeCacheDomain(
+            config.TlsFingerprints, BuildInfo.Version, BuildInfo.GitCommit);
         Cache = new InMemoryCacheStore();
         Reputation = new ReputationClient(Redis);
         RefreshFeatureFlags();

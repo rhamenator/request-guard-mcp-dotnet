@@ -35,6 +35,11 @@ tests persistence/replay/reports/reputation/canaries/queues, verifies two caller
 scopes, rejects cross-caller replay/feedback/report access, checks feedback invalidation on decision
 replacement, inspects privacy-minimized hashed-key rows, and forces a PostgreSQL lock to prove the
 tool deadline.
+The integration phase assigns Rust and .NET distinct Redis prefixes. This is an intentional
+deployment requirement: cached verdicts include runtime-specific build domains and are not a
+cross-runtime serialization protocol. Unit tests separately prove build/TLS-policy partitioning,
+rule-input-only identity, query/fragment equivalence, caller isolation, and ignored Unicode/numeric
+metadata.
 
 The scoped current-Rust jobs additionally require both v0.1.5 and the pinned current-main
 reference to reject `config_snapshot(redact_secrets=false)`, return null for an absent OTLP

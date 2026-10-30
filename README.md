@@ -378,6 +378,13 @@ computed decision; caller cancellation still propagates. PostgreSQL persistence 
 backend-dependent tools retain their error contracts. This does not bound every Redis
 lookup, health check or network reconnect.
 
+Cached verdict keys are partitioned by authenticated caller, application build, cache schema,
+and the normalized configured TLS threat set. Only fields used by the rule engine participate;
+query/fragment text, IP, body, referer, `accept`, and `extra` metadata do not churn the cache.
+Rust and .NET builds deliberately have different build domains, so cross-runtime cache-byte
+identity is unsupported. Mixed Rust/.NET deployments must use distinct `redis.key_prefix`
+values; sharing Redis for other data remains possible under those separate namespaces.
+
 The [Redis outage gate](docs/REDIS-OUTAGE-QUALIFICATION.md) runs a real disposable Redis
 backend through healthy, paused, stopped and recovered phases, with cold cache keys,
 expected classifier responses, external wall-clock limits, and an old-build negative

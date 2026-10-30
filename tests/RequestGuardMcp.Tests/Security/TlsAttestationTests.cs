@@ -51,6 +51,22 @@ public sealed class TlsAttestationTests
         Assert.Contains(response.Signals, signal => signal.Name == "tls_fingerprint_known_bad");
     }
 
+    [Fact]
+    public async Task ClassificationNormalizesConfiguredThreatFingerprintCase()
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var token = TlsAttestation.Create(Key, now, "198.51.100.7", "GET", "/products", Ja3, Ja4, "envoy");
+        var config = new AppConfig { Auth = { Enabled = false } };
+        config.TlsFingerprints.AttestationKey = Key;
+        config.TlsFingerprints.KnownBadJa3.Add(Ja3.ToUpperInvariant());
+        var request = CreateRequest(token);
+        await using var state = new AppState(config);
+
+        var response = await ClassifyService.RunEphemeralAsync(state, request);
+
+        Assert.Contains(response.Signals, signal => signal.Name == "tls_fingerprint_known_bad");
+    }
+
     private static ClassifyRequest CreateRequest(string? token) => new()
     {
         Ip = "198.51.100.7",

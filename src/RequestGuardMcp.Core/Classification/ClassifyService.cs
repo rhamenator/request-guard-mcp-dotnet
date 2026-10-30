@@ -41,7 +41,7 @@ public static class ClassifyService
         request.TlsFingerprintAttestation = null;
 
         var signals = RuleEngine.Evaluate(request, state.Config.TlsFingerprints);
-        var fingerprint = RequestFingerprint.Compute(callerScope, request);
+        var fingerprint = RequestFingerprint.Compute(callerScope, request, state.ClassificationCacheDomain);
 
         var distributedCached = await TryGetDistributedCacheAsync(state, fingerprint, cancellationToken).ConfigureAwait(false);
         var cached = distributedCached ?? await state.Cache.GetAsync(fingerprint, cancellationToken).ConfigureAwait(false);
