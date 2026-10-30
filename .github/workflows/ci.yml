@@ -62,6 +62,8 @@ jobs:
           /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
       - name: Explicit browser-origin configuration
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --allowed-origin https://client.test --ws-deadline-seconds 1
+      - name: Unavailable OTLP sink isolation and credential redaction
+        run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --otlp-failure
       - name: Process-local stdio and official SDK
         run: /tmp/mcp-sdk/bin/python tests/stdio/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
 
@@ -142,4 +144,12 @@ jobs:
         working-directory: request-guard-mcp-dotnet
       - name: Compare current classifier with independent expectations
         run: python3 tests/parity/classifier_current.py --rust-repo "$GITHUB_WORKSPACE/request-guard-mcp" --expected-rust-revision "${{ matrix.revision }}"
+        working-directory: request-guard-mcp-dotnet
+      - name: Install protocol probe dependencies
+        run: |
+          python3 -m venv /tmp/mcp-sdk
+          /tmp/mcp-sdk/bin/pip install -r tests/protocol/requirements.txt
+        working-directory: request-guard-mcp-dotnet
+      - name: Qualify current Rust OTLP sink isolation and credential redaction
+        run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --binary "$GITHUB_WORKSPACE/request-guard-mcp/target/debug/request-guard-mcp" --otlp-failure
         working-directory: request-guard-mcp-dotnet

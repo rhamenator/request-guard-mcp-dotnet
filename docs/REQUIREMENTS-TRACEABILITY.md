@@ -23,6 +23,7 @@ assurance process. It is engineering evidence, not a claim of certification or a
 | HLR-016 | Load the same CONFIG_FILE formats and snake_case keys as Rust, with environment overrides. | `RustConfigFileParser`, Host composition root | parser tests and JSON/INI/TOML/YAML/RON/JSON5/dotenv differential phases |
 | HLR-017 | Warm engines and cache before accepting traffic. | Host startup, `WarmupTool` | startup inspection plus warmup differential case |
 | HLR-018 | Never disclose secret configuration through `config_snapshot`; reject unredacted requests and reveal an OTLP endpoint only as present-and-redacted. | `ConfigSnapshotTool`, tool schema | end-to-end snapshot security test plus exact current-Rust classifier/configuration gates |
+| HLR-019 | Keep MCP service available when the optional OTLP sink is unavailable and never disclose configured OTLP credentials in JSON console logs. | OpenTelemetry host wiring, structured console logging | running-build refused-sink probe against .NET and both exact current-Rust references |
 
 ## Derived requirements and assumptions
 

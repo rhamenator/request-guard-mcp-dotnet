@@ -25,7 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'parity'))
 from contract import CORE_CASES, WebSocket, normalize_payload
 from run import clean_environment
 
-TOKEN = 'synthetic-protocol-client-token'
+TOKEN = 'synthetic-protocol-client-token-at-least-32-bytes'
+OTLP_SECRET = 'synthetic-otlp-password-never-log'
 INVALID = [
     '{}', '[]', 'null',
     '{"id":1,"method":"health"}',
@@ -49,6 +50,21 @@ def post(url, text):
         'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'Authorization': f'Bearer {TOKEN}'})
     with urllib.request.urlopen(request, timeout=5) as response:
         return response.status, response.read()
+
+
+def check_otlp_sink_failure(url):
+    payload = '{"jsonrpc":"2.0","id":1,"method":"health"}'
+    for _ in range(20):
+        status, body = post(url, payload)
+        response = json.loads(body)
+        assert status == 200 and response['result']['status'] == 'healthy', response
+    # The batch exporter runs out of band. Give it an opportunity to observe the refused
+    # connection, then prove later requests still complete normally.
+    time.sleep(6)
+    status, body = post(url, payload)
+    response = json.loads(body)
+    assert status == 200 and response['result']['status'] == 'healthy', response
+    print('PASS unavailable OTLP sink does not delay or stop MCP responses')
 
 
 def check_envelopes(url):
@@ -237,10 +253,13 @@ def main():
     target.add_argument('--url', help='Explicit isolated test server; no host process is started')
     parser.add_argument('--allowed-origin', help='Configure/test one explicit origin on a spawned host; external URLs must already match')
     parser.add_argument('--ws-deadline-seconds', type=int, help='Set/test a short receive budget on an isolated host (default message cap required)')
+    parser.add_argument('--otlp-failure', action='store_true', help='Qualify unavailable OTLP sink isolation and log redaction')
     args = parser.parse_args()
     if args.ws_deadline_seconds is not None and args.ws_deadline_seconds < 1:
         parser.error('WebSocket budget must be positive')
     if args.url:
+        if args.otlp_failure:
+            parser.error('--otlp-failure requires a spawned host so its logs can be inspected')
         check_envelopes(args.url)
         check_http_profile(args.url, args.allowed_origin)
         if args.ws_deadline_seconds:
@@ -262,7 +281,10 @@ def main():
             environment['MCP__AUTH__ALLOWED_ORIGINS__0'] = args.allowed_origin
         if args.ws_deadline_seconds:
             environment['MCP__LIMITS__WEBSOCKET_IDLE_TIMEOUT_SECS'] = str(args.ws_deadline_seconds)
-        with open(Path(directory) / 'server.log', 'w+') as log:
+        if args.otlp_failure:
+            environment['MCP__TELEMETRY__OTLP_ENDPOINT'] = f'http://user:{OTLP_SECRET}@127.0.0.1:1'
+        log_path = Path(directory) / 'server.log'
+        with open(log_path, 'w+') as log:
             process = subprocess.Popen(command, cwd=directory, env=environment, stdout=log, stderr=subprocess.STDOUT)
             try:
                 deadline = time.monotonic() + 20
@@ -276,11 +298,14 @@ def main():
                         if time.monotonic() >= deadline:
                             raise TimeoutError('server startup')
                         time.sleep(0.1)
-                check_envelopes(url)
-                check_http_profile(url, args.allowed_origin)
-                if args.ws_deadline_seconds:
-                    check_ws_lifetime(url, args.ws_deadline_seconds)
-                asyncio.run(check_sdk(url))
+                if args.otlp_failure:
+                    check_otlp_sink_failure(url)
+                else:
+                    check_envelopes(url)
+                    check_http_profile(url, args.allowed_origin)
+                    if args.ws_deadline_seconds:
+                        check_ws_lifetime(url, args.ws_deadline_seconds)
+                    asyncio.run(check_sdk(url))
             except BaseException:
                 log.seek(0)
                 print(log.read(), file=sys.stderr)
@@ -292,6 +317,10 @@ def main():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=5)
+        if args.otlp_failure:
+            captured = log_path.read_text(errors='replace')
+            assert OTLP_SECRET not in captured and f'user:{OTLP_SECRET}' not in captured, captured
+            print('PASS configured OTLP credentials are absent from JSON console logs')
 
 
 if __name__ == '__main__':
