@@ -70,6 +70,11 @@ enterprise deployment systems and every supported-distribution version remain se
 Development Actions artifacts are not official release candidates or stable releases. Checksums and
 workflow manifests establish consistency and traceability, not signed publisher identity.
 
+MCP Inspector 2.13.0 is qualified against a running Release build over process-local stdio. Its
+remote HTTP mode is not supported because this server intentionally provides JSON responses without
+Streamable HTTP sessions or SSE. The .NET port publishes server archives and installers, not an npm
+server package or companion marketplace skill; clients launch the installed executable directly.
+
 HTTP POST now requires UTF-8 application/json and explicit positive-quality
 application/json plus text/event-stream in Accept, although responses remain JSON-only.
 A present MCP-Protocol-Version must be 2025-06-18; absence is retained for initialization
