@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using RequestGuardMcp.Core.Configuration;
 using RequestGuardMcp.Core.Models.Request;
 using RequestGuardMcp.Core.Models.Signals;
+using RequestGuardMcp.Core.Util;
 
 namespace RequestGuardMcp.Core.Engines;
 
@@ -67,8 +68,10 @@ public sealed partial class RuleEngine
             return;
         }
 
-        var knownBad = request.TlsJa3 is { } ja3 && config?.KnownBadJa3.Contains(ja3, StringComparer.Ordinal) == true ||
-                       request.TlsJa4 is { } ja4 && config?.KnownBadJa4.Contains(ja4, StringComparer.Ordinal) == true;
+        var knownBad = request.TlsJa3 is { } ja3 &&
+                           config?.KnownBadJa3.Any(value => TlsAttestation.NormalizeJa3(value) == ja3) == true ||
+                       request.TlsJa4 is { } ja4 &&
+                           config?.KnownBadJa4.Any(value => TlsAttestation.NormalizeJa4(value) == ja4) == true;
         if (knownBad)
         {
             signals.Add(new Signal("tls_fingerprint_known_bad", 1.0, 0.85, SignalSource.RuleEngine, "Verified TLS fingerprint matches the configured threat set"));
