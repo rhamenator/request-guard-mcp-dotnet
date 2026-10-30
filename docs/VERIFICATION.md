@@ -124,8 +124,8 @@ All repository clients/examples now send the required Accept header. The histori
 pair runner explicitly binds both servers to loopback, rather than hiding the changed
 .NET default through payload normalization; a default-configuration test checks it. Missing protocol
 version is an explicit legacy/initialization compatibility path, not implicit support
-for every MCP revision. Reverse proxy/IIS, TLS/ALPN and broader browser clients remain
-separate qualification work in #25.
+for every MCP revision. The separate Nginx gate below qualifies TLS/ALPN and reverse proxying on
+Linux. IIS, production-duration TLS and broader browser clients remain separate work in #25.
 
 The runner asserts controlled differences rather than normalizing them away. .NET rejects
 duplicate JSON properties, missing MCP media headers and duplicate Authorization headers, accepts
@@ -189,6 +189,41 @@ caller cancellation is preserved. The production helper wraps MCP, health/readin
 metrics and auth-error body writes. Configuration rejects nonpositive budgets and
 values exceeding the cancellation timer's range. These tests do not establish every
 slow-consumer/proxy/IIS behavior; those remain in #25.
+
+CI separately opts into the real 120-second HTTP/2 age test:
+
+```bash
+REQUEST_GUARD_ENDURANCE=1 dotnet test \
+  tests/RequestGuardMcp.Tests/RequestGuardMcp.Tests.csproj \
+  --configuration Release --no-build \
+  --filter FullyQualifiedName~ProductionDurationHttp2AgeRotatesRealConnection
+```
+
+It keeps a real Kestrel HTTP/2 connection active with requests every two seconds, requires the
+connection identity to survive at least 115 seconds, and requires rotation by 135 seconds. This
+uses the public `ConnectionResourceGuard` constructor and therefore its fixed 120-second production
+budget. It is production-duration server evidence, but not packaged-artifact, throughput,
+maximum-connection or leak evidence.
+
+## TLS/ALPN reverse-proxy qualification
+
+After building the Release host, run:
+
+```bash
+python3 tests/protocol/proxy_tls.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
+```
+
+The gate starts the backend on a reserved loopback port and an unprivileged Nginx process with an
+ephemeral CA and server certificate. It requires untrusted-certificate rejection, trusted TLS 1.3,
+ALPN-selected HTTP/2, HTTP/1.1 fallback, authenticated JSON-RPC, pre-dispatch auth/origin
+rejections, an authenticated `mcp` WebSocket upgrade, and backend recovery. CI records the Nginx
+version and installs the runner package only when it is absent. The CA, private keys, configuration
+and logs live in a temporary directory and are deleted after the run.
+
+This proves the documented TLS-termination topology on Linux; it does not qualify public CAs,
+mutual TLS, forwarded-client identity, production-duration connections, arbitrary proxy
+configurations or IIS.
 
 ## Native archive qualification
 
