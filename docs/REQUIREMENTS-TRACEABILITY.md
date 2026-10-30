@@ -87,12 +87,14 @@ actual Redis cache-read proof, fresh recovered writes and resource cleanup. See
 
 DR-010: Validate the 2025-06-18 envelope before side effects. Reject malformed envelopes
 with -32600, distinguish invalid JSON (-32700), preserve string/integer IDs, ignore
-valid notifications/responses, and omit the unused response branch. Implement initialize,
+valid notifications/responses, return empty HTTP 400 for rejected one-way envelopes, and omit the unused response branch. Implement initialize,
 ping, sorted tool definitions/schemas and named standard calls using the same scoped,
 bounded dispatch as direct methods. `McpMessageTests`, `McpLifecycleTests` and
 `tests/protocol/run.py` trace these behaviors through unit, real HTTP/WebSocket and official
-Python SDK evidence. The historical envelope migration is explicit in `contract.py` and
-`test_contract_envelopes.py`; the historical Rust pin is unchanged. Full HTTP negotiation remains tracked by #24.
+Python SDK evidence. The same runner executes exact Rust v0.1.5 and controlled current-main
+binaries; known stricter .NET header/duplicate-property behavior is asserted explicitly rather than
+normalized. The historical envelope migration is explicit in `contract.py` and
+`test_contract_envelopes.py`; the historical Rust pin is unchanged.
 
 DR-011: `--stdio` opens no network listener and uses process ownership instead of HTTP
 Bearer headers. Bound UTF-8 newline-delimited input, drain oversized lines, keep stdout

@@ -6,6 +6,7 @@ from datetime import timedelta
 import json
 import os
 from pathlib import Path
+import signal
 import socket
 import subprocess
 import sys
@@ -44,7 +45,11 @@ def main():
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument('--dotnet-dll', type=Path)
     target.add_argument('--binary', type=Path)
+    parser.add_argument('--reference-rust', action='store_true',
+                        help='Treat --binary as a controlled Rust reference, not a native .NET bundle')
     args = parser.parse_args()
+    if args.reference_rust and not args.binary:
+        parser.error('--reference-rust requires --binary')
     executable = (args.binary or args.dotnet_dll).resolve()
     if not executable.is_file():
         parser.error('build the host first')
@@ -100,7 +105,14 @@ def main():
                     raise
             process.terminate()
             process.wait(timeout=5)
-            assert process.returncode == 0 if os.name != 'nt' else process.returncode is not None
+            if os.name == 'nt':
+                assert process.returncode is not None
+            elif args.reference_rust:
+                # The exact Rust references use the platform's default SIGTERM disposition.
+                assert process.returncode == -signal.SIGTERM, process.returncode
+            else:
+                # The .NET host handles SIGTERM and completes its shutdown path cleanly.
+                assert process.returncode == 0, process.returncode
             print('PASS stdio termination while waiting for input')
         finally:
             if process.poll() is None:

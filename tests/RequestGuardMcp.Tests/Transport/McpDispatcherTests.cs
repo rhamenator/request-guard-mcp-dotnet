@@ -98,6 +98,20 @@ public class McpDispatcherTests
     }
 
     [Fact]
+    public async Task InvalidParamsPreserveTheRequestIdInTheErrorResponse()
+    {
+        var (dispatcher, state) = NewDispatcher();
+
+        var response = await dispatcher.ProcessMessageAsync(
+            """{"jsonrpc":"2.0","id":"request-1","method":"health","params":[]}""",
+            state, "public", CancellationToken.None);
+
+        var node = JsonNode.Parse(response!)!;
+        Assert.Equal("request-1", node["id"]!.GetValue<string>());
+        Assert.Equal(-32600, node["error"]!["code"]!.GetValue<int>());
+    }
+
+    [Fact]
     public async Task TimeoutIsEnforcedWhenToolIgnoresCancellation()
     {
         var registry = new ToolRegistry();

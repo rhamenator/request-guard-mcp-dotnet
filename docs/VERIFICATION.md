@@ -87,8 +87,10 @@ version-pinned official Python SDK `mcp==1.30.0` and pinned transitive dependenc
 initialization/version counteroffer, initialized notification, ping, 23 JSON Schemas and one
 representative standard call for every tool. Calls are compared to direct contracts, including
 truthful errors for unavailable backends and unchanged application error codes. It separately
-checks 16 invalid envelopes and invalid JSON over HTTP and WebSocket, ignored messages,
-recovery and authenticated GET405. xUnit covers parser and lifecycle cases. CI runs both.
+checks 15 malformed envelope families, the duplicate-property disposition and invalid JSON over
+HTTP and WebSocket, ignored messages, one-way HTTP 400 behavior, recovery and authenticated
+GET405. Valid string/integer IDs are retained on invalid-params errors. xUnit covers parser and
+lifecycle cases. CI runs both.
 
 Scope: JSON-response HTTP and custom WebSocket; this is not full Streamable HTTP compliance.
 Stateful sessions, SSE and OAuth discovery are not implemented. Negotiation/origin
@@ -97,7 +99,7 @@ server. Requalification is required after SDK/dependency or transport changes.
 
 ## HTTP negotiation, authentication and origins
 
-The protocol runner additionally checks 17 real HTTP negotiation/auth/origin cases,
+The protocol runner additionally checks 18 real HTTP negotiation/auth/origin cases,
 including duplicate headers, content-type/charset, positive-quality Accept, protocol
 version, malformed/unknown tokens, default-denied origins and valid-request recovery.
 Run it both without an origin allowlist and with process configuration:
@@ -112,8 +114,9 @@ Run it both without an origin allowlist and with process configuration:
 origin boundary, duplicate Authorization rejection, allowed-origin authentication and
 negotiation status codes. Parser/configuration tests cover malformed tokens/origins,
 minimum token length, the 32-origin cap, authentication-disabled listener confinement,
-case/default-port normalization and fail-fast configuration. The exact-current Rust jobs launch
-both implementations through the broader rejected-startup matrix described above, including
+case/default-port normalization and fail-fast configuration. The exact-reference Rust jobs launch
+v0.1.5 and current main through this complete HTTP/WebSocket/official-SDK runner as well as the
+broader rejected-startup matrix described above, including
 malformed and zero TLS attestation age rather than accepting an implicit default; current main also
 gates embedded credential placeholders. The incomplete-body socket
 test includes valid negotiation headers so it still exercises the 408 body deadline.
@@ -123,6 +126,23 @@ pair runner explicitly binds both servers to loopback, rather than hiding the ch
 version is an explicit legacy/initialization compatibility path, not implicit support
 for every MCP revision. Reverse proxy/IIS, TLS/ALPN and broader browser clients remain
 separate qualification work in #25.
+
+The runner asserts controlled differences rather than normalizing them away. .NET rejects
+duplicate JSON properties, missing MCP media headers and duplicate Authorization headers, accepts
+the case-insensitive Bearer scheme, and advertises only POST after a non-upgrade GET. The exact Rust
+references use last-key-wins JSON, retain legacy missing-media compatibility, accept repeated equal
+Authorization values, parse the scheme case-sensitively, and advertise their GET upgrade route.
+These are scoped observations of the pinned executables, not requirements to weaken .NET.
+
+For a locally built controlled Rust reference, substitute its executable directly; the runner
+infers the Rust server identity and reference-specific asserted profile:
+
+```bash
+/tmp/request-guard-sdk/bin/python tests/protocol/run.py \
+  --binary /absolute/path/to/request-guard-mcp --reference-rust
+/tmp/request-guard-sdk/bin/python tests/stdio/run.py \
+  --binary /absolute/path/to/request-guard-mcp --reference-rust
+```
 
 ## Process-local stdio qualification
 
@@ -142,7 +162,8 @@ cover newline framing, invalid envelope/syntax handling, bounded input recovery,
 unterminated EOF, independent stable subprocess scopes, and cancellation even when a
 stream ignores it. The process runner also proves PostgreSQL configuration is rejected before
 connection because durable rows cannot use the process-random stdio scope. CI runs the process
-runner on Linux. The transport is sequential;
+runner on Linux for .NET and both exact Rust references. The gate records the reference processes'
+default SIGTERM exit and requires the .NET host's clean zero-status shutdown. The transport is sequential;
 client cancellation notifications and OS service integration remain unqualified; portable
 Windows/macOS SDK and installed-binary smoke are exercised by the native workflow.
 

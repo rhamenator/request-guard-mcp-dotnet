@@ -81,7 +81,33 @@ public class McpMessageTests
     {
         var parsed = McpMessage.Parse("""{"jsonrpc":"2.0","id":null,"method":"health"}""");
 
-        Assert.IsType<IncomingMcpMessage.InvalidRequest>(parsed);
+        var invalid = Assert.IsType<IncomingMcpMessage.InvalidRequest>(parsed);
+        Assert.Null(invalid.Id);
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("\"request-1\"")]
+    public void InvalidParamsPreserveAValidRequestId(string id)
+    {
+        var parsed = McpMessage.Parse("{\"jsonrpc\":\"2.0\",\"id\":" + id
+            + ",\"method\":\"health\",\"params\":[]}");
+
+        var invalid = Assert.IsType<IncomingMcpMessage.InvalidRequest>(parsed);
+        Assert.Equal(id, invalid.Id!.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("true")]
+    [InlineData("1.5")]
+    public void InvalidRequestIdsAreNotReflected(string id)
+    {
+        var parsed = McpMessage.Parse("{\"jsonrpc\":\"2.0\",\"id\":" + id
+            + ",\"method\":\"health\",\"params\":[]}");
+
+        var invalid = Assert.IsType<IncomingMcpMessage.InvalidRequest>(parsed);
+        Assert.Null(invalid.Id);
     }
     [Theory]
     [InlineData("{}")]

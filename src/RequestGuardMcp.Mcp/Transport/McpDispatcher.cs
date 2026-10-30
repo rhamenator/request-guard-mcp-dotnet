@@ -42,9 +42,9 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             return McpMessage.Error(null, -32700, "Parse error");
         }
 
-        if (parsed is IncomingMcpMessage.InvalidRequest)
+        if (parsed is IncomingMcpMessage.InvalidRequest invalidRequest)
         {
-            return McpMessage.Error(null, -32600, "Invalid Request");
+            return McpMessage.Error(invalidRequest.Id, -32600, "Invalid Request");
         }
 
         if (parsed is not IncomingMcpMessage.Request request)

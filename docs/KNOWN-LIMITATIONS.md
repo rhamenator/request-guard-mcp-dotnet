@@ -74,7 +74,11 @@ A present MCP-Protocol-Version must be 2025-06-18; absence is retained for initi
 and legacy direct callers. Default native binding is loopback. Present browser origins
 are denied unless explicitly allowed; this policy does not implement CORS or OAuth.
 These intentional differences from the August Rust pin are covered by dedicated tests;
-the historical differential clients send the new headers and still compare tool payloads.
+the historical differential clients send the new headers and still compare tool payloads. Exact
+v0.1.5/current-main jobs also execute the full protocol and stdio suites. Those gates explicitly
+record, rather than erase, the references' last-key-wins duplicate JSON behavior, legacy omitted
+media headers, repeated-equal Authorization handling, case-sensitive Bearer parsing and default
+SIGTERM exit; none is inherited as a requirement to weaken the .NET boundary.
 
 WebSocket receive budgets cover an entire message, not individual fragment activity;
 expiry can abort the connection without a graceful peer close. Output deadlines likewise
