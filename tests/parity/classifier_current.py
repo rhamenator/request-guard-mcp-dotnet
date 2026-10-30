@@ -11,7 +11,7 @@ from contract import Case, normalize, rpc
 from run import DOTNET_PORT, ROOT, RUST_PORT, Pair, build, clean_environment
 
 
-CASES = [
+SHARED_CASES = [
     ({"user_agent": ua}, "ua_scraper", expected)
     for ua, expected in [
         ("masscan/1.3", True), ("Nikto", True), ("sqlmap/1.0", True),
@@ -31,7 +31,67 @@ CASES = [
         ("/welcome", False), ("/internalized", False), ("/xmlrpc.phpish", False),
         ("/%", False), ("/%2", False),
     ]
-] + [({"path": "/a%2Fb%2Fc%2Fd%2Fe%2Ff%2Fg%2Fh%2Fi"}, "path_deep", True)]
+] + [({"path": "/a%2Fb%2Fc%2Fd%2Fe%2Ff%2Fg%2Fh%2Fi"}, "path_deep", True)] + [
+    ({"user_agent": user_agent}, "ua_ai_bot", True)
+    for user_agent in [
+        "GPTBot", "ChatGPT-User", "Claude-Web", "anthropic-ai", "Bytespider", "CCBot",
+        "cohere-ai", "DuckAssistBot", "FacebookBot", "Google-Extended", "ImagesiftBot",
+        "PerplexityBot", "Scrapy", "python-httpx", "python-requests", "aiohttp", "curl/",
+        "wget/", "libwww-perl", "Go-http-client", "Java/", "okhttp",
+    ]
+] + [
+    ({"user_agent": user_agent}, "ua_scraper", True)
+    for user_agent in [
+        "beautifulsoup", "mechanize", "selenium", "phantom", "puppeteer", "playwright",
+        "headless", "crawler", "spider", "bot", "scraper", "masscan", "nikto", "sqlmap",
+        "httpclient",
+    ]
+] + [
+    ({"headers": {}}, "header_missing_accept", True),
+    ({"headers": {}}, "header_missing_accept_language", True),
+    ({"headers": {"AcCePt": "application/json", "ACCEPT-LANGUAGE": "en"}},
+     "header_missing_accept", False),
+    ({"headers": {"AcCePt": "application/json", "ACCEPT-LANGUAGE": "en"}},
+     "header_missing_accept_language", False),
+] + [
+    ({"method": method}, "method_unusual", expected)
+    for method, expected in [
+        ("GET", False), ("post", False), ("Put", False), ("PATCH", False),
+        ("DELETE", False), ("HEAD", False), ("OPTIONS", False),
+        ("TRACE", True), ("CONNECT", True), ("", True),
+    ]
+]
+
+CURRENT_MAIN_CASES = [
+    ({"path": path}, "path_sensitive", True)
+    for path in [
+        "/wp-config.php", "/wp-config.php.bak", "/wp-config.php_bak", "/wp-config.php-old",
+        "/.aws/credentials", "/.ssh/id_rsa", "/.svn/entries", "/.htaccess",
+        "/server-status", "/phpinfo.php", "/backup.sql", "/backup.sql_old",
+        "/.git-credentials", "/config.json", "/.env.production", "/.env-backup",
+        "/.env_prod", "/.env_local", "/.env-sample", "/.envrc", "/administrator",
+        "/admin-panel", "/admin_old", "/admin123", "/adminer.php", "/admin-login",
+        "/admin_console", "/admin-dashboard", "/admin_area", "/admin-ajax.php",
+        "/admin-api", "/admin-users", "/adminpanel", "/admin-settings", "/admin-portal",
+        "/admin_backup", "/api/internal-api", "/.envs/", "/administration",
+        "/admin;jsessionid=1", "/admin%00.png", "/admin%3fx", "/%3f/admin",
+        "/x%23/admin", "/etc/passwd%00.jpg", "/phpMyAdmin-4.9.1", "/phpmyadmin2",
+        "/prod.env", "/repo.git/config", "/configuration.php", "/config-prod",
+        "/config_local", "/config-staging", "/config-bak", "/configs", "/debug_toolbar",
+        "/debug-info", "/graphql-playground", "/graphqlv1", "/swagger-ui-dist/",
+        "/swagger-docs", "/debug-toolbar", "/api/internal-v2", "/.env~1",
+        "/swagger-ui.html", "/swagger-ui/index.html", "/swagger-resources",
+    ]
+] + [
+    ({"path": path}, "path_sensitive", False)
+    for path in [
+        "/products/configurable-shirt", "/docs/administrator-guide", "/docs/admin-guide",
+        "/blog/node.environment-setup", "/api/internalized", "/xmlrpc.phpish",
+        "/internal.example.com", "/proc.html", "/wp-config.phpish", "/backup.sqlish",
+        "/docs/server-status-guide", "/wp-login.php", "/cgi-bin/status",
+        "/search?q=/admin", "/search?q=/%61dmin", "/search#fragment=/admin",
+    ]
+]
 
 EXPECTED_DEFAULT_SNAPSHOT = {
     "log_level": "info",
@@ -177,6 +237,7 @@ def main():
         raise RuntimeError(f"Rust revision mismatch: {actual}")
     build(rust_repo)
     check_startup_security(rust_repo, actual)
+    cases = SHARED_CASES + (CURRENT_MAIN_CASES if actual == "2660c1fbfd71b38108dfc7b9decd309e4a8e480c" else [])
     token = "synthetic-classifier-parity-token"
     with tempfile.TemporaryDirectory(prefix="classifier-parity-") as directory:
         with Pair(
@@ -186,7 +247,7 @@ def main():
             {"MCP__HOST": "127.0.0.1", "AUTH_TOKENS": token,
              "CACHE_SCOPE_HMAC_KEY": "synthetic-classifier-cache-key-32-bytes"},
         ):
-            for index, (fields, signal, expected) in enumerate(CASES):
+            for index, (fields, signal, expected) in enumerate(cases):
                 case = Case("classify", {**fields, "request_id": f"classifier-{index}"}, str(fields))
                 outcomes = []
                 for port in (RUST_PORT, DOTNET_PORT):
@@ -226,7 +287,7 @@ def main():
                 snapshots.append(normalize(redacted, legacy_envelope=port == RUST_PORT))
             if snapshots[0] != snapshots[1]:
                 raise AssertionError(json.dumps({"config_snapshots": snapshots}, sort_keys=True))
-    print(f"PASS: {len(CASES)} classifier cases plus config snapshot and startup security at {actual}")
+    print(f"PASS: {len(cases)} classifier cases plus config snapshot and startup security at {actual}")
 
 
 if __name__ == "__main__":

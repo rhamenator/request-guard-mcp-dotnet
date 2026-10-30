@@ -26,7 +26,7 @@ exact technical gates described in `RELEASE-READINESS-REVIEW.md`.
 | Area | .NET implementation / evidence | Remaining qualification / issue |
 |---|---|---|
 | Tool surface | All 23 direct inbound tools have the historical differential gate | Lifecycle definitions/wrappers, schemas and official Python SDK 1.30.0 are implemented/tested; remaining protocol work: [#24](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/24) |
-| Classifier | #17 ports scanner boundaries and four-round byte-wise encoded-path rules; 31 expected-outcome running-build cases pass against both scoped Rust refs | Broader adversarial/current-main corpus: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
+| Classifier | The running-build gate checks 82 independently expected shared cases against v0.1.5/current main and 83 additional current-main cases. It covers every maintained UA marker, headers/methods, bounded byte-wise decoding, precise sensitive-route positives and ordinary-route false-positive controls, then compares the complete normalized result. | Future Rust revisions and corpus/endurance expansion remain controlled maintenance under [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29); this does not establish every transport/backend behavior. |
 | Cache identity | Caller-bound keys now match current Rust safety semantics: only rule inputs partition identity, query/fragment text is ignored, and a schema/build/normalized-TLS-policy domain prevents stale verdict reuse. Unicode/numeric `extra` values are irrelevant because the classifier does not consume them. Mixed-runtime parity uses separate tested Redis prefixes. | Shared Rust/.NET cache-byte identity is explicitly unsupported because build domains differ; mixed runtimes must use distinct prefixes. |
 | Optional cache failure isolation | #30 bounds each read/write at 500 ms, preserves caller cancellation and passes the real-Redis scope below | Scoped work tracked in [#23](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/23); broader lookup/health behavior is not covered |
 | Dispatch admission / telemetry | #20 sheds saturated calls immediately and bounds unknown-method labels before Redis/tracing; running-host CI proves an unavailable credentialed OTLP sink does not stop later MCP responses or disclose its credentials in JSON logs | Broader current-Rust log parity and production sink/cardinality endurance: [#29](https://github.com/rhamenator/request-guard-mcp-dotnet/issues/29) |
@@ -51,13 +51,11 @@ PRs #17–#22 merged after self-review, strict-base updates and exact-head green
 the PR descriptions preserve those source identities and workflow results. These are
 maintainer/automation results, not independent human verification.
 
-- Classifier: [run 39732536875](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39732536875)
-  at `fb4d3b3` passed 141 unit tests, historical integration differential and 31 classifier
-  cases against its scoped Rust refs. On 2026-10-28, the same 31 independently expected
-  cases passed locally against exact current Rust main `2660c1f`; hosted evidence is
-  required before this reference becomes an RC gate. Only measured latency/model build
-  metadata is excluded from the classifier comparison; score/signals/verdict/confidence/category
-  match.
+- Classifier: the initial [run 39732536875](https://github.com/rhamenator/request-guard-mcp-dotnet/actions/runs/39732536875)
+  established 31 scanner/encoded-path cases. The maintained gate now requires 82 shared cases at
+  exact v0.1.5/current-main revisions and 83 additional cases for current main's expanded route
+  grammar. Only measured latency/model build metadata is excluded; score, signals, verdict,
+  confidence, category, request identity and processing metadata otherwise match.
 - Connection controls follow Rust #160 (pre-auth incomplete first request) and #162
   (HTTP/2 idle 60 s, age 120 s, exact 128 admitted requests, synchronous excess 503 and
   bounded GOAWAY drain). .NET #21 tests actual sockets, including an unresponsive peer,

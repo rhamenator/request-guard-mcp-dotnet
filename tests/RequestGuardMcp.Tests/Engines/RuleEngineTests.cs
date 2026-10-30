@@ -123,6 +123,18 @@ public class RuleEngineTests
     [InlineData("/internal/metrics")]
     [InlineData("/xmlrpc.php")]
     [InlineData("/xmlrpc.php?x=1")]
+    [InlineData("/wp-config.php.bak")]
+    [InlineData("/.aws/credentials")]
+    [InlineData("/.ssh/id_rsa")]
+    [InlineData("/.svn/entries")]
+    [InlineData("/.htaccess")]
+    [InlineData("/server-status")]
+    [InlineData("/phpinfo.php")]
+    [InlineData("/backup.sql_old")]
+    [InlineData("/.git-credentials")]
+    [InlineData("/config-prod")]
+    [InlineData("/graphql-playground")]
+    [InlineData("/swagger-ui-dist/")]
     public void SensitivePathsIncludeEncodedAndScannerTargets(string path)
     {
         var request = new ClassifyRequest { Path = path };
@@ -140,6 +152,18 @@ public class RuleEngineTests
     [InlineData("/%252525252eenv")]
     [InlineData("/%")]
     [InlineData("/%2")]
+    [InlineData("/products/configurable-shirt")]
+    [InlineData("/docs/administrator-guide")]
+    [InlineData("/docs/admin-guide")]
+    [InlineData("/blog/node.environment-setup")]
+    [InlineData("/api/internalized")]
+    [InlineData("/internal.example.com")]
+    [InlineData("/proc.html")]
+    [InlineData("/wp-config.phpish")]
+    [InlineData("/backup.sqlish")]
+    [InlineData("/docs/server-status-guide")]
+    [InlineData("/wp-login.php")]
+    [InlineData("/cgi-bin/status")]
     public void OrdinaryOrOutOfBudgetPathsDoNotMatch(string path)
     {
         var signals = RuleEngine.Evaluate(new ClassifyRequest { Path = path });

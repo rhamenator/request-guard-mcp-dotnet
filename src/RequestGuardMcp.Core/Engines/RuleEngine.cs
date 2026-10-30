@@ -27,8 +27,17 @@ public sealed partial class RuleEngine
     private static partial Regex ScrapingUserAgent();
 
     [GeneratedRegex(
-        @"(\.env|/admin|/api/internal|/wp-admin|/phpmyadmin|\.git/|/etc/passwd|/proc/|/debug|/actuator|/swagger|/graphql|/config|/internal(?:/|$|\?)|/xmlrpc\.php(?:/|$|\?))",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+        "(?:^|/)(?:[^/]*\\.env(?:[-_~][a-z0-9_-]+|rc|s|[0-9]+)?|[^/]*\\.git|" +
+        "admin(?:istrator|istration|panel|s|[-_](?:panel|old|login|console|dashboard|area|ajax|api|users|cp|settings|portal|backup|dev|new|ui|v[0-9]+)|[0-9]+)?|" +
+        "adminer|api/internal(?:[-_](?:v[0-9]+|tools|api))?|" +
+        "wp-admin|phpmyadmin(?:[-_][a-z0-9.-]+|[0-9]+)?|" +
+        "wp-config\\.php(?:[._~-](?:bak|old|[0-9]+))?|\\.aws|\\.ssh|\\.svn|\\.htaccess|" +
+        "server-status|phpinfo\\.php|backup\\.sql(?:[._~-](?:bak|old|[0-9]+))?|\\.git-credentials|" +
+        "etc/passwd(?:-[a-z0-9]+)?|debug(?:ger|_toolbar|_info|-info|-bar|-toolbar)?|actuator|" +
+        "swagger(?:-ui(?:-bundle|-dist)?|-resources|_ui|ui|-config|-docs)?|graphql(?:-playground|v?[0-9]+)?|" +
+        "config(?:uration|ure|s|[-_](?:backup|bak|dev|old|prod|local|staging|test|new))?)(?:[/;~\\x00\\s?#.]|$)|" +
+        "(?:^|/)proc(?:/|$)|(?:^|/)(?:internal|xmlrpc\\.php)(?:[/;~\\x00\\s?#]|$)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)]
     private static partial Regex SensitivePath();
 
     /// <summary>Run all rules against a classify request and return a signal set.</summary>
