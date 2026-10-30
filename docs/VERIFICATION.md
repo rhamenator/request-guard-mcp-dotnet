@@ -138,8 +138,10 @@ For a locally built controlled Rust reference, substitute its executable directl
 infers the Rust server identity and reference-specific asserted profile:
 
 ```bash
-/tmp/request-guard-sdk/bin/python tests/protocol/run.py --binary /absolute/path/to/request-guard-mcp
-/tmp/request-guard-sdk/bin/python tests/stdio/run.py --binary /absolute/path/to/request-guard-mcp
+/tmp/request-guard-sdk/bin/python tests/protocol/run.py \
+  --binary /absolute/path/to/request-guard-mcp --reference-rust
+/tmp/request-guard-sdk/bin/python tests/stdio/run.py \
+  --binary /absolute/path/to/request-guard-mcp --reference-rust
 ```
 
 ## Process-local stdio qualification

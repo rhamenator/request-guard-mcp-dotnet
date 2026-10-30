@@ -413,6 +413,8 @@ def main():
     target.add_argument('--dotnet-dll', type=Path)
     target.add_argument('--binary', type=Path)
     target.add_argument('--url', help='Explicit isolated test server; no host process is started')
+    parser.add_argument('--reference-rust', action='store_true',
+                        help='Treat --binary as a controlled Rust reference, not a native .NET bundle')
     parser.add_argument('--allowed-origin', help='Configure/test one explicit origin on a spawned host; external URLs must already match')
     parser.add_argument('--ws-deadline-seconds', type=int, help='Set/test a short receive budget on an isolated host (default message cap required)')
     parser.add_argument('--otlp-failure', action='store_true', help='Qualify unavailable OTLP sink isolation and log redaction')
@@ -421,6 +423,8 @@ def main():
     parser.add_argument('--expected-server-name',
                         help='Expected initialize serverInfo.name (inferred for spawned known runtimes)')
     args = parser.parse_args()
+    if args.reference_rust and not args.binary:
+        parser.error('--reference-rust requires --binary')
     if args.ws_deadline_seconds is not None and args.ws_deadline_seconds < 1:
         parser.error('WebSocket budget must be positive')
     if args.telemetry_endurance_seconds is not None and args.telemetry_endurance_seconds < 1:
@@ -440,7 +444,8 @@ def main():
     if not executable.is_file():
         parser.error(f'build the host first; executable not found: {executable}')
     command = [str(executable)] if args.binary else ['dotnet', str(executable)]
-    expected_server_name = args.expected_server_name or ('request-guard-mcp' if args.binary else 'request-guard-mcp-dotnet')
+    expected_server_name = args.expected_server_name or (
+        'request-guard-mcp' if args.reference_rust else 'request-guard-mcp-dotnet')
     with socket.socket() as reservation:
         reservation.bind(('127.0.0.1', 0))
         port = reservation.getsockname()[1]
@@ -474,10 +479,10 @@ def main():
                 elif args.telemetry_endurance_seconds:
                     check_telemetry_endurance(url, args.telemetry_endurance_seconds, process.pid)
                 else:
-                    check_envelopes(url, reject_duplicate_properties=args.binary is None,
-                                    expected_allow_header=('POST, GET' if args.binary else 'POST'))
+                    check_envelopes(url, reject_duplicate_properties=not args.reference_rust,
+                                    expected_allow_header=('POST, GET' if args.reference_rust else 'POST'))
                     check_http_profile(url, args.allowed_origin,
-                                       dotnet_hardened_profile=args.binary is None)
+                                       dotnet_hardened_profile=not args.reference_rust)
                     if args.ws_deadline_seconds:
                         check_ws_lifetime(url, args.ws_deadline_seconds)
                     asyncio.run(check_sdk(url, expected_server_name))
