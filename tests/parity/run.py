@@ -383,6 +383,7 @@ def main() -> int:
         with Pair(rust_binary, dotnet_dll, workdir, {"MCP__AUTH__ENABLED": "false"}):
             run_contract("config")
         print("PASS dotenv compatibility")
+        dotenv.unlink()
 
         if args.with_integrations:
             fixtures = download_mmdb_fixtures(workdir)
