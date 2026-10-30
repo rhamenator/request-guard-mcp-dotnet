@@ -167,6 +167,21 @@ default SIGTERM exit and requires the .NET host's clean zero-status shutdown. Th
 client cancellation notifications and OS service integration remain unqualified; portable
 Windows/macOS SDK and installed-binary smoke are exercised by the native workflow.
 
+CI separately runs the exact MCP Inspector CLI package against the same Release build:
+
+```bash
+python3 tests/stdio/inspector.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
+```
+
+The runner requires Node.js 22.19 or newer, pins Inspector 2.13.0 and verifies its published npm
+integrity before execution. It requires the exact 23-tool list with descriptions and object input
+schemas, then calls `health` and `classify` and checks their text/structured-content agreement and
+expected classification signal. npm access is required to resolve and run the pinned package; no
+server secret is passed on the command line. This evidence is Inspector-over-stdio only. Inspector
+remote HTTP is unsupported because the server intentionally does not implement Streamable HTTP
+sessions or SSE responses.
+
 ## WebSocket and output deadlines
 
 ```bash

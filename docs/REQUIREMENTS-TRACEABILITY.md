@@ -156,3 +156,10 @@ configured database that fails later produces a bounded timeout/upstream error f
 tools and recovers after the same backend returns without restarting the MCP server.
 `tests/parity/postgres_tls_recovery.py` verifies trusted/untrusted/host-name paths, observes an
 encrypted session, pauses and stops the real backend, and replays persisted state after recovery.
+
+DR-017: Client compatibility claims must name the exact client and transport under test. The
+integrity-pinned MCP Inspector 2.13.0 CLI must start the Release server over stdio, observe exactly
+23 described tools with object schemas, and receive matching text/structured results from `health`
+and a deterministic `classify` call. `tests/stdio/inspector.py` and the CI test job implement this
+gate. Remote Inspector HTTP, installed-artifact Inspector and other clients remain separate evidence;
+the repository does not distribute a companion skill or npm server package.

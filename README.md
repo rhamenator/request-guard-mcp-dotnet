@@ -86,7 +86,10 @@ returns **405** after authentication. Clients relying on the older 204 or redund
 envelope fields must update. Tool payload null fields are unchanged.
 
 Reproduce the SDK and transport contract with the commands in
-[verification](docs/VERIFICATION.md). No .NET companion skill is distributed in this repository.
+[verification](docs/VERIFICATION.md). This port distributes server archives and installers, not a
+companion skill or npm server package. The sibling Rust project's skill/npm claims are not copied:
+subprocess clients launch the installed native executable directly. Any future marketplace skill
+will be a separately packaged, buyer-validated artifact rather than an implied part of this server.
 
 ### HTTP authentication and browser origins
 
@@ -171,6 +174,20 @@ This is a sequential transport: requests finish in input order, and notification
 in-flight cancellation is not implemented. SDK/process and installed-binary evidence runs on
 Linux, Windows, Intel macOS and arm64 macOS hosted runners. OS-service and additional
 client-specific qualification remain open.
+
+The pinned MCP Inspector CLI is also qualified over stdio against the running Release build
+(Node.js 22.19 or newer is required by this Inspector release):
+
+```bash
+npx --yes @modelcontextprotocol/inspector@2.13.0 --cli \
+  dotnet /absolute/path/to/request-guard-mcp-dotnet.dll --stdio \
+  --method tools/list --format json
+```
+
+Use the absolute installed native executable in place of `dotnet ...dll` for a packaged install.
+Do not place backend credentials in the command line; provide them through the launching client's
+secret-managed environment. Inspector remote HTTP is not claimed: this server deliberately returns
+JSON without Streamable HTTP sessions or SSE, so the qualified Inspector path is stdio only.
 
 ## Why a .NET port?
 
