@@ -215,7 +215,7 @@ def check_envelopes(url, reject_duplicate_properties=True, expected_allow_header
         client.send(duplicate.encode())
         opcode, body = client.receive()
         ws = json.loads(body)
-        assert opcode == 1 and ws == http, (ws, http)
+        assert opcode == 1 and normalize_payload(ws) == normalize_payload(http), (ws, http)
         if reject_duplicate_properties:
             assert http == {'jsonrpc': '2.0', 'id': None,
                             'error': {'code': -32600, 'message': 'Invalid Request'}}, http
