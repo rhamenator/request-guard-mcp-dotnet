@@ -50,6 +50,11 @@ snapshot after volatile fields are normalized. They also launch both implementat
 broad rejected-startup matrix covering credentials, origins, cache and PostgreSQL keys, TLS
 attestation age/keys/fingerprints, telemetry, Redis/PostgreSQL values, GeoIP paths, and common
 resource limits. Current main alone gates its embedded-placeholder and HTTP/2-idle extensions.
+The same running-build job checks 82 independently expected shared classifier cases against both
+references and 83 additional current-main cases. Coverage includes every maintained AI/scraper
+marker, word boundaries, header and method behavior, bounded percent decoding, the expanded
+sensitive-route grammar, and ordinary-route/query/fragment false-positive controls. It compares the
+complete classification result after removing only measured latency and runtime build metadata.
 This security behavior intentionally supersedes the older differential pin.
 
 PostgreSQL transport trust and running-backend recovery have a separate disposable gate:

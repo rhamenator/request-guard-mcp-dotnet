@@ -31,6 +31,12 @@ authentication, TLS attestation, both transports, all supported configuration fo
 and PostgreSQL isolation, privacy-minimized replay snapshots, transactional feedback replacement,
 timeouts, Redis, PostgreSQL, and checksum-pinned official MaxMind test databases.
 
+The scoped current-reference gate separately checks 82 shared classifier cases against Rust v0.1.5
+and 165 cases against controlled current main. The current-main-only set includes its expanded
+sensitive-route grammar and ordinary-route false-positive controls; each case checks the complete
+classification result after excluding only measured latency and runtime build metadata. This is
+revision-scoped classifier evidence, not a claim of full current-main transport or backend parity.
+
 The assurance baseline is DO-178C-inspired and appropriate to a sole-maintainer project; it is not
 a claim of certification or airborne suitability. Official pre-1.0 candidates require a durable
 owner self-review record and disclose whether independent human review occurred; independent review

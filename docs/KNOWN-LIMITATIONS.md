@@ -29,6 +29,13 @@ tracked in [PARITY-MATRIX.md](PARITY-MATRIX.md). Any new
 difference is a release blocker unless this document and the requirements/evidence are updated with
 an explicit disposition.
 
+Published Rust v0.1.5 uses the older broad sensitive-path expression. The .NET port follows the
+controlled current-main grammar, which adds concrete administrative/configuration targets and
+removes false positives such as `/docs/admin-guide` and `/products/configurable-shirt`. The exact
+gate therefore applies 82 shared cases to both references and 83 expanded route cases only to
+current main; this intentional revision boundary is not normalized away or described as v0.1.5
+behavior.
+
 Cache fingerprints use structured, recursively sorted JSON in this port. Keys from older
 .NET builds are not reused; old entries expire according to their existing TTL. A rolling
 upgrade can temporarily reduce cache hit rate. Cross-runtime cache-byte sharing is explicitly
