@@ -95,7 +95,10 @@ Run it both without an origin allowlist and with process configuration:
 `HttpProfileTests` starts actual loopback Kestrel listeners, verifies the HTTP and WS
 origin boundary, duplicate Authorization rejection, allowed-origin authentication and
 negotiation status codes. Parser/configuration tests cover malformed tokens/origins,
-case/default-port normalization and fail-fast configuration. The incomplete-body socket
+minimum token length, the 32-origin cap, authentication-disabled listener confinement,
+case/default-port normalization and fail-fast configuration. The exact-current Rust jobs launch
+both implementations with rejected short-token, non-loopback/no-auth and oversized-origin
+configurations; current main also gates embedded credential placeholders. The incomplete-body socket
 test includes valid negotiation headers so it still exercises the 408 body deadline.
 All repository clients/examples now send the required Accept header. The historical
 pair runner explicitly binds both servers to loopback, rather than hiding the changed

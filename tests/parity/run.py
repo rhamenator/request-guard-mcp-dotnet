@@ -45,6 +45,7 @@ def clean_environment() -> dict[str, str]:
         "CACHE_SCOPE_HMAC_KEY",
         "CONFIG_FILE",
         "LOG_LEVEL",
+        "MCP_ALLOWED_ORIGINS",
         "TLS_FINGERPRINT_ATTESTATION_KEY",
         "TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY",
         "TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS",

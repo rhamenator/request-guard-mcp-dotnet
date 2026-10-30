@@ -278,7 +278,7 @@ def main():
         environment = {**clean_environment(), 'MCP__HOST': '127.0.0.1', 'MCP__PORT': str(port),
                        'AUTH_TOKENS': TOKEN, 'CACHE_SCOPE_HMAC_KEY': 'synthetic-protocol-cache-scope-key-32-bytes'}
         if args.allowed_origin:
-            environment['MCP__AUTH__ALLOWED_ORIGINS__0'] = args.allowed_origin
+            environment['MCP_ALLOWED_ORIGINS'] = args.allowed_origin
         if args.ws_deadline_seconds:
             environment['MCP__LIMITS__WEBSOCKET_IDLE_TIMEOUT_SECS'] = str(args.ws_deadline_seconds)
         if args.otlp_failure:

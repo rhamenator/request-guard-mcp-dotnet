@@ -24,6 +24,7 @@ assurance process. It is engineering evidence, not a claim of certification or a
 | HLR-017 | Warm engines and cache before accepting traffic. | Host startup, `WarmupTool` | startup inspection plus warmup differential case |
 | HLR-018 | Never disclose secret configuration through `config_snapshot`; reject unredacted requests and reveal an OTLP endpoint only as present-and-redacted. | `ConfigSnapshotTool`, tool schema | end-to-end snapshot security test plus exact current-Rust classifier/configuration gates |
 | HLR-019 | Keep MCP service available when the optional OTLP sink is unavailable and never disclose configured OTLP credentials in JSON console logs. | OpenTelemetry host wiring, structured console logging | running-build refused-sink probe against .NET and both exact current-Rust references |
+| HLR-020 | Require >=32-byte non-placeholder HTTP credentials, confine authentication-disabled listeners to loopback, and bound browser-origin configuration to 32 validated entries. | `AppConfig.Validate`, host compatibility configuration | unit regressions plus rejected-startup gates against both exact current-Rust references |
 
 ## Derived requirements and assumptions
 
