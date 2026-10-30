@@ -154,7 +154,12 @@ def websocket_health(base_url, ca_cert):
             connection.sendall(request)
             headers = bytearray()
             while b'\r\n\r\n' not in headers:
-                headers.extend(connection.recv(4096))
+                chunk = connection.recv(4096)
+                if not chunk:
+                    raise ConnectionError('unexpected end of TLS stream during WebSocket upgrade')
+                headers.extend(chunk)
+                if len(headers) > 64 * 1024:
+                    raise ConnectionError('oversized WebSocket upgrade response headers')
             assert headers.startswith(b'HTTP/1.1 101 '), headers
             expected = base64.b64encode(hashlib.sha1(
                 (key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest())
