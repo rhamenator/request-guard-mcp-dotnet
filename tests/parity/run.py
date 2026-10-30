@@ -29,13 +29,13 @@ MMDB_FIXTURES = {
 }
 
 CONFIG_FILES = {
-    "config.json": '{"limits":{"max_request_bytes":123456,"max_batch_size":7},"redis":{"key_prefix":"parity_config"},"telemetry":{"service_name":"parity-config-service"}}',
-    "config.ini": "[limits]\nmax_request_bytes=123456\nmax_batch_size=7\n[redis]\nkey_prefix=parity_config\n[telemetry]\nservice_name=parity-config-service\n",
-    "config.toml": "[limits]\nmax_request_bytes=123456\nmax_batch_size=7\n[redis]\nkey_prefix='parity_config'\n[telemetry]\nservice_name='parity-config-service'\n",
-    "config.yaml": "limits:\n  max_request_bytes: 123456\n  max_batch_size: 7\nredis:\n  key_prefix: parity_config\ntelemetry:\n  service_name: parity-config-service\n",
-    "config.yml": "limits:\n  max_request_bytes: 123456\n  max_batch_size: 7\nredis: {key_prefix: parity_config}\ntelemetry: {service_name: parity-config-service}\n",
-    "config.ron": "(limits:(max_request_bytes:123456,max_batch_size:7),redis:(key_prefix:\"parity_config\"),telemetry:(service_name:\"parity-config-service\"))",
-    "config.json5": "{limits:{max_request_bytes:123456,max_batch_size:7},redis:{key_prefix:'parity_config'},telemetry:{service_name:'parity-config-service'}}",
+    "config.json": '{"log_level":"warn","limits":{"max_request_bytes":123456,"max_batch_size":7,"global_concurrency":17,"per_tool_timeout_secs":8,"classify_timeout_secs":3},"features":{"enable_batch":false,"enable_enrichment":true,"enable_feedback":false},"redis":{"pool_size":5,"key_prefix":"parity_config","cache_ttl_secs":42},"postgres":{"max_connections":4,"connect_timeout_secs":2},"telemetry":{"metrics_path":"/parity-metrics","service_name":"parity-config-service"},"tls_fingerprints":{"attestation_key":"parity-attestation-key-at-least-32-bytes","previous_attestation_key":"parity-previous-key-at-least-32-bytes","max_age_seconds":75}}',
+    "config.ini": "log_level=warn\n[limits]\nmax_request_bytes=123456\nmax_batch_size=7\nglobal_concurrency=17\nper_tool_timeout_secs=8\nclassify_timeout_secs=3\n[features]\nenable_batch=false\nenable_enrichment=true\nenable_feedback=false\n[redis]\npool_size=5\nkey_prefix=parity_config\ncache_ttl_secs=42\n[postgres]\nmax_connections=4\nconnect_timeout_secs=2\n[telemetry]\nmetrics_path=/parity-metrics\nservice_name=parity-config-service\n[tls_fingerprints]\nattestation_key=parity-attestation-key-at-least-32-bytes\nprevious_attestation_key=parity-previous-key-at-least-32-bytes\nmax_age_seconds=75\n",
+    "config.toml": "log_level='warn'\n[limits]\nmax_request_bytes=123456\nmax_batch_size=7\nglobal_concurrency=17\nper_tool_timeout_secs=8\nclassify_timeout_secs=3\n[features]\nenable_batch=false\nenable_enrichment=true\nenable_feedback=false\n[redis]\npool_size=5\nkey_prefix='parity_config'\ncache_ttl_secs=42\n[postgres]\nmax_connections=4\nconnect_timeout_secs=2\n[telemetry]\nmetrics_path='/parity-metrics'\nservice_name='parity-config-service'\n[tls_fingerprints]\nattestation_key='parity-attestation-key-at-least-32-bytes'\nprevious_attestation_key='parity-previous-key-at-least-32-bytes'\nmax_age_seconds=75\n",
+    "config.yaml": "log_level: warn\nlimits:\n  max_request_bytes: 123456\n  max_batch_size: 7\n  global_concurrency: 17\n  per_tool_timeout_secs: 8\n  classify_timeout_secs: 3\nfeatures:\n  enable_batch: false\n  enable_enrichment: true\n  enable_feedback: false\nredis:\n  pool_size: 5\n  key_prefix: parity_config\n  cache_ttl_secs: 42\npostgres:\n  max_connections: 4\n  connect_timeout_secs: 2\ntelemetry:\n  metrics_path: /parity-metrics\n  service_name: parity-config-service\ntls_fingerprints:\n  attestation_key: parity-attestation-key-at-least-32-bytes\n  previous_attestation_key: parity-previous-key-at-least-32-bytes\n  max_age_seconds: 75\n",
+    "config.yml": "log_level: warn\nlimits: {max_request_bytes: 123456, max_batch_size: 7, global_concurrency: 17, per_tool_timeout_secs: 8, classify_timeout_secs: 3}\nfeatures: {enable_batch: false, enable_enrichment: true, enable_feedback: false}\nredis: {pool_size: 5, key_prefix: 'parity_config', cache_ttl_secs: 42}\npostgres: {max_connections: 4, connect_timeout_secs: 2}\ntelemetry: {metrics_path: '/parity-metrics', service_name: 'parity-config-service'}\ntls_fingerprints: {attestation_key: 'parity-attestation-key-at-least-32-bytes', previous_attestation_key: 'parity-previous-key-at-least-32-bytes', max_age_seconds: 75}\n",
+    "config.ron": "(log_level:\"warn\",limits:(max_request_bytes:123456,max_batch_size:7,global_concurrency:17,per_tool_timeout_secs:8,classify_timeout_secs:3),features:(enable_batch:false,enable_enrichment:true,enable_feedback:false),redis:(pool_size:5,key_prefix:\"parity_config\",cache_ttl_secs:42),postgres:(max_connections:4,connect_timeout_secs:2),telemetry:(metrics_path:\"/parity-metrics\",service_name:\"parity-config-service\"),tls_fingerprints:(attestation_key:Some(\"parity-attestation-key-at-least-32-bytes\"),previous_attestation_key:Some(\"parity-previous-key-at-least-32-bytes\"),max_age_seconds:75))",
+    "config.json5": "{log_level:'warn',limits:{max_request_bytes:123456,max_batch_size:7,global_concurrency:17,per_tool_timeout_secs:8,classify_timeout_secs:3},features:{enable_batch:false,enable_enrichment:true,enable_feedback:false},redis:{pool_size:5,key_prefix:'parity_config',cache_ttl_secs:42},postgres:{max_connections:4,connect_timeout_secs:2},telemetry:{metrics_path:'/parity-metrics',service_name:'parity-config-service'},tls_fingerprints:{attestation_key:'parity-attestation-key-at-least-32-bytes',previous_attestation_key:'parity-previous-key-at-least-32-bytes',max_age_seconds:75}}",
 }
 
 
@@ -366,7 +366,20 @@ def main() -> int:
             print(f"PASS CONFIG_FILE format: {path.suffix}")
 
         dotenv = workdir / ".env"
-        dotenv.write_text("MCP__LIMITS__MAX_REQUEST_BYTES=123456\nMCP__LIMITS__MAX_BATCH_SIZE=7\nMCP__REDIS__KEY_PREFIX=parity_config\nMCP__TELEMETRY__SERVICE_NAME=parity-config-service\n", encoding="utf-8")
+        dotenv.write_text(
+            "LOG_LEVEL=warn\n"
+            "MCP__LIMITS__MAX_REQUEST_BYTES=123456\nMCP__LIMITS__MAX_BATCH_SIZE=7\n"
+            "MCP__LIMITS__GLOBAL_CONCURRENCY=17\nMCP__LIMITS__PER_TOOL_TIMEOUT_SECS=8\n"
+            "MCP__LIMITS__CLASSIFY_TIMEOUT_SECS=3\nMCP__FEATURES__ENABLE_BATCH=false\n"
+            "MCP__FEATURES__ENABLE_ENRICHMENT=true\nMCP__FEATURES__ENABLE_FEEDBACK=false\n"
+            "MCP__REDIS__POOL_SIZE=5\nMCP__REDIS__KEY_PREFIX=parity_config\nMCP__REDIS__CACHE_TTL_SECS=42\n"
+            "MCP__POSTGRES__MAX_CONNECTIONS=4\nMCP__POSTGRES__CONNECT_TIMEOUT_SECS=2\n"
+            "MCP__TELEMETRY__METRICS_PATH=/parity-metrics\nMCP__TELEMETRY__SERVICE_NAME=parity-config-service\n"
+            "TLS_FINGERPRINT_ATTESTATION_KEY=parity-attestation-key-at-least-32-bytes\n"
+            "TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY=parity-previous-key-at-least-32-bytes\n"
+            "TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS=75\n",
+            encoding="utf-8",
+        )
         with Pair(rust_binary, dotnet_dll, workdir, {"MCP__AUTH__ENABLED": "false"}):
             run_contract("config")
         print("PASS dotenv compatibility")

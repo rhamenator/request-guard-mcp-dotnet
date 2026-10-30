@@ -29,7 +29,9 @@ The runner also expects historical Rust notification 204 versus .NET 202. Regres
 these exceptions cannot hide a candidate emitting both branches, discard application null fields,
 or expose a configured endpoint. Its core phase covers every one of the 23 tools, malformed/missing input, disabled
 features, HTTP and text/binary WebSocket transport, strict UTF-8, auth, TLS attestation, and all six
-Rust config formats plus YAML's `.yml` alias and dotenv. The integration phase launches pinned
+Rust config syntaxes through seven extensions (including YAML's `.yml` alias) plus dotenv. For each
+configuration input it independently checks the complete stable redacted snapshot, including limits,
+feature flags, backend settings, telemetry, and TLS policy. The integration phase launches pinned
 Redis/PostgreSQL containers, downloads checksum-pinned Apache-licensed MaxMind upstream fixtures,
 tests persistence/replay/reports/reputation/canaries/queues, verifies two caller cache and database
 scopes, rejects cross-caller replay/feedback/report access, checks feedback invalidation on decision
@@ -43,8 +45,12 @@ metadata.
 
 The scoped current-Rust jobs additionally require both v0.1.5 and the pinned current-main
 reference to reject `config_snapshot(redact_secrets=false)`, return null for an absent OTLP
-endpoint in a redacted snapshot, and match the .NET redacted snapshot after volatile fields are
-normalized. This security behavior intentionally supersedes the older differential pin.
+endpoint in a redacted snapshot, and match an independently specified complete stable default
+snapshot after volatile fields are normalized. They also launch both implementations through a
+broad rejected-startup matrix covering credentials, origins, cache and PostgreSQL keys, TLS
+attestation age/keys/fingerprints, telemetry, Redis/PostgreSQL values, GeoIP paths, and common
+resource limits. Current main alone gates its embedded-placeholder and HTTP/2-idle extensions.
+This security behavior intentionally supersedes the older differential pin.
 
 PostgreSQL transport trust and running-backend recovery have a separate disposable gate:
 
@@ -102,8 +108,9 @@ origin boundary, duplicate Authorization rejection, allowed-origin authenticatio
 negotiation status codes. Parser/configuration tests cover malformed tokens/origins,
 minimum token length, the 32-origin cap, authentication-disabled listener confinement,
 case/default-port normalization and fail-fast configuration. The exact-current Rust jobs launch
-both implementations with rejected short-token, non-loopback/no-auth and oversized-origin
-configurations; current main also gates embedded credential placeholders. The incomplete-body socket
+both implementations through the broader rejected-startup matrix described above, including
+malformed and zero TLS attestation age rather than accepting an implicit default; current main also
+gates embedded credential placeholders. The incomplete-body socket
 test includes valid negotiation headers so it still exercises the 408 body deadline.
 All repository clients/examples now send the required Accept header. The historical
 pair runner explicitly binds both servers to loopback, rather than hiding the changed

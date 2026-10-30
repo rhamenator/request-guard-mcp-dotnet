@@ -31,9 +31,16 @@ an explicit disposition.
 
 Cache fingerprints use structured, recursively sorted JSON in this port. Keys from older
 .NET builds are not reused; old entries expire according to their existing TTL. A rolling
-upgrade can temporarily reduce cache hit rate. Byte-identical cache keys shared between
-Rust and .NET (including Unicode/number serialization edge cases) are not yet qualified;
-use separate Redis key prefixes for mixed-runtime deployments.
+upgrade can temporarily reduce cache hit rate. Cross-runtime cache-byte sharing is explicitly
+unsupported: Rust and .NET intentionally include different build domains, so mixed-runtime
+deployments must use separate Redis key prefixes. Query/fragment equivalence, caller isolation,
+rule-input identity, normalized TLS-policy partitioning, and the distinct-prefix integration path
+are tested; a common Rust/.NET cache serialization protocol is not claimed.
+
+The configuration differential suite checks the complete stable redacted snapshot and broad scalar
+mapping, but some connection controls and runtime-only settings are intentionally absent from that
+snapshot. Their parser validation and focused socket tests do not constitute production-duration
+endurance evidence or prove operational equivalence for every non-snapshot field.
 
 Connection controls added for Rust main #160/#162 are tested separately from the August
 differential baseline. Kestrel does not provide same-port cleartext HTTP/1 + HTTP/2
