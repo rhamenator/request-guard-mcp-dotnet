@@ -46,8 +46,10 @@ are tested; a common Rust/.NET cache serialization protocol is not claimed.
 
 The configuration differential suite checks the complete stable redacted snapshot and broad scalar
 mapping, but some connection controls and runtime-only settings are intentionally absent from that
-snapshot. Their parser validation and focused socket tests do not constitute production-duration
-endurance evidence or prove operational equivalence for every non-snapshot field.
+snapshot. Telemetry cardinality has an exact 120-second running-artifact gate with bounded traffic
+and process ceilings, but this is not a maximum-throughput, external-collector, memory-leak, or
+every-log-field test. Parser validation and focused socket tests do not prove operational
+equivalence for every other non-snapshot field.
 
 Connection controls added for Rust main #160/#162 are tested separately from the August
 differential baseline. Kestrel does not provide same-port cleartext HTTP/1 + HTTP/2
