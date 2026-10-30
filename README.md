@@ -10,8 +10,10 @@ tool surface and behavior over the same WebSocket/HTTP JSON-RPC 2.0 transports.
 
 ## Status
 
-Compatibility evidence currently targets an August 2026 Rust revision, not current Rust main or
-v0.1.5. Current parity work and unverified gaps are tracked in the
+Full differential compatibility evidence targets an August 2026 Rust revision. Scoped executable
+gates also compare security validation, stable configuration defaults, redacted configuration
+mapping, and classifier behavior with exact v0.1.5 and current-main Rust revisions. Current parity
+work and unverified gaps are tracked in the
 [parity matrix](docs/PARITY-MATRIX.md). The `2025-06-18` lifecycle methods (`initialize`, `ping`, `tools/list`, `tools/call`)
 work alongside direct HTTP/WebSocket JSON-RPC calls. The pinned official Python SDK
 qualifies the JSON-response HTTP path and process-local `--stdio`. Negotiation/auth/origin
@@ -287,6 +289,18 @@ configured dependency fails; they do not return synthetic success data.
   boundaries and operations
 
 ## Deployment
+
+`CONFIG_FILE` accepts JSON, INI, TOML, YAML (`.yaml` or `.yml`), RON, and JSON5. A working-directory
+`.env` file and process environment variables use the corresponding upper-case names; process
+environment values take precedence. The differential suite checks a broad stable scalar mapping
+and the complete redacted snapshot for every extension and dotenv, rather than merely proving that
+each parser starts. These parsers support the application's documented configuration shape, not
+every feature of the underlying data languages.
+
+Startup fails rather than silently substituting a default when a present security- or
+resource-relevant value is malformed. This includes `TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS`,
+which must be a positive integer no greater than 2147483647. Secrets remain redacted from
+`config_snapshot`; requesting an unredacted snapshot is rejected.
 
 ```bash
 docker build -f docker/Dockerfile -t request-guard-mcp-dotnet:local .

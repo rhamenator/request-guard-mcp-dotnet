@@ -76,9 +76,16 @@ if (CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY") is { Length: 
     appConfig.TlsFingerprints.PreviousAttestationKey = previousTlsKey;
 }
 
-if (int.TryParse(CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS"), System.Globalization.CultureInfo.InvariantCulture, out var tlsMaxAge))
+if (CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS") is { } rawTlsMaxAge)
 {
-    appConfig.TlsFingerprints.MaxAgeSeconds = tlsMaxAge;
+    if (!uint.TryParse(rawTlsMaxAge, System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out var tlsMaxAge) || tlsMaxAge is 0 || tlsMaxAge > int.MaxValue)
+    {
+        Console.Error.WriteLine("configuration error: TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS must be a positive integer no greater than 2147483647");
+        return 1;
+    }
+
+    appConfig.TlsFingerprints.MaxAgeSeconds = (int)tlsMaxAge;
 }
 
 appConfig.TlsFingerprints.KnownBadJa3 = SplitList(CompatibilityValue("TLS_KNOWN_BAD_JA3"));

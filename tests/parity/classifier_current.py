@@ -33,6 +33,52 @@ CASES = [
     ]
 ] + [({"path": "/a%2Fb%2Fc%2Fd%2Fe%2Ff%2Fg%2Fh%2Fi"}, "path_deep", True)]
 
+EXPECTED_DEFAULT_SNAPSHOT = {
+    "log_level": "info",
+    "limits": {
+        "max_request_bytes": 1024 * 1024,
+        "max_batch_size": 50,
+        "global_concurrency": 256,
+        "per_tool_timeout_secs": 30,
+        "classify_timeout_secs": 5,
+    },
+    "features": {
+        "enable_batch": True,
+        "enable_enrichment": True,
+        "enable_feedback": True,
+    },
+    "auth": {"enabled": True, "token_count": 1},
+    "telemetry": {
+        "service_name": "request-guard-mcp",
+        "metrics_path": "/metrics",
+        "otlp_endpoint": None,
+    },
+    "redis": {
+        "configured": False,
+        "pool_size": 16,
+        "key_prefix": "request_guard",
+        "cache_ttl_secs": 300,
+    },
+    "postgres": {
+        "configured": False,
+        "max_connections": 10,
+        "connect_timeout_secs": 5,
+    },
+    "geoip": {
+        "configured": False,
+        "city_configured": False,
+        "asn_configured": False,
+        "anonymous_ip_configured": False,
+    },
+    "tls_fingerprints": {
+        "attestation_key_configured": False,
+        "previous_attestation_key_configured": False,
+        "max_age_seconds": 60,
+        "known_bad_ja3_count": 0,
+        "known_bad_ja4_count": 0,
+    },
+}
+
 
 def assert_startup_rejected(command, workdir, overrides, label):
     environment = {
@@ -70,7 +116,42 @@ def check_startup_security(rust_repo, revision):
          "authentication-disabled non-loopback listener"),
         ({"MCP_ALLOWED_ORIGINS": ",".join(f"https://client-{index}.example" for index in range(33))},
          "33-entry browser origin allowlist"),
+        ({"MCP_ALLOWED_ORIGINS": "https://client.example/path"}, "browser origin with a path"),
+        ({"CACHE_SCOPE_HMAC_KEY": "short-cache-key"}, "short cache-scope key"),
+        ({"MCP__POSTGRES__URL": "postgres://127.0.0.1/unreachable"},
+         "authenticated PostgreSQL without a stable caller-scope key"),
+        ({"TLS_FINGERPRINT_ATTESTATION_KEY": "short-attestation-key"},
+         "short TLS attestation key"),
+        ({"TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY": "short-previous-key"},
+         "short previous TLS attestation key"),
+        ({"TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS": "not-an-integer"},
+         "non-integer TLS attestation age"),
+        ({"TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS": "0"},
+         "zero TLS attestation age"),
+        ({"TLS_KNOWN_BAD_JA3": "malformed"}, "malformed known-bad JA3"),
+        ({"TLS_KNOWN_BAD_JA4": "malformed"}, "malformed known-bad JA4"),
+        ({"MCP__TELEMETRY__METRICS_PATH": "metrics"}, "relative metrics path"),
+        ({"MCP__TELEMETRY__METRICS_PATH": "/mcp"}, "reserved metrics path"),
+        ({"MCP__TELEMETRY__OTLP_ENDPOINT": "ftp://collector.example"},
+         "non-HTTP OTLP endpoint"),
+        ({"MCP__REDIS__POOL_SIZE": "0"}, "zero Redis pool size"),
+        ({"MCP__REDIS__CACHE_TTL_SECS": "0"}, "zero Redis cache TTL"),
+        ({"MCP__REDIS__KEY_PREFIX": "invalid prefix"}, "invalid Redis key prefix"),
+        ({"MCP__REDIS__URL": " "}, "blank Redis URL"),
+        ({"MCP__POSTGRES__MAX_CONNECTIONS": "0"}, "zero PostgreSQL connection count"),
+        ({"MCP__POSTGRES__CONNECT_TIMEOUT_SECS": "0"}, "zero PostgreSQL connection timeout"),
+        ({"MCP__POSTGRES__URL": " "}, "blank PostgreSQL URL"),
+        ({"MCP__GEOIP__MMDB_PATH": " "}, "blank legacy GeoIP path"),
+        ({"MCP__GEOIP__CITY_MMDB_PATH": " "}, "blank City GeoIP path"),
+        ({"MCP__GEOIP__ASN_MMDB_PATH": " "}, "blank ASN GeoIP path"),
+        ({"MCP__GEOIP__ANONYMOUS_IP_MMDB_PATH": " "}, "blank anonymous-IP GeoIP path"),
     ]
+    for setting in [
+        "MAX_REQUEST_BYTES", "MAX_BATCH_SIZE", "GLOBAL_CONCURRENCY", "MAX_CONNECTIONS",
+        "HTTP_HEADER_TIMEOUT_SECS", "HTTP_BODY_TIMEOUT_SECS", "WEBSOCKET_IDLE_TIMEOUT_SECS",
+        "PER_TOOL_TIMEOUT_SECS", "CLASSIFY_TIMEOUT_SECS",
+    ]:
+        shared.append(({f"MCP__LIMITS__{setting}": "0"}, f"zero {setting.lower()} limit"))
     current_only = [
         ({"AUTH_TOKENS": "prefix-replace_me-and-enough-token-bytes-123456"},
          "embedded bearer-token placeholder"),
@@ -78,6 +159,7 @@ def check_startup_security(rust_repo, revision):
          "embedded cache-scope placeholder"),
         ({"TLS_FINGERPRINT_ATTESTATION_KEY": "prefix_replace_me_0123456789abcdef0123456789abcdef"},
          "embedded TLS-attestation placeholder"),
+        ({"MCP__LIMITS__HTTP2_IDLE_TIMEOUT_SECS": "0"}, "zero HTTP/2 idle timeout"),
     ] if revision == "2660c1fbfd71b38108dfc7b9decd309e4a8e480c" else []
     for implementation, command, workdir in commands:
         for overrides, case in shared + current_only:
@@ -135,6 +217,12 @@ def main():
                     raise AssertionError((port, status, redacted))
                 if redacted["result"]["snapshot"]["telemetry"]["otlp_endpoint"] is not None:
                     raise AssertionError((port, redacted))
+                snapshot = redacted["result"]["snapshot"]
+                stable_snapshot = {key: value for key, value in snapshot.items()
+                                   if key not in {"host", "port"}}
+                if stable_snapshot != EXPECTED_DEFAULT_SNAPSHOT:
+                    raise AssertionError(json.dumps({"port": port, "expected": EXPECTED_DEFAULT_SNAPSHOT,
+                                                     "actual": stable_snapshot}, sort_keys=True))
                 snapshots.append(normalize(redacted, legacy_envelope=port == RUST_PORT))
             if snapshots[0] != snapshots[1]:
                 raise AssertionError(json.dumps({"config_snapshots": snapshots}, sort_keys=True))

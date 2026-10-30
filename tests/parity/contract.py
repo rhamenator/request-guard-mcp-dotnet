@@ -419,24 +419,64 @@ def run_tls(rust_url: str, dotnet_url: str, key: str) -> int:
 def run_config(rust_url: str, dotnet_url: str) -> int:
     case = Case("config_snapshot", {"redact_secrets": True}, "config-file/snapshot")
     compare_case(rust_url, dotnet_url, case, 1200)
+    expected = {
+        "log_level": "warn",
+        "limits": {
+            "max_request_bytes": 123456,
+            "max_batch_size": 7,
+            "global_concurrency": 17,
+            "per_tool_timeout_secs": 8,
+            "classify_timeout_secs": 3,
+        },
+        "features": {
+            "enable_batch": False,
+            "enable_enrichment": True,
+            "enable_feedback": False,
+        },
+        "auth": {"enabled": False, "token_count": 0},
+        "telemetry": {
+            "service_name": "parity-config-service",
+            "metrics_path": "/parity-metrics",
+            "otlp_endpoint": None,
+        },
+        "redis": {
+            "configured": False,
+            "pool_size": 5,
+            "key_prefix": "parity_config",
+            "cache_ttl_secs": 42,
+        },
+        "postgres": {
+            "configured": False,
+            "max_connections": 4,
+            "connect_timeout_secs": 2,
+        },
+        "geoip": {
+            "configured": False,
+            "city_configured": False,
+            "asn_configured": False,
+            "anonymous_ip_configured": False,
+        },
+        "tls_fingerprints": {
+            "attestation_key_configured": True,
+            "previous_attestation_key_configured": True,
+            "max_age_seconds": 75,
+            "known_bad_ja3_count": 0,
+            "known_bad_ja4_count": 0,
+        },
+    }
     for url in (rust_url, dotnet_url):
         _, response = rpc(url, case, 1201)
         snapshot = response["result"]["snapshot"]
-        expected = {
-            "max_request_bytes": 123456,
-            "max_batch_size": 7,
-            "key_prefix": "parity_config",
-            "service_name": "parity-config-service",
-        }
-        actual = {
-            "max_request_bytes": snapshot["limits"]["max_request_bytes"],
-            "max_batch_size": snapshot["limits"]["max_batch_size"],
-            "key_prefix": snapshot["redis"]["key_prefix"],
-            "service_name": snapshot["telemetry"]["service_name"],
-        }
-        if actual != expected:
+        expected_for_runtime = json.loads(json.dumps(expected))
+        if url == rust_url:
+            # The pinned historical contract reports the redaction sentinel even
+            # when OTLP is absent. Current maintained Rust and .NET return null;
+            # keep this narrow historical migration explicit.
+            expected_for_runtime["telemetry"]["otlp_endpoint"] = "[REDACTED]"
+        actual = {key: value for key, value in snapshot.items() if key not in {"host", "port"}}
+        if actual != expected_for_runtime:
             raise AssertionError(f"configuration values were not applied by {url}: {actual}")
-    print("PASS CONFIG_FILE mapping and snake_case binding")
+    print("PASS CONFIG_FILE full redacted snapshot mapping and snake_case binding")
     return 3
 
 
