@@ -5,6 +5,7 @@ import asyncio
 from datetime import timedelta
 import json
 import http.client
+import re
 import urllib.parse
 from pathlib import Path
 import socket
@@ -27,6 +28,7 @@ from run import clean_environment
 
 TOKEN = 'synthetic-protocol-client-token-at-least-32-bytes'
 OTLP_SECRET = 'synthetic-otlp-password-never-log'
+CARDINALITY_MARKER = 'attacker-cardinality-probe-'
 INVALID = [
     '{}', '[]', 'null',
     '{"id":1,"method":"health"}',
@@ -65,6 +67,117 @@ def check_otlp_sink_failure(url):
     response = json.loads(body)
     assert status == 200 and response['result']['status'] == 'healthy', response
     print('PASS unavailable OTLP sink does not delay or stop MCP responses')
+
+
+def get_metrics(url):
+    with urllib.request.urlopen(url + '/metrics', timeout=5) as response:
+        assert response.status == 200, response.status
+        return response.read().decode()
+
+
+def process_resources(pid):
+    """Return Linux process resource counters when /proc is available."""
+    status_path = Path(f'/proc/{pid}/status')
+    if not status_path.is_file():
+        return None
+    values = {}
+    for line in status_path.read_text().splitlines():
+        key, separator, value = line.partition(':')
+        if separator and key in {'VmRSS', 'VmHWM', 'Threads'}:
+            values[key] = int(value.strip().split()[0])
+    values['FileDescriptors'] = len(list(Path(f'/proc/{pid}/fd').iterdir()))
+    return values
+
+
+def metric_value(metrics, family, labels):
+    expected = dict(labels)
+    for match in re.finditer(rf'^{re.escape(family)}\{{([^}}]+)\}} ([0-9]+(?:\.[0-9]+)?)$',
+                             metrics, re.MULTILINE):
+        actual = dict(re.findall(r'(\w+)="([^"]*)"', match.group(1)))
+        if actual == expected:
+            return float(match.group(2))
+    raise AssertionError((family, expected))
+
+
+def check_telemetry_endurance(url, seconds, pid):
+    """Exercise the running artifact while proving attacker labels stay bounded."""
+    assert seconds >= 1
+    started = time.monotonic()
+    deadline = started + seconds
+    request_id = 0
+    unknown_count = 0
+    health_count = 0
+    resource_samples = []
+    next_request = started
+    while time.monotonic() < deadline:
+        request_id += 1
+        probe = f'{CARDINALITY_MARKER}{request_id:08d}-synthetic-secret'
+        status, body = post(url, json.dumps({
+            'jsonrpc': '2.0', 'id': request_id, 'method': probe,
+        }))
+        response = json.loads(body)
+        assert status == 200 and response['error']['code'] == -404, response
+        unknown_count += 1
+
+        request_id += 1
+        status, body = post(url, json.dumps({
+            'jsonrpc': '2.0', 'id': request_id, 'method': 'health',
+        }))
+        response = json.loads(body)
+        assert status == 200 and response['result']['status'] == 'healthy', response
+        health_count += 1
+
+        if unknown_count == 1 or unknown_count % 250 == 0:
+            interim = get_metrics(url)
+            assert CARDINALITY_MARKER not in interim
+            assert len(interim) < 64 * 1024, len(interim)
+            resources = process_resources(pid)
+            if resources:
+                resource_samples.append(resources)
+
+        # Hold a predictable 25 mixed request pairs/second instead of turning the
+        # hosted runner into an unbounded throughput benchmark.
+        next_request += 0.04
+        delay = next_request - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+
+    metrics = get_metrics(url)
+    assert CARDINALITY_MARKER not in metrics
+    tool_labels = set(re.findall(r'tool="([^"]+)"', metrics))
+    assert tool_labels == {'__unknown__', 'health'}, tool_labels
+    assert metric_value(metrics, 'mcp_requests_total',
+                        [('tool', '__unknown__'), ('status', 'error')]) == unknown_count
+    assert metric_value(metrics, 'mcp_tool_errors_total',
+                        [('tool', '__unknown__'), ('error_code', 'TOOL_NOT_FOUND')]) == unknown_count
+    assert metric_value(metrics, 'mcp_request_duration_seconds_count',
+                        [('tool', '__unknown__')]) == unknown_count
+    assert metric_value(metrics, 'mcp_requests_total',
+                        [('tool', 'health'), ('status', 'ok')]) == health_count
+    assert metric_value(metrics, 'mcp_request_duration_seconds_count',
+                        [('tool', 'health')]) == health_count
+    assert re.search(r'^mcp_active_connections 0$', metrics, re.MULTILINE), metrics
+
+    resources = process_resources(pid)
+    if resources:
+        resource_samples.append(resources)
+    if resource_samples:
+        max_rss_kib = max(sample['VmRSS'] for sample in resource_samples)
+        max_hwm_kib = max(sample['VmHWM'] for sample in resource_samples)
+        max_threads = max(sample['Threads'] for sample in resource_samples)
+        max_fds = max(sample['FileDescriptors'] for sample in resource_samples)
+        assert max_rss_kib <= 768 * 1024, max_rss_kib
+        assert max_hwm_kib <= 768 * 1024, max_hwm_kib
+        assert max_threads <= 256, max_threads
+        assert max_fds <= 512, max_fds
+        resource_summary = (f'; max RSS/HWM={max_rss_kib}/{max_hwm_kib} KiB, '
+                            f'threads={max_threads}, fds={max_fds}')
+    else:
+        resource_summary = '; /proc resource counters unavailable'
+    elapsed = time.monotonic() - started
+    assert elapsed >= seconds, elapsed
+    print(f'PASS telemetry endurance: {elapsed:.1f}s, {unknown_count} unique unknown + '
+          f'{health_count} healthy calls, two bounded tool labels{resource_summary}')
 
 
 def check_envelopes(url):
@@ -254,12 +367,18 @@ def main():
     parser.add_argument('--allowed-origin', help='Configure/test one explicit origin on a spawned host; external URLs must already match')
     parser.add_argument('--ws-deadline-seconds', type=int, help='Set/test a short receive budget on an isolated host (default message cap required)')
     parser.add_argument('--otlp-failure', action='store_true', help='Qualify unavailable OTLP sink isolation and log redaction')
+    parser.add_argument('--telemetry-endurance-seconds', type=int,
+                        help='Run a bounded-label and process-resource endurance probe')
     args = parser.parse_args()
     if args.ws_deadline_seconds is not None and args.ws_deadline_seconds < 1:
         parser.error('WebSocket budget must be positive')
+    if args.telemetry_endurance_seconds is not None and args.telemetry_endurance_seconds < 1:
+        parser.error('telemetry endurance duration must be positive')
+    if args.otlp_failure and args.telemetry_endurance_seconds:
+        parser.error('run OTLP failure and telemetry endurance as separate isolated-host probes')
     if args.url:
-        if args.otlp_failure:
-            parser.error('--otlp-failure requires a spawned host so its logs can be inspected')
+        if args.otlp_failure or args.telemetry_endurance_seconds:
+            parser.error('OTLP/endurance probes require a spawned host so logs/resources can be inspected')
         check_envelopes(args.url)
         check_http_profile(args.url, args.allowed_origin)
         if args.ws_deadline_seconds:
@@ -300,6 +419,8 @@ def main():
                         time.sleep(0.1)
                 if args.otlp_failure:
                     check_otlp_sink_failure(url)
+                elif args.telemetry_endurance_seconds:
+                    check_telemetry_endurance(url, args.telemetry_endurance_seconds, process.pid)
                 else:
                     check_envelopes(url)
                     check_http_profile(url, args.allowed_origin)
@@ -317,10 +438,14 @@ def main():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=5)
-        if args.otlp_failure:
+        if args.otlp_failure or args.telemetry_endurance_seconds:
             captured = log_path.read_text(errors='replace')
-            assert OTLP_SECRET not in captured and f'user:{OTLP_SECRET}' not in captured, captured
-            print('PASS configured OTLP credentials are absent from JSON console logs')
+            if args.otlp_failure:
+                assert OTLP_SECRET not in captured and f'user:{OTLP_SECRET}' not in captured, captured
+                print('PASS configured OTLP credentials are absent from JSON console logs')
+            if args.telemetry_endurance_seconds:
+                assert CARDINALITY_MARKER not in captured, captured
+                print('PASS attacker-selected unknown method names are absent from JSON console logs')
 
 
 if __name__ == '__main__':

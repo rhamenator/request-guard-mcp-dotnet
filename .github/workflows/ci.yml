@@ -64,6 +64,8 @@ jobs:
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --allowed-origin https://client.test --ws-deadline-seconds 1
       - name: Unavailable OTLP sink isolation and credential redaction
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --otlp-failure
+      - name: 120-second telemetry cardinality and resource endurance
+        run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --telemetry-endurance-seconds 120
       - name: Process-local stdio and official SDK
         run: /tmp/mcp-sdk/bin/python tests/stdio/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
 
@@ -152,4 +154,7 @@ jobs:
         working-directory: request-guard-mcp-dotnet
       - name: Qualify current Rust OTLP sink isolation and credential redaction
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --binary "$GITHUB_WORKSPACE/request-guard-mcp/target/debug/request-guard-mcp" --otlp-failure
+        working-directory: request-guard-mcp-dotnet
+      - name: Qualify current Rust telemetry cardinality and resource endurance
+        run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --binary "$GITHUB_WORKSPACE/request-guard-mcp/target/debug/request-guard-mcp" --telemetry-endurance-seconds 120
         working-directory: request-guard-mcp-dotnet

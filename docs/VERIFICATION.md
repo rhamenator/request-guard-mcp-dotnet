@@ -269,6 +269,22 @@ synthetic OTLP credential in captured JSON console logs. This proves failure iso
 credential non-disclosure; it does not claim that response-latency metrics include asynchronous
 exporter cleanup.
 
+CI also starts a fresh Release host and each exact maintained Rust reference for a 120-second
+telemetry endurance probe. At a deliberately bounded 25 unique-unknown/healthy request pairs per
+second, the probe repeatedly scrapes Prometheus output and requires exact request/error/duration
+counters, only `health` and `__unknown__` tool-label values, zero attacker-selected probe strings in
+metrics or captured JSON logs, and a zero post-request WebSocket gauge. On Linux it additionally
+requires RSS/high-water memory below 768 MiB, at most 256 threads, and at most 512 open file
+descriptors while reporting observed maxima. These generous ceilings detect runaway behavior; they
+are not a memory-leak proof, maximum-throughput result, external-collector load test, or latency
+claim. Run a short local form with:
+
+```bash
+/tmp/mcp-sdk/bin/python tests/protocol/run.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll \
+  --telemetry-endurance-seconds 15
+```
+
 ## Independence and residual limitations
 
 Automated tests and maintainer self-review are not independent verification. The readiness record

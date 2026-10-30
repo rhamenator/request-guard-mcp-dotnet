@@ -27,6 +27,7 @@ assurance process. It is engineering evidence, not a claim of certification or a
 | HLR-020 | Require >=32-byte non-placeholder HTTP credentials, confine authentication-disabled listeners to loopback, and bound browser-origin configuration to 32 validated entries. | `AppConfig.Validate`, host compatibility configuration | unit regressions plus rejected-startup gates against both exact current-Rust references |
 | HLR-021 | Prevent stale or cross-policy cached verdict reuse and define the mixed-runtime boundary. | `RequestFingerprint`, `AppState.ClassificationCacheDomain`, distinct parity Redis prefixes | fingerprint build/TLS-policy/rule-input tests plus disposable-Redis differential integration |
 | HLR-022 | Keep stable configuration defaults and shared startup validation aligned with controlled current Rust references while preserving documented .NET-only extensions. | `AppConfig`, Host compatibility configuration, `ConfigSnapshotTool` | independently specified complete default snapshot and rejected-startup matrix against exact v0.1.5 and current-main Rust revisions |
+| HLR-023 | Bound attacker-controlled telemetry dimensions and preserve service health during sustained unknown-method traffic without emitting attacker-selected method names to metrics or JSON logs. | pre-registry rejection in `McpDispatcher`, `AppMetrics`, structured console logging | exact-counter unit regression plus 120-second running Release/Rust-reference cardinality and Linux resource probe |
 
 ## Derived requirements and assumptions
 
@@ -47,7 +48,9 @@ Update this matrix whenever a requirement, implementation path, or verification 
 
 - DR-006: Unknown method names must be rejected before Redis bookkeeping and tracing;
   metric labels are limited to registered tool names plus `__unknown__`. Dispatcher overload
-  and 100-name cardinality regressions verify this boundary.
+  and 100-name cardinality regressions verify this boundary. The running-artifact probe extends
+  it to 120 seconds of bounded mixed traffic, exact metrics, log exclusion, and process ceilings
+  against .NET and both exact maintained Rust references; it is not a throughput/leak benchmark.
 
 ## Connection-resource follow-up (Rust main 740eac2)
 
