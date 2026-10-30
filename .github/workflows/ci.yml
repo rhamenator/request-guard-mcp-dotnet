@@ -126,7 +126,8 @@ jobs:
       fail-fast: false
       matrix:
         revision:
-          # Published v0.1.5 and inspected current main; scoped classifier gate only.
+          # Published v0.1.5 and inspected current main; scoped protocol,
+          # classifier, configuration and telemetry gates (not full backend parity).
           - f76ff9d2558fac705f091d9b858d3bc180b4f0bd
           - 2660c1fbfd71b38108dfc7b9decd309e4a8e480c
     steps:
@@ -152,9 +153,15 @@ jobs:
           python3 -m venv /tmp/mcp-sdk
           /tmp/mcp-sdk/bin/pip install -r tests/protocol/requirements.txt
         working-directory: request-guard-mcp-dotnet
-      - name: Qualify current Rust OTLP sink isolation and credential redaction
+      - name: Qualify controlled Rust OTLP sink isolation and credential redaction
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --binary "$GITHUB_WORKSPACE/request-guard-mcp/target/debug/request-guard-mcp" --otlp-failure
         working-directory: request-guard-mcp-dotnet
-      - name: Qualify current Rust telemetry cardinality and resource endurance
+      - name: Qualify controlled Rust HTTP, WebSocket and official SDK protocol
+        run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --binary "$GITHUB_WORKSPACE/request-guard-mcp/target/debug/request-guard-mcp"
+        working-directory: request-guard-mcp-dotnet
+      - name: Qualify controlled Rust stdio and official SDK protocol
+        run: /tmp/mcp-sdk/bin/python tests/stdio/run.py --binary "$GITHUB_WORKSPACE/request-guard-mcp/target/debug/request-guard-mcp"
+        working-directory: request-guard-mcp-dotnet
+      - name: Qualify controlled Rust telemetry cardinality and resource endurance
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --binary "$GITHUB_WORKSPACE/request-guard-mcp/target/debug/request-guard-mcp" --telemetry-endurance-seconds 120
         working-directory: request-guard-mcp-dotnet

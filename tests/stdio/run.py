@@ -6,6 +6,7 @@ from datetime import timedelta
 import json
 import os
 from pathlib import Path
+import signal
 import socket
 import subprocess
 import sys
@@ -100,7 +101,14 @@ def main():
                     raise
             process.terminate()
             process.wait(timeout=5)
-            assert process.returncode == 0 if os.name != 'nt' else process.returncode is not None
+            if os.name == 'nt':
+                assert process.returncode is not None
+            elif args.binary:
+                # The exact Rust references use the platform's default SIGTERM disposition.
+                assert process.returncode == -signal.SIGTERM, process.returncode
+            else:
+                # The .NET host handles SIGTERM and completes its shutdown path cleanly.
+                assert process.returncode == 0, process.returncode
             print('PASS stdio termination while waiting for input')
         finally:
             if process.poll() is None:

@@ -92,6 +92,22 @@ public class HttpProfileTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("{\"jsonrpc\":\"2.0\",\"method\":\"health\",\"params\":null}")]
+    [InlineData("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{},\"error\":null}")]
+    [InlineData("{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":1.5,\"message\":\"bad\"}}")]
+    public async Task RejectedOneWayEnvelopesReturnEmptyBadRequest(string body)
+    {
+        await using var host = await Host.StartAsync();
+        using var request = Request();
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        using var response = await host.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsByteArrayAsync());
+    }
+
     [Fact]
     public async Task WebSocketUsesTheSameOriginAndBearerBoundary()
     {

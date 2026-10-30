@@ -18,7 +18,11 @@ public abstract record IncomingMcpMessage
 
     public sealed record ParseError : IncomingMcpMessage;
 
-    public sealed record InvalidRequest : IncomingMcpMessage;
+    /// <summary>
+    /// An invalid JSON-RPC request. A syntactically valid request identifier is retained when
+    /// the remaining request shape is invalid so the error response can be correlated.
+    /// </summary>
+    public sealed record InvalidRequest(JsonNode? Id = null) : IncomingMcpMessage;
 }
 
 /// <summary>The JSON-RPC error payload embedded in a response. Ports src/mcp/protocol.rs's <c>McpError</c>.</summary>
@@ -60,10 +64,14 @@ public static class McpMessage
         if (hasMethod)
         {
             if (methodNode is not JsonValue methodValue || !methodValue.TryGetValue<string>(out var method)
-                || hasResult || hasError || (hasId && !IsId(idNode))
-                || (obj.ContainsKey("params") && obj["params"] is not JsonObject))
+                || hasResult || hasError || (hasId && !IsId(idNode)))
             {
                 return new IncomingMcpMessage.InvalidRequest();
+            }
+
+            if (obj.ContainsKey("params") && obj["params"] is not JsonObject)
+            {
+                return new IncomingMcpMessage.InvalidRequest(hasId ? idNode : null);
             }
 
             return hasId

@@ -11,8 +11,9 @@ tool surface and behavior over the same WebSocket/HTTP JSON-RPC 2.0 transports.
 ## Status
 
 Full differential compatibility evidence targets an August 2026 Rust revision. Scoped executable
-gates also compare security validation, stable configuration defaults, redacted configuration
-mapping, and classifier behavior with exact v0.1.5 and current-main Rust revisions. Current parity
+gates also compare the complete HTTP/WebSocket/stdio protocol contract, security validation,
+stable configuration defaults, redacted configuration mapping, and classifier behavior with exact
+v0.1.5 and current-main Rust revisions. Current parity
 work and unverified gaps are tracked in the
 [parity matrix](docs/PARITY-MATRIX.md). The `2025-06-18` lifecycle methods (`initialize`, `ping`, `tools/list`, `tools/call`)
 work alongside direct HTTP/WebSocket JSON-RPC calls. The pinned official Python SDK
@@ -31,11 +32,13 @@ authentication, TLS attestation, both transports, all supported configuration fo
 and PostgreSQL isolation, privacy-minimized replay snapshots, transactional feedback replacement,
 timeouts, Redis, PostgreSQL, and checksum-pinned official MaxMind test databases.
 
-The scoped current-reference gate separately checks 82 shared classifier cases against Rust v0.1.5
-and 165 cases against controlled current main. The current-main-only set includes its expanded
+The scoped current-reference gate separately launches Rust v0.1.5 and controlled current main
+through the same negative-envelope, lifecycle, HTTP profile, official SDK and stdio process suite
+used for .NET. It also checks 82 shared classifier cases against both references and 165 cases
+against current main. The current-main-only set includes its expanded
 sensitive-route grammar and ordinary-route false-positive controls; each case checks the complete
 classification result after excluding only measured latency and runtime build metadata. This is
-revision-scoped classifier evidence, not a claim of full current-main transport or backend parity.
+revision-scoped executable evidence, not a claim of full current-main backend parity.
 
 The assurance baseline is DO-178C-inspired and appropriate to a sole-maintainer project; it is not
 a claim of certification or airborne suitability. Official pre-1.0 candidates require a durable
@@ -77,7 +80,8 @@ HTTP requests authenticate independently. Unknown notifications are ignored.
 Migration: requests require `jsonrpc: "2.0"`, a string or integer ID (never null), and
 object `params` when present. Invalid envelopes return `-32600`; invalid JSON returns
 `-32700`. Responses now omit the unused `result`/`error` member and absent error `data`.
-Accepted HTTP notifications/responses return empty **202**, and non-upgrade GET `/mcp`
+Accepted HTTP notifications/responses return empty **202**; rejected one-way envelopes return
+empty **400** while invalid two-way requests receive an in-band JSON-RPC error. Non-upgrade GET `/mcp`
 returns **405** after authentication. Clients relying on the older 204 or redundant null
 envelope fields must update. Tool payload null fields are unchanged.
 

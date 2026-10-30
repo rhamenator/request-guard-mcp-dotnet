@@ -1,5 +1,6 @@
 using System.Net.Mime;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -113,8 +114,40 @@ public static class McpEndpoints
             return;
         }
 
+        // Streamable HTTP does not send an in-band JSON-RPC error for rejected one-way
+        // notifications or unsolicited client responses. WebSocket and stdio still return the
+        // dispatcher error because they do not have an HTTP acknowledgement status.
+        if (IsOneWayCandidate(text))
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
         context.Response.ContentType = MediaTypeNames.Application.Json;
         await WriteResponseAsync(context, response).ConfigureAwait(false);
+    }
+
+    private static bool IsOneWayCandidate(string text)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(text);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            var root = document.RootElement;
+            var hasMethod = root.TryGetProperty("method", out _);
+            var hasId = root.TryGetProperty("id", out _);
+            return (hasMethod && !hasId)
+                || (!hasMethod && (hasId || root.TryGetProperty("result", out _)
+                    || root.TryGetProperty("error", out _)));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     private static async Task HandleHealthAsync(HttpContext context)
