@@ -45,6 +45,7 @@ def clean_environment() -> dict[str, str]:
         "CACHE_SCOPE_HMAC_KEY",
         "CONFIG_FILE",
         "LOG_LEVEL",
+        "MCP_ALLOWED_ORIGINS",
         "TLS_FINGERPRINT_ATTESTATION_KEY",
         "TLS_FINGERPRINT_ATTESTATION_PREVIOUS_KEY",
         "TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS",
@@ -349,7 +350,7 @@ def main() -> int:
         with Pair(rust_binary, dotnet_dll, workdir, {"MCP__AUTH__ENABLED": "false", "MCP__FEATURES__ENABLE_BATCH": "false", "MCP__FEATURES__ENABLE_ENRICHMENT": "false", "MCP__FEATURES__ENABLE_FEEDBACK": "false"}):
             run_contract("disabled")
 
-        token = "parity-token-one"
+        token = "parity-token-one-at-least-32-bytes"
         with Pair(rust_binary, dotnet_dll, workdir, {"MCP__AUTH__ENABLED": "true", "AUTH_TOKENS": token, "CACHE_SCOPE_HMAC_KEY": "parity-cache-scope-key-32-bytes-long"}):
             run_contract("auth", "--token", token)
 
@@ -374,10 +375,10 @@ def main() -> int:
             fixtures = download_mmdb_fixtures(workdir)
             with IntegrationBackends() as backends:
                 backends.seed()
-                token = "parity-token-one"
+                token = "parity-token-one-at-least-32-bytes"
                 common = {
                     "MCP__AUTH__ENABLED": "true",
-                    "AUTH_TOKENS": f"{token},parity-token-two",
+                    "AUTH_TOKENS": f"{token},parity-token-two-at-least-32-bytes",
                     "CACHE_SCOPE_HMAC_KEY": "parity-cache-scope-key-32-bytes-long",
                     "MCP__LIMITS__PER_TOOL_TIMEOUT_SECS": "1",
                     "MCP__REDIS__URL": f"redis://:{backends.password}@127.0.0.1:{backends.redis_port}",

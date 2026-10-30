@@ -93,15 +93,21 @@ The default empty allowlist rejects every present Origin with 403; machine clien
 omit Origin. To allow a specific browser origin, configure for example:
 
 ```bash
+MCP_ALLOWED_ORIGINS=https://client.example,https://client.example:8443
+# Equivalent indexed form:
 MCP__AUTH__ALLOWED_ORIGINS__0=https://client.example
 ```
 
-Entries must be bare HTTP(S) origins, with no slash/path, query, fragment, userinfo or
+At most 32 entries are accepted. They must be bare HTTP(S) origins, with no slash/path, query, fragment, userinfo or
 wildcard. Scheme/host case and default ports are normalized; other schemes/ports/hosts
 remain distinct. Repeated, malformed and opaque `Origin: null` values are rejected.
 An allowed origin still requires Bearer authentication. Origin checking does not enable
 CORS, implement OAuth discovery or replace authentication; proxies must preserve the
 original Origin.
+
+HTTP/WebSocket `AUTH_TOKENS` entries must use valid Bearer token syntax and contain at least
+32 non-placeholder bytes. Authentication may be disabled only on a literal loopback listener;
+`--stdio` is separately authorized by process ownership and opens no listener.
 
 ### Transport output and WebSocket budgets
 

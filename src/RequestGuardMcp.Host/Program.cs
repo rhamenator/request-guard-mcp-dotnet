@@ -51,6 +51,11 @@ if (CompatibilityValue("AUTH_TOKENS") is { Length: > 0 } rawTokens)
     }
 }
 
+if (CompatibilityValue("MCP_ALLOWED_ORIGINS") is { } rawOrigins)
+{
+    appConfig.Auth.AllowedOrigins = SplitList(rawOrigins);
+}
+
 if (CompatibilityValue("CACHE_SCOPE_HMAC_KEY") is { Length: > 0 } hmacKey)
 {
     appConfig.Auth.CacheScopeHmacKey = hmacKey;
@@ -97,7 +102,7 @@ if (useStdio)
 
 try
 {
-    appConfig.Validate();
+    appConfig.Validate(useStdio);
 }
 catch (ConfigValidationException ex)
 {

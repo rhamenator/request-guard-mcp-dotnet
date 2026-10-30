@@ -28,14 +28,22 @@ public sealed class AppConfig
     /// <see cref="ConfigValidationException"/> on failure, mirroring src/config.rs's
     /// <c>validate()</c> (via <c>anyhow::bail!</c>).
     /// </summary>
-    public void Validate()
+    public void Validate() => Validate(stdio: false);
+
+    public void Validate(bool stdio)
     {
         if (string.IsNullOrWhiteSpace(Host) || Port is < 1 or > 65535)
         {
             throw new ConfigValidationException("host must be non-empty and port must be between 1 and 65535");
         }
 
-        if (Auth.Enabled)
+        if (!stdio && (Auth.AllowedOrigins.Count > 32 ||
+            Auth.AllowedOrigins.Any(origin => HttpOrigin.Normalize(origin) is null)))
+        {
+            throw new ConfigValidationException("MCP_ALLOWED_ORIGINS must contain at most 32 bare HTTP(S) origins without paths, userinfo or wildcards");
+        }
+
+        if (!stdio && Auth.Enabled)
         {
             if (Auth.Tokens.Count == 0)
             {
@@ -44,19 +52,21 @@ public sealed class AppConfig
 
             if (Auth.Tokens.Any(token =>
                     !BearerToken.IsValid(token) ||
-                    token.Equals("replace_me", StringComparison.OrdinalIgnoreCase) ||
-                    token.Equals("replace_me_with_a_strong_token", StringComparison.OrdinalIgnoreCase)))
+                    System.Text.Encoding.UTF8.GetByteCount(token) < 32 ||
+                    token.Contains("replace_me", StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ConfigValidationException("AUTH_TOKENS contains a malformed or placeholder Bearer token");
+                throw new ConfigValidationException("AUTH_TOKENS entries must contain at least 32 non-placeholder bytes of valid Bearer token syntax");
             }
         }
-
-        if (Auth.AllowedOrigins.Any(origin => HttpOrigin.Normalize(origin) is null))
+        else if (!stdio && !IsLoopbackHost(Host))
         {
-            throw new ConfigValidationException("auth.allowed_origins must contain bare HTTP(S) origins without paths, userinfo or wildcards");
+            throw new ConfigValidationException("authentication may only be disabled when MCP__HOST is a loopback IP address");
         }
 
-        ValidateSecretLength(Auth.CacheScopeHmacKey, "CACHE_SCOPE_HMAC_KEY");
+        if (!stdio)
+        {
+            ValidateSecretLength(Auth.CacheScopeHmacKey, "CACHE_SCOPE_HMAC_KEY");
+        }
 
         if (Limits.MaxRequestBytes <= 0 ||
             Limits.MaxBatchSize <= 0 ||
@@ -109,7 +119,7 @@ public sealed class AppConfig
             throw new ConfigValidationException("postgres.url cannot be empty when configured");
         }
 
-        if (Auth.Enabled && Postgres.Url is not null && Auth.CacheScopeHmacKey is null)
+        if (!stdio && Auth.Enabled && Postgres.Url is not null && Auth.CacheScopeHmacKey is null)
         {
             throw new ConfigValidationException("CACHE_SCOPE_HMAC_KEY is required with PostgreSQL so caller-scoped decisions survive restarts");
         }
@@ -160,11 +170,14 @@ public sealed class AppConfig
 
     private static void ValidateSecretLength(string? secret, string name)
     {
-        if (secret is not null && (System.Text.Encoding.UTF8.GetByteCount(secret) < 32 || secret.StartsWith("replace_me", StringComparison.OrdinalIgnoreCase)))
+        if (secret is not null && (System.Text.Encoding.UTF8.GetByteCount(secret) < 32 || secret.Contains("replace_me", StringComparison.OrdinalIgnoreCase)))
         {
             throw new ConfigValidationException($"{name} must contain at least 32 non-placeholder bytes when configured");
         }
     }
+
+    private static bool IsLoopbackHost(string host) =>
+        System.Net.IPAddress.TryParse(host, out var address) && System.Net.IPAddress.IsLoopback(address);
 }
 
 public sealed class AuthConfig

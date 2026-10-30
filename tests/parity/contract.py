@@ -484,18 +484,18 @@ def run_integration(rust_url: str, dotnet_url: str, token: str) -> int:
         (1381, "replay_decision", {"request_id": shared_id, "deterministic": True}),
         (1382, "feedback", {"request_id": shared_id, "correct_verdict": "allow"}),
     ):
-        response = rpc(dotnet_url, Case(method, params, f"postgres/cross-scope-{method}"), identifier, "parity-token-two")[1]
+        response = rpc(dotnet_url, Case(method, params, f"postgres/cross-scope-{method}"), identifier, "parity-token-two-at-least-32-bytes")[1]
         if response.get("error", {}).get("code") != -400:
             raise AssertionError(f"cross-caller {method} unexpectedly accessed a decision: {response}")
-    b_empty_report = rpc(dotnet_url, Case("drift_report", {"window_hours": 1}, "postgres/scope-b-empty"), 1383, "parity-token-two")[1]
+    b_empty_report = rpc(dotnet_url, Case("drift_report", {"window_hours": 1}, "postgres/scope-b-empty"), 1383, "parity-token-two-at-least-32-bytes")[1]
     if b_empty_report["result"]["metrics"]["samples"] != 0:
         raise AssertionError(f"caller B report included caller A rows: {b_empty_report}")
 
     benign = Case("classify", {"request_id": shared_id, "user_agent": "Mozilla/5.0", "path": "/welcome"}, "postgres/scope-b")
-    b_classification = rpc(dotnet_url, benign, 1384, "parity-token-two")[1]
+    b_classification = rpc(dotnet_url, benign, 1384, "parity-token-two-at-least-32-bytes")[1]
     if a_classification["result"]["verdict"] == b_classification["result"]["verdict"]:
         raise AssertionError("caller isolation fixture did not produce distinct decisions")
-    for identifier, supplied, expected in ((1385, token, a_classification), (1386, "parity-token-two", b_classification)):
+    for identifier, supplied, expected in ((1385, token, a_classification), (1386, "parity-token-two-at-least-32-bytes", b_classification)):
         replay = rpc(dotnet_url, Case("replay_decision", {"request_id": shared_id, "deterministic": True}, "postgres/scoped-replay"), identifier, supplied)[1]
         if replay["result"]["original"]["verdict"] != expected["result"]["verdict"]:
             raise AssertionError(f"same request_id crossed caller scopes: {replay}")
@@ -525,7 +525,7 @@ def run_integration(rust_url: str, dotnet_url: str, token: str) -> int:
         first = Case("classify", {**cache_params, "request_id": "scope-one"}, "cache/scope-one")
         second = Case("classify", {**cache_params, "request_id": "scope-two"}, "cache/scope-two")
         first_result = rpc(url, first, 1400, token)[1]
-        second_result = rpc(url, second, 1401, "parity-token-two")[1]
+        second_result = rpc(url, second, 1401, "parity-token-two-at-least-32-bytes")[1]
         if first_result["result"]["request_id"] != "scope-one" or second_result["result"]["request_id"] != "scope-two":
             raise AssertionError(f"caller-scoped cache isolation failed for {url}")
 
@@ -551,7 +551,7 @@ def main() -> int:
     parser.add_argument("--rust-url", required=True)
     parser.add_argument("--dotnet-url", required=True)
     parser.add_argument("--suite", choices=("core", "disabled", "auth", "tls", "config", "woothee", "integration", "timeout"), default="core")
-    parser.add_argument("--token", default="parity-token-one")
+    parser.add_argument("--token", default="parity-token-one-at-least-32-bytes")
     parser.add_argument("--attestation-key", default="parity-attestation-key-32-bytes-minimum")
     parser.add_argument("--woothee-tests", type=pathlib.Path)
     args = parser.parse_args()

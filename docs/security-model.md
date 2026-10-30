@@ -9,10 +9,11 @@ be constrained independently.
 
 HTTP/WebSocket Bearer parsing rejects repeated headers and malformed token syntax,
 accepts case-insensitive schemes and compares every allowed token with `FixedTimeEquals`.
-Malformed configured tokens fail startup. Native/default binding is loopback; remote
-listeners must be explicitly configured. Any present browser Origin must match a validated
+Malformed, placeholder, or shorter-than-32-byte configured tokens fail startup. Native/default
+binding is loopback; authentication cannot be disabled on a non-loopback listener. Remote
+listeners must be explicitly configured with authentication. Any present browser Origin must match a validated
 bare HTTP(S) origin in `auth.allowed_origins`, including when Bearer auth is disabled.
-The empty default rejects every present Origin. Missing Origin is allowed for machine
+The allowlist is capped at 32 entries; the empty default rejects every present Origin. Missing Origin is allowed for machine
 clients; it is not authentication. Allowed origins still require the configured token.
 Origin validation does not add CORS or OAuth support. Proxies must preserve Origin.
 

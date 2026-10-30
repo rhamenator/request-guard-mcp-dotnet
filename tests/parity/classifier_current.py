@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 from contract import Case, normalize, rpc
-from run import DOTNET_PORT, ROOT, RUST_PORT, Pair, build
+from run import DOTNET_PORT, ROOT, RUST_PORT, Pair, build, clean_environment
 
 
 CASES = [
@@ -34,6 +34,56 @@ CASES = [
 ] + [({"path": "/a%2Fb%2Fc%2Fd%2Fe%2Ff%2Fg%2Fh%2Fi"}, "path_deep", True)]
 
 
+def assert_startup_rejected(command, workdir, overrides, label):
+    environment = {
+        **clean_environment(),
+        "MCP__HOST": "127.0.0.1",
+        "MCP__PORT": "18317",
+        "AUTH_TOKENS": "synthetic-config-parity-token-at-least-32-bytes",
+        **overrides,
+    }
+    process = subprocess.Popen(command, cwd=workdir, env=environment,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        try:
+            output, _ = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            process.wait(timeout=5)
+            raise AssertionError(f"{label} was accepted")
+        if process.returncode == 0:
+            raise AssertionError(f"{label} exited successfully instead of rejecting configuration: {output}")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+
+
+def check_startup_security(rust_repo, revision):
+    commands = [
+        ("rust", [str(rust_repo / "target/debug/request-guard-mcp")], rust_repo),
+        ("dotnet", ["dotnet", str(ROOT / "src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll")], ROOT),
+    ]
+    shared = [
+        ({"AUTH_TOKENS": "short-token"}, "short bearer token"),
+        ({"MCP__AUTH__ENABLED": "false", "MCP__HOST": "0.0.0.0"},
+         "authentication-disabled non-loopback listener"),
+        ({"MCP_ALLOWED_ORIGINS": ",".join(f"https://client-{index}.example" for index in range(33))},
+         "33-entry browser origin allowlist"),
+    ]
+    current_only = [
+        ({"AUTH_TOKENS": "prefix-replace_me-and-enough-token-bytes-123456"},
+         "embedded bearer-token placeholder"),
+        ({"CACHE_SCOPE_HMAC_KEY": "prefix_replace_me_0123456789abcdef0123456789abcdef"},
+         "embedded cache-scope placeholder"),
+        ({"TLS_FINGERPRINT_ATTESTATION_KEY": "prefix_replace_me_0123456789abcdef0123456789abcdef"},
+         "embedded TLS-attestation placeholder"),
+    ] if revision == "2660c1fbfd71b38108dfc7b9decd309e4a8e480c" else []
+    for implementation, command, workdir in commands:
+        for overrides, case in shared + current_only:
+            assert_startup_rejected(command, workdir, overrides, f"{implementation}: {case}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rust-repo", type=pathlib.Path, required=True)
@@ -44,6 +94,7 @@ def main():
     if actual != args.expected_rust_revision:
         raise RuntimeError(f"Rust revision mismatch: {actual}")
     build(rust_repo)
+    check_startup_security(rust_repo, actual)
     token = "synthetic-classifier-parity-token"
     with tempfile.TemporaryDirectory(prefix="classifier-parity-") as directory:
         with Pair(
@@ -87,7 +138,7 @@ def main():
                 snapshots.append(normalize(redacted, legacy_envelope=port == RUST_PORT))
             if snapshots[0] != snapshots[1]:
                 raise AssertionError(json.dumps({"config_snapshots": snapshots}, sort_keys=True))
-    print(f"PASS: {len(CASES)} classifier cases plus redacted/unredacted config snapshot security at {actual}")
+    print(f"PASS: {len(CASES)} classifier cases plus config snapshot and startup security at {actual}")
 
 
 if __name__ == "__main__":
