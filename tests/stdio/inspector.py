@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 
 
 INSPECTOR_VERSION = '2.13.0'
@@ -51,11 +52,12 @@ def verify_package_integrity():
     assert json.loads(result.stdout) == INSPECTOR_INTEGRITY, result.stdout
 
 
-def inspect(server_command, *arguments):
+def inspect(server_command, working_directory, *arguments):
     result = subprocess.run(
         ['npx', '--yes', INSPECTOR_PACKAGE, '--cli', *server_command, *arguments,
          '--format', 'json'],
-        capture_output=True, text=True, timeout=90, env=clean_environment())
+        capture_output=True, text=True, timeout=90, env=clean_environment(),
+        cwd=working_directory)
     if result.returncode:
         raise RuntimeError(
             f'Inspector failed with status {result.returncode}: stdout={result.stdout!r}; '
@@ -81,30 +83,31 @@ def main():
     require_node()
     verify_package_integrity()
 
-    listed = inspect(server_command, '--method', 'tools/list')
-    tools = listed['result']['tools']
-    names = {tool['name'] for tool in tools}
-    assert names == EXPECTED_TOOLS and len(tools) == 23, names
-    assert all(tool.get('description') and tool.get('inputSchema', {}).get('type') == 'object'
-               for tool in tools), tools
+    with tempfile.TemporaryDirectory(prefix='request-guard-inspector-') as working_directory:
+        listed = inspect(server_command, working_directory, '--method', 'tools/list')
+        tools = listed['result']['tools']
+        names = {tool['name'] for tool in tools}
+        assert names == EXPECTED_TOOLS and len(tools) == 23, names
+        assert all(tool.get('description') and tool.get('inputSchema', {}).get('type') == 'object'
+                   for tool in tools), tools
 
-    health = inspect(server_command, '--method', 'tools/call', '--tool-name', 'health')
-    health_result = health['result']
-    assert health_result['isError'] is False, health_result
-    assert health_result['structuredContent']['status'] == 'healthy', health_result
-    assert json.loads(health_result['content'][0]['text']) == health_result['structuredContent']
+        health = inspect(server_command, working_directory, '--method', 'tools/call', '--tool-name', 'health')
+        health_result = health['result']
+        assert health_result['isError'] is False, health_result
+        assert health_result['structuredContent']['status'] == 'healthy', health_result
+        assert json.loads(health_result['content'][0]['text']) == health_result['structuredContent']
 
-    classified = inspect(
-        server_command, '--method', 'tools/call', '--tool-name', 'classify',
-        '--tool-arg', 'user_agent=GPTBot/1.0', '--tool-arg', 'request_id=inspector-smoke')
-    classify_result = classified['result']
-    structured = classify_result['structuredContent']
-    assert classify_result['isError'] is False, classify_result
-    assert structured['request_id'] == 'inspector-smoke', structured
-    assert structured['verdict'] == 'block' and structured['threat_category'] == 'ai_scraping', structured
-    assert 0 <= structured['score'] <= 1, structured
-    assert any(signal['name'] == 'ua_ai_bot' for signal in structured['signals']), structured
-    assert json.loads(classify_result['content'][0]['text']) == structured
+        classified = inspect(
+            server_command, working_directory, '--method', 'tools/call', '--tool-name', 'classify',
+            '--tool-arg', 'user_agent=GPTBot/1.0', '--tool-arg', 'request_id=inspector-smoke')
+        classify_result = classified['result']
+        structured = classify_result['structuredContent']
+        assert classify_result['isError'] is False, classify_result
+        assert structured['request_id'] == 'inspector-smoke', structured
+        assert structured['verdict'] == 'block' and structured['threat_category'] == 'ai_scraping', structured
+        assert 0 <= structured['score'] <= 1, structured
+        assert any(signal['name'] == 'ua_ai_bot' for signal in structured['signals']), structured
+        assert json.loads(classify_result['content'][0]['text']) == structured
 
     print(f'PASS MCP Inspector {INSPECTOR_VERSION}: 23 tools, health and structured classify over stdio')
 
