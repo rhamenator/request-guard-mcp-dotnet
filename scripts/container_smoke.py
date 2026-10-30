@@ -9,7 +9,7 @@ import urllib.request
 
 
 IMAGE = "request-guard-mcp-dotnet:security"
-TOKEN = "synthetic-container-smoke-token"
+TOKEN = "synthetic-container-smoke-token-at-least-32-bytes"
 
 
 def main():
