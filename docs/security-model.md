@@ -21,6 +21,10 @@ Cache scopes use a server-keyed HMAC, so raw credentials
 and reusable bare hashes do not enter cache keys. TLS JA3/JA4 metadata affects classification only
 after a fresh HMAC binds it to IP, method, path, source, and timestamp. Attestation tokens are
 consumed before caching or persistence.
+Cached verdicts are also namespaced by application build, cache schema, and the normalized TLS
+threat policy so upgrades or policy changes cannot reuse stale decisions. Rust and .NET cache
+domains are intentionally distinct; mixed-runtime deployments must configure different Redis key
+prefixes instead of treating serialized cache entries as a cross-runtime protocol.
 
 ## Data handling
 
