@@ -299,8 +299,7 @@ public class ConnectionResourceGuardTests
             // Cancelling an incomplete receive aborts the underlying managed socket.
         }
 
-        using var client = host.Client(http2: false);
-        using var response = await client.GetAsync("/", deadline.Token);
+        using var response = await GetEventuallyAsync(host, http2: false);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -351,12 +350,12 @@ public class ConnectionResourceGuardTests
         }
     }
 
-    private static async Task<HttpResponseMessage> GetEventuallyAsync(RunningServer host)
+    private static async Task<HttpResponseMessage> GetEventuallyAsync(RunningServer host, bool http2 = true)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(6));
         while (true)
         {
-            using var client = host.Client();
+            using var client = host.Client(http2);
             try
             {
                 return await client.GetAsync("/", deadline.Token);
