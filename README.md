@@ -139,9 +139,11 @@ is aborted. A partially written response is never followed by a second JSON enve
 Body-read, tool-execution and optional-cache budgets remain separate. Timeout values
 must be positive and fit the cancellation timer's supported range (at most 4294967 seconds).
 
-These controls bound tested I/O paths; full-duration TLS/ALPN, slow-consumer and reverse
-proxy/IIS qualification remain separate work. The WebSocket test matrix uses a shorter
-configured receive budget for deterministic expiry/recovery tests.
+These controls bound tested I/O paths. CI qualifies a real loopback Nginx TLS terminator with a
+throwaway CA, TLS 1.3, ALPN-selected HTTP/2, HTTP/1.1 fallback, pre-dispatch auth/origin rejection
+and an authenticated WebSocket upgrade. Production-duration TLS/ALPN, slow-consumer and IIS
+qualification remain separate work. The WebSocket test matrix uses a shorter configured receive
+budget for deterministic expiry/recovery tests.
 
 ### Process-local stdio
 
@@ -379,8 +381,11 @@ body timeout + the larger tool timeout + 2 seconds. Clients must tolerate reconn
 These controls follow Rust development-main PRs #160/#162, not the public v0.1.5
 contract. Kestrel's default cleartext listener uses HTTP/1; it does not auto-detect
 HTTP/2 prior knowledge on the same cleartext port as Rust does. The socket tests use
-an explicit HTTP/2 listener. TLS/ALPN, proxy/IIS deployments, slow response consumers
-and full current-Rust transport qualification remain unverified. Existing
+an explicit HTTP/2 listener. A real Nginx termination gate qualifies TLS 1.3, ALPN h2,
+HTTP/1.1 and WebSocket proxying to the loopback backend. IIS, production-duration TLS,
+slow response consumers and full current-Rust transport qualification remain unverified. CI also
+runs a real Kestrel HTTP/2 connection under continuous traffic for the fixed 120-second age budget;
+this is production-duration server evidence, not a packaged-artifact or maximum-load claim. Existing
 `config_snapshot` keeps its historical schema; these new limits are configured via
 startup settings and are not yet listed by that tool. Snapshots are always secret-safe:
 `redact_secrets` may be true or omitted, while false is rejected. A configured OTLP endpoint

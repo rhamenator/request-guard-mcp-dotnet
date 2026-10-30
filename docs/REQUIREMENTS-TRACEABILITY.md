@@ -61,7 +61,11 @@ deadline. `ConnectionResourceGuardTests` exercises real Kestrel sockets and conc
 128-winner admission, synchronous excess-request 503, recovery, idle/age rotation,
 HTTP/1 survival and incomplete-body 408. `AppConfigTests` rejects zero limits. Production
 HTTP/2 age is fixed at 120 seconds; socket tests shorten only that internal test budget.
-Full transport/client parity and TLS/ALPN qualification remain open.
+`tests/protocol/proxy_tls.py` independently qualifies TLS 1.3, ALPN-selected HTTP/2,
+HTTP/1.1 fallback and WebSocket traffic through a real Nginx TLS terminator. The opt-in
+`ProductionDurationHttp2AgeRotatesRealConnection` gate holds a real Kestrel HTTP/2 connection under
+continuous traffic through the fixed 120-second production age. Packaged-artifact load,
+slow-consumer, IIS and broader client parity remain open.
 
 ## Redis operation-record follow-up (Rust issue #159 / merged PR #163)
 
@@ -134,8 +138,8 @@ without awaiting another peer close, preserve client cancellation, release metri
 permits and reject unsupported timer values at startup. `WebSocketConnectionHandler`,
 `McpEndpoints.WriteWithDeadlineAsync`, validated limits, `WebSocketDeadlineTests`,
 `HttpResponseDeadlineTests`, real incomplete-message admission recovery and the running
-protocol/native matrix trace these properties. Production-duration/slow-consumer and
-proxy/TLS evidence remain separately required.
+protocol/native matrix trace these properties. The Nginx gate adds TLS/ALPN and proxied HTTP/WS
+evidence; production-duration/slow-consumer and IIS evidence remain separately required.
 
 DR-015: Official release-candidate publication must fail before build or external write unless the
 version is `0.MINOR.PATCH`, the candidate is exact current protected `main`, every named current

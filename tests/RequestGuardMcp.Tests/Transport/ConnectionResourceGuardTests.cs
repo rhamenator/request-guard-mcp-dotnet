@@ -99,6 +99,36 @@ public class ConnectionResourceGuardTests
     }
 
     [Fact]
+    [Trait("Category", "Endurance")]
+    public async Task ProductionDurationHttp2AgeRotatesRealConnection()
+    {
+        // Keep the ordinary unit suite short. CI and release evidence opt in explicitly and
+        // exercise the public guard constructor's fixed 120-second production lifetime.
+        if (!string.Equals(Environment.GetEnvironmentVariable("REQUEST_GUARD_ENDURANCE"), "1", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await using var host = await RunningServer.StartAsync(
+            new LimitsConfig { Http2IdleTimeoutSecs = 60 }, HttpProtocols.Http2, productionDefaults: true);
+        using var client = host.Client();
+        var first = await client.GetStringAsync("/");
+        var started = TimeProvider.System.GetTimestamp();
+        while (TimeProvider.System.GetElapsedTime(started) < TimeSpan.FromSeconds(135))
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            if (await client.GetStringAsync("/") != first)
+            {
+                var elapsed = TimeProvider.System.GetElapsedTime(started);
+                Assert.InRange(elapsed, TimeSpan.FromSeconds(115), TimeSpan.FromSeconds(135));
+                return;
+            }
+        }
+
+        Assert.Fail("continuous traffic retained an HTTP/2 connection past the 120-second production age budget");
+    }
+
+    [Fact]
     public async Task FirstRequestTimerDoesNotLimitHttp1KeepAliveLifetime()
     {
         await using var host = await RunningServer.StartAsync(new LimitsConfig { HttpHeaderTimeoutSecs = 1 }, HttpProtocols.Http1);
@@ -269,8 +299,7 @@ public class ConnectionResourceGuardTests
             // Cancelling an incomplete receive aborts the underlying managed socket.
         }
 
-        using var client = host.Client(http2: false);
-        using var response = await client.GetAsync("/", deadline.Token);
+        using var response = await GetEventuallyAsync(host, http2: false);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -286,9 +315,13 @@ public class ConnectionResourceGuardTests
             Timeout = TimeSpan.FromSeconds(8),
         };
 
-        public static async Task<RunningServer> StartAsync(LimitsConfig limits, HttpProtocols protocols, TimeSpan? lifetime = null)
+        public static async Task<RunningServer> StartAsync(
+            LimitsConfig limits, HttpProtocols protocols, TimeSpan? lifetime = null, bool productionDefaults = false)
         {
-            var guard = new ConnectionResourceGuard(limits, TimeProvider.System, lifetime ?? TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(1));
+            var guard = productionDefaults
+                ? new ConnectionResourceGuard(limits)
+                : new ConnectionResourceGuard(limits, TimeProvider.System,
+                    lifetime ?? TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(1));
             var builder = WebApplication.CreateBuilder();
             builder.Logging.ClearProviders();
             builder.WebHost.ConfigureKestrel(options =>
@@ -317,12 +350,12 @@ public class ConnectionResourceGuardTests
         }
     }
 
-    private static async Task<HttpResponseMessage> GetEventuallyAsync(RunningServer host)
+    private static async Task<HttpResponseMessage> GetEventuallyAsync(RunningServer host, bool http2 = true)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(6));
         while (true)
         {
-            using var client = host.Client();
+            using var client = host.Client(http2);
             try
             {
                 return await client.GetAsync("/", deadline.Token);

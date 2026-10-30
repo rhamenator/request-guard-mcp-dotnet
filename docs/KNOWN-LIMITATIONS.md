@@ -54,9 +54,11 @@ equivalence for every other non-snapshot field.
 Connection controls added for Rust main #160/#162 are tested separately from the August
 differential baseline. Kestrel does not provide same-port cleartext HTTP/1 + HTTP/2
 prior-knowledge auto-detection in this host. HTTP/2 tests explicitly select that protocol;
-TLS/ALPN and reverse-proxy hosting need independent client qualification. The 120-second
-production age limit is exercised with a shorter injected clock budget in tests; this
-is not an exact 120-second artifact endurance record.
+an actual Nginx TLS terminator now gates CA trust/rejection, TLS 1.3, ALPN-selected HTTP/2,
+HTTP/1.1 and WebSocket proxying on Linux. Public-CA, mTLS, IIS and production-duration proxy
+behavior remain outside that evidence. CI now exercises the HTTP/2 age limit against real Kestrel
+for the full 120-second production budget under continuous traffic. That is not a packaged-artifact,
+maximum-load, leak or broader resource-exhaustion record.
 
 Native archives and installers target glibc Linux x64, Windows x64, Intel macOS and arm64 macOS.
 Linux musl/Alpine and Linux/Windows arm64 artifacts and OS service registration are not provided.
