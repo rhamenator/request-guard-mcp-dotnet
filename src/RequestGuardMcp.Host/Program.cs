@@ -121,7 +121,10 @@ catch (ConfigValidationException ex)
 // ANCM supplies its own loopback port for IIS out-of-process hosting. Do not overwrite that
 // handoff with the direct-listener address; direct executable/container launches still use the
 // validated Request Guard host and port.
-if (HostingBinding.DirectListenerUrl(appConfig, Environment.GetEnvironmentVariable("ASPNETCORE_PORT")) is { } directListenerUrl)
+if (HostingBinding.DirectListenerUrl(
+        appConfig,
+        Environment.GetEnvironmentVariable("ASPNETCORE_PORT"),
+        Environment.GetEnvironmentVariable("ASPNETCORE_TOKEN")) is { } directListenerUrl)
 {
     builder.WebHost.UseUrls(directListenerUrl);
 }
