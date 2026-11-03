@@ -74,8 +74,8 @@ MCP Inspector 2.13.0 is qualified against a running Release build over process-l
 remote HTTP mode is not supported because this server intentionally provides JSON responses without
 Streamable HTTP sessions or SSE. The .NET port publishes server archives and installers, not an npm
 server package or companion marketplace skill; clients launch the installed executable directly.
-Installed-artifact Inspector evidence currently covers the Linux DEB after clean install and upgrade;
-Windows and macOS installed artifacts retain official Python SDK qualification but not Inspector.
+Installed-artifact Inspector stdio evidence covers the Linux DEB, Windows MSI and both macOS PKGs
+after clean install and upgrade; it does not establish remote Inspector HTTP compatibility.
 
 HTTP POST now requires UTF-8 application/json and explicit positive-quality
 application/json plus text/event-stream in Accept, although responses remain JSON-only.

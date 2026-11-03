@@ -231,8 +231,9 @@ Official release candidates also provide DEB and RPM installers for Linux x64, M
 and PKG installers for Intel and arm64 macOS. They are unsigned, do not register a service, and are
 qualified for clean install, installed payload integrity, pinned official Python MCP SDK stdio use,
 synthetic-version upgrade, uninstall and residue on matching disposable systems. Linux's RPM also
-passes a raw stdio lifecycle in a digest-pinned Fedora container. The installed Linux DEB executable
-also passes the integrity-pinned MCP Inspector 2.13.0 stdio smoke after clean install and upgrade. See
+passes a raw stdio lifecycle in a digest-pinned Fedora container. Each installed DEB, MSI and PKG
+executable also passes the integrity-pinned MCP Inspector 2.13.0 stdio smoke after clean install and
+upgrade. See
 [native installer instructions](docs/INSTALLERS.md), including package-manager dependencies, paths,
 uninstall commands and the macOS notarization limitation.
 

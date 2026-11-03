@@ -55,10 +55,10 @@ source revision and qualified native-bundle hash. The matching hosted runner che
 installed payload integrity, and the installed executable through the pinned official Python MCP SDK
 after both clean install and a synthetic older-package upgrade, followed by uninstall and residue.
 Linux runs the official-SDK check through the DEB and a raw stdio RPM check in a digest-pinned Fedora
-42 container. The DEB-installed executable also passes the integrity-pinned MCP Inspector 2.13.0
-tool-list, health and structured-classification smoke after clean install and upgrade. This Inspector
-evidence is Linux DEB/stdio only; it is not a Windows/macOS or remote-HTTP client claim. Synthetic
-older packages are test fixtures and are never release assets.
+42 container. Each DEB-, MSI- and PKG-installed executable also passes the integrity-pinned MCP
+Inspector 2.13.0 tool-list, health and structured-classification smoke after clean install and
+upgrade. This Inspector evidence is stdio only; it is not a remote-HTTP client claim. Synthetic older
+packages are test fixtures and are never release assets.
 
 The packages are currently unsigned because commercial signing/notarization is deferred. SHA-256
 records detect accidental changes but are not a substitute for publisher identity or platform code
