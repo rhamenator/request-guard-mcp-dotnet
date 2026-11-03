@@ -24,7 +24,10 @@ def main():
     parser.add_argument('--expected-rid', required=True)
     parser.add_argument('--expected-source', required=True)
     parser.add_argument('--report', type=Path, required=True)
+    parser.add_argument('--endurance-seconds', type=int, default=120)
     args = parser.parse_args()
+    if args.endurance_seconds < 1:
+        parser.error('--endurance-seconds must be positive')
     archive = args.archive.resolve()
     checksum = digest(archive)
     assert archive.with_suffix(archive.suffix + '.sha256').read_text().strip() == f'{checksum}  {archive.name}'
@@ -52,20 +55,29 @@ def main():
         environment = {**os.environ, 'DOTNET_ROOT': str(target / 'no-runtime'), 'DOTNET_ROOT_X64': str(target / 'no-runtime'),
                        'DOTNET_ROOT_ARM64': str(target / 'no-runtime'), 'DOTNET_MULTILEVEL_LOOKUP': '0'}
         checks = {}
-        for name, runner, extra in [('http_ws_sdk', 'protocol', []),
-                                    ('configured_origin_sdk', 'protocol', ['--allowed-origin', 'https://client.test', '--ws-deadline-seconds', '1']),
-                                    ('stdio_sdk_process', 'stdio', [])]:
+        runners = [
+            ('http_ws_sdk', 'protocol', [], 90),
+            ('configured_origin_sdk', 'protocol',
+             ['--allowed-origin', 'https://client.test', '--ws-deadline-seconds', '1'], 90),
+            ('telemetry_resource_endurance', 'protocol',
+             ['--telemetry-endurance-seconds', str(args.endurance_seconds)],
+             args.endurance_seconds + 60),
+            ('stdio_sdk_process', 'stdio', [], 90),
+        ]
+        for name, runner, extra, timeout in runners:
             completed = subprocess.run([sys.executable, str(ROOT / 'tests' / runner / 'run.py'), '--binary', str(executable), *extra],
-                                       env=environment, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
+                                       env=environment, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout)
             print(completed.stdout, end='')
             assert completed.returncode == 0, (name, completed.stdout)
             checks[name] = 'passed'
         report = {'schema': 1, 'artifact': archive.name, 'sha256': checksum, 'source_sha': metadata['source_sha'],
-                  'rid': metadata['rid'], 'sdk_version': metadata['sdk_version'], 'checks': checks,
-                  'scope': 'fresh extraction, process-local stdio and authenticated JSON HTTP/custom WebSocket; no external backends'}
+                  'rid': metadata['rid'], 'sdk_version': metadata['sdk_version'],
+                  'telemetry_resource_endurance_seconds': args.endurance_seconds, 'checks': checks,
+                  'scope': 'fresh extraction, process-local stdio, authenticated JSON HTTP/custom WebSocket and bounded telemetry/resource endurance; no external backends'}
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, indent=2) + '\n')
-        print('PASS native bundle: checksums/provenance, fresh extraction, HTTP/WS and stdio official SDK')
+        print('PASS native bundle: checksums/provenance, fresh extraction, HTTP/WS, stdio official SDK '
+              f'and {args.endurance_seconds}s telemetry/resource endurance')
 
 
 if __name__ == '__main__':

@@ -25,6 +25,7 @@ from mcp.shared.exceptions import McpError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'parity'))
 from contract import CORE_CASES, WebSocket, normalize_payload
 from run import clean_environment
+from metrics import metric_value, normalize_metrics
 
 TOKEN = 'synthetic-protocol-client-token-at-least-32-bytes'
 OTLP_SECRET = 'synthetic-otlp-password-never-log'
@@ -74,7 +75,7 @@ def check_otlp_sink_failure(url):
 def get_metrics(url):
     with urllib.request.urlopen(url + '/metrics', timeout=5) as response:
         assert response.status == 200, response.status
-        return response.read().decode()
+        return normalize_metrics(response.read().decode())
 
 
 def process_resources(pid):
@@ -89,16 +90,6 @@ def process_resources(pid):
             values[key] = int(value.strip().split()[0])
     values['FileDescriptors'] = len(list(Path(f'/proc/{pid}/fd').iterdir()))
     return values
-
-
-def metric_value(metrics, family, labels):
-    expected = dict(labels)
-    for match in re.finditer(rf'^{re.escape(family)}\{{([^}}]+)\}} ([0-9]+(?:\.[0-9]+)?)$',
-                             metrics, re.MULTILINE):
-        actual = dict(re.findall(r'(\w+)="([^"]*)"', match.group(1)))
-        if actual == expected:
-            return float(match.group(2))
-    raise AssertionError((family, expected))
 
 
 def check_telemetry_endurance(url, seconds, pid):

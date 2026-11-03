@@ -56,6 +56,8 @@ jobs:
       - run: dotnet test RequestGuardMcp.slnx --configuration Release --no-restore
       - name: Historical envelope migration regressions
         run: python3 -m unittest discover -s tests/parity -p test_contract_envelopes.py
+      - name: Protocol helper regressions
+        run: python3 -m unittest discover -s tests/protocol -p 'test_*.py'
       - name: Official release-candidate gate negative controls
         run: python3 -m unittest discover -s tests/release -p 'test_*.py'
       - name: Official MCP SDK and running-build protocol contract
