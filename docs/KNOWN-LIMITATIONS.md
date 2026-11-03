@@ -82,6 +82,12 @@ server package or companion marketplace skill; clients launch the installed exec
 Installed-artifact Inspector stdio evidence covers the Linux DEB, Windows MSI and both macOS PKGs
 after clean install and upgrade; it does not establish remote Inspector HTTP compatibility.
 
+AI Scraping Defense 0.0.13 at exact commit
+`94db05fba00b5cb7c8b1753ff7ba7ee885b86eb4` is qualified against the Release DLL through its
+`MCPAdapter` over authenticated WebSocket and stdio, including safe missing/incorrect Bearer failures.
+That evidence does not qualify other AI Scraping Defense releases, its surrounding services or
+deployment stack, or installed Request Guard artifacts on every platform.
+
 HTTP POST now requires UTF-8 application/json and explicit positive-quality
 application/json plus text/event-stream in Accept, although responses remain JSON-only.
 A present MCP-Protocol-Version must be 2025-06-18; absence is retained for initialization

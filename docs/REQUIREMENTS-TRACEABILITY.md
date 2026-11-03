@@ -170,5 +170,10 @@ integrity-pinned MCP Inspector 2.13.0 CLI must start the Release server over std
 23 described tools with object schemas, and receive matching text/structured results from `health`
 and a deterministic `classify` call. `tests/stdio/inspector.py` and the CI test job implement this
 gate. The four installer jobs repeat the same gate against DEB-, MSI- and PKG-installed executables
-after clean install and upgrade. Remote Inspector HTTP and other clients remain separate evidence;
-the repository does not distribute a companion skill or npm server package.
+after clean install and upgrade. AI Scraping Defense 0.0.13 at exact commit
+`94db05fba00b5cb7c8b1753ff7ba7ee885b86eb4` must additionally normalize a deterministic
+`classify` result through `MCPAdapter` over authenticated WebSocket and stdio; missing/incorrect
+Bearer credentials must return safe pre-dispatch 401/403 client errors without token disclosure.
+`tests/clients/asd.py` and the CI test job implement that gate. Remote Inspector HTTP and clients or
+releases outside these exact qualifications remain separate evidence; the repository does not
+distribute a companion skill or npm server package.

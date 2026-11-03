@@ -187,6 +187,25 @@ executable after a clean install and after a synthetic-prior upgrade. Each retai
 records `mcp_inspector_stdio: passed`. This is installed-artifact stdio evidence on all four supported
 RID/platform pairs, not a remote Inspector HTTP claim.
 
+## AI Scraping Defense client qualification
+
+CI checks out AI Scraping Defense 0.0.13 at exact commit
+`94db05fba00b5cb7c8b1753ff7ba7ee885b86eb4`, installs its locked MCP-facing dependencies, and runs:
+
+```bash
+/tmp/asd-client-sdk/bin/python tests/clients/asd.py \
+  --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll \
+  --asd-source asd-client-source
+```
+
+The runner exercises `MCPAdapter` with direct classify arguments over authenticated WebSocket and
+process-local stdio, rejects wrapped instead of normalized results, and checks the expected
+classification signal. Missing and incorrect WebSocket Bearer credentials must surface as bounded
+401/403 client errors, remain pre-dispatch in server metrics, and expose neither the configured token
+nor a partial result. This qualifies only the pinned adapter/source/dependencies and these two
+transports; it does not exercise AI Scraping Defense's HTTP service, browser extension, database, or
+deployment stack.
+
 ## WebSocket and output deadlines
 
 ```bash

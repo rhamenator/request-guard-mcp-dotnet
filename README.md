@@ -189,6 +189,14 @@ Do not place backend credentials in the command line; provide them through the l
 secret-managed environment. Inspector remote HTTP is not claimed: this server deliberately returns
 JSON without Streamable HTTP sessions or SSE, so the qualified Inspector path is stdio only.
 
+AI Scraping Defense 0.0.13 at commit `94db05fba00b5cb7c8b1753ff7ba7ee885b86eb4`
+is qualified as a second real client. Its `MCPAdapter` calls `classify` over authenticated
+WebSocket and process-local stdio with the direct argument mapping
+`mcp://primary/classify?argument_key=&options_key=`. CI checks the normalized classification
+payload and proves missing/incorrect Bearer credentials produce safe pre-dispatch 401/403 errors
+without exposing the configured token. This exact-client evidence is not a claim about every AI
+Scraping Defense service, deployment mode, or future release.
+
 ## Why a .NET port?
 
 The sibling Rust server defines the compatibility contract. This project re-implements that surface
