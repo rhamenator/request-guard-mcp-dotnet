@@ -45,6 +45,10 @@ def stdio(binary):
     run([sys.executable, ROOT / 'tests/stdio/run.py', '--binary', binary])
 
 
+def inspector(binary):
+    run([sys.executable, ROOT / 'tests/stdio/inspector.py', '--binary', binary])
+
+
 def verify_installed_payload(root):
     metadata = json.loads((root / 'bundle-manifest.json').read_text())
     files = {path.relative_to(root).as_posix(): digest(path) for path in root.rglob('*')
@@ -52,7 +56,7 @@ def verify_installed_payload(root):
     assert metadata['files'] == files, 'installed files differ from the qualified native bundle'
 
 
-def qualify_deb(current_dir, prior_dir, version, prior):
+def qualify_deb(current_dir, prior_dir, version, prior, inspector_enabled):
     current = next(current_dir.glob('*.deb'))
     previous = next(prior_dir.glob('*.deb'))
     install_root = Path('/usr/lib/request-guard-mcp-dotnet')
@@ -64,6 +68,8 @@ def qualify_deb(current_dir, prior_dir, version, prior):
         assert run(['dpkg-query', '-W', '-f=${Version}', PACKAGE], capture=True).stdout == version
         verify_installed_payload(install_root)
         stdio(binary)
+        if inspector_enabled:
+            inspector(binary)
         run(['sudo', 'dpkg', '--purge', PACKAGE])
         assert not install_root.exists() and not binary.exists()
 
@@ -73,6 +79,8 @@ def qualify_deb(current_dir, prior_dir, version, prior):
         assert run(['dpkg-query', '-W', '-f=${Version}', PACKAGE], capture=True).stdout == version
         verify_installed_payload(install_root)
         stdio(binary)
+        if inspector_enabled:
+            inspector(binary)
     finally:
         subprocess.run(['sudo', 'dpkg', '--purge', PACKAGE], check=False)
     assert not install_root.exists() and not binary.exists()
@@ -203,6 +211,7 @@ def main():
     parser.add_argument('--source', required=True)
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--rpm-image', default='fedora:42')
+    parser.add_argument('--inspector', action='store_true')
     args = parser.parse_args()
     current_dir = args.installer_dir.resolve()
     prior_dir = args.prior_dir.resolve()
@@ -212,22 +221,26 @@ def main():
               'official_python_sdk_stdio': 'passed', 'upgrade': 'passed', 'uninstall': 'passed', 'residue': 'passed'}
     if args.rid == 'linux-x64':
         assert platform.system() == 'Linux'
-        qualify_deb(current_dir, prior_dir, args.version, args.prior_version)
+        qualify_deb(current_dir, prior_dir, args.version, args.prior_version, args.inspector)
         qualify_rpm(current_dir, prior_dir, args.version, args.prior_version, args.rpm_image,
                     metadata['payload_files']['request-guard-mcp-dotnet'])
         checks['deb'] = checks['rpm'] = 'passed'
+        if args.inspector:
+            checks['mcp_inspector_stdio'] = 'passed'
     elif args.rid == 'win-x64':
+        assert not args.inspector, 'Inspector qualification is currently enabled only for Linux DEB installs'
         assert os.name == 'nt'
         qualify_msi(current_dir, prior_dir, args.version, args.prior_version)
         checks['msi'] = 'passed'
     else:
+        assert not args.inspector, 'Inspector qualification is currently enabled only for Linux DEB installs'
         assert platform.system() == 'Darwin'
         qualify_pkg(current_dir, prior_dir, args.version, args.prior_version)
         checks['pkg'] = 'passed'
     report = {'schema': 1, 'source_sha': args.source, 'rid': args.rid,
               'version': args.version, 'prior_version': args.prior_version,
               'unsigned': True, 'installers': metadata['installers'], 'checks': checks,
-              'scope': 'clean candidate install/official Python SDK stdio/uninstall/residue, then separate synthetic prior-version upgrade/official Python SDK stdio/uninstall/residue; RPM uses raw stdio smoke'}
+              'scope': 'clean candidate install/official Python SDK stdio/uninstall/residue, then separate synthetic prior-version upgrade/official Python SDK stdio/uninstall/residue; Linux DEB additionally uses integrity-pinned MCP Inspector stdio after clean install and upgrade when requested; RPM uses raw stdio smoke'}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + '\n')
     print('PASS installer lifecycle:', args.rid)
