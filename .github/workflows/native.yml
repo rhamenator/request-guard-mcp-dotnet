@@ -75,7 +75,6 @@ jobs:
         with:
           python-version: '3.12'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: matrix.rid == 'linux-x64'
         with:
           node-version: 22.20.0
           package-manager-cache: false
@@ -117,7 +116,7 @@ jobs:
           --rid ${{ matrix.rid }} --version ${{ steps.version.outputs.version }}
           --prior-version ${{ steps.version.outputs.prior }} --source ${{ github.sha }}
           --rpm-image fedora:42@sha256:99e203b80b1c3d8f7e161ec10a68fd02b081ef83a3963553e513c82846b97814
-          ${{ matrix.rid == 'linux-x64' && '--inspector' || '' }}
+          --inspector
           --report out/installers/qualification.json
       - name: Retain candidate installers and lifecycle evidence
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

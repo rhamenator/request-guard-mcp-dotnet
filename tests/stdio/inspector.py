@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 
@@ -13,6 +14,7 @@ import tempfile
 INSPECTOR_VERSION = '2.13.0'
 INSPECTOR_PACKAGE = f'@modelcontextprotocol/inspector@{INSPECTOR_VERSION}'
 INSPECTOR_INTEGRITY = 'sha512-k+eCnlMFWTVRops5+vGljX74f+eb7XsvTCB3ODWuEKXhIwKL2cLcnwsO3vOfXIp0gczjc1kzl8lS5+cwvGPYdA=='
+INSPECTOR_TIMEOUT = 180
 EXPECTED_TOOLS = {
     'abuse_pattern_match', 'batch_classify', 'calibration_report', 'canary_eval',
     'classify', 'config_snapshot', 'drift_report', 'enrich_asn', 'enrich_ip',
@@ -35,15 +37,21 @@ def clean_environment():
 
 
 def require_node():
-    result = subprocess.run(['node', '--version'], check=True, capture_output=True, text=True)
+    node = shutil.which('node')
+    if not node:
+        raise RuntimeError('node is not available on PATH')
+    result = subprocess.run([node, '--version'], check=True, capture_output=True, text=True)
     match = re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)\s*', result.stdout)
     if not match or tuple(map(int, match.groups())) < (22, 19, 0):
         raise RuntimeError(f'Inspector {INSPECTOR_VERSION} requires Node >=22.19.0; found {result.stdout.strip()}')
 
 
 def verify_package_integrity():
+    npm = shutil.which('npm')
+    if not npm:
+        raise RuntimeError('npm is not available on PATH')
     result = subprocess.run(
-        ['npm', 'view', INSPECTOR_PACKAGE, 'dist.integrity', '--json'],
+        [npm, 'view', INSPECTOR_PACKAGE, 'dist.integrity', '--json'],
         capture_output=True, text=True, timeout=30)
     if result.returncode:
         raise RuntimeError(
@@ -53,11 +61,19 @@ def verify_package_integrity():
 
 
 def inspect(server_command, working_directory, *arguments):
-    result = subprocess.run(
-        ['npx', '--yes', INSPECTOR_PACKAGE, '--cli', *server_command, *arguments,
-         '--format', 'json'],
-        capture_output=True, text=True, timeout=90, env=clean_environment(),
-        cwd=working_directory)
+    npx = shutil.which('npx')
+    if not npx:
+        raise RuntimeError('npx is not available on PATH')
+    command = [npx, '--yes', INSPECTOR_PACKAGE, '--cli', *server_command, *arguments,
+               '--format', 'json']
+    try:
+        result = subprocess.run(
+            command, capture_output=True, text=True, timeout=INSPECTOR_TIMEOUT,
+            env=clean_environment(), cwd=working_directory)
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(
+            f'Inspector timed out after {INSPECTOR_TIMEOUT}s: '
+            f'stdout={error.stdout!r}; stderr={error.stderr!r}') from error
     if result.returncode:
         raise RuntimeError(
             f'Inspector failed with status {result.returncode}: stdout={result.stdout!r}; '

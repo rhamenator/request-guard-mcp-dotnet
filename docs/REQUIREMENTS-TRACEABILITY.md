@@ -161,7 +161,6 @@ DR-017: Client compatibility claims must name the exact client and transport und
 integrity-pinned MCP Inspector 2.13.0 CLI must start the Release server over stdio, observe exactly
 23 described tools with object schemas, and receive matching text/structured results from `health`
 and a deterministic `classify` call. `tests/stdio/inspector.py` and the CI test job implement this
-gate. The Linux installer job repeats the same gate against the DEB-installed executable after clean
-install and upgrade. Remote Inspector HTTP, Windows/macOS installed-artifact Inspector and other
-clients remain separate evidence; the repository does not distribute a companion skill or npm server
-package.
+gate. The four installer jobs repeat the same gate against DEB-, MSI- and PKG-installed executables
+after clean install and upgrade. Remote Inspector HTTP and other clients remain separate evidence;
+the repository does not distribute a companion skill or npm server package.
