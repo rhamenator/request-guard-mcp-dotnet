@@ -66,6 +66,17 @@ jobs:
           python3 -m venv /tmp/mcp-sdk
           /tmp/mcp-sdk/bin/pip install -r tests/protocol/requirements.txt
           /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll
+      - name: Check out pinned AI Scraping Defense client
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rhamenator/ai-scraping-defense
+          ref: 94db05fba00b5cb7c8b1753ff7ba7ee885b86eb4
+          path: asd-client-source
+      - name: AI Scraping Defense 0.0.13 client compatibility
+        run: |
+          python3 -m venv /tmp/asd-client-sdk
+          /tmp/asd-client-sdk/bin/pip install mcp==2.3.0 httpx==0.28.1 websockets==16.1.1 joblib==1.5.3
+          /tmp/asd-client-sdk/bin/python tests/clients/asd.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --asd-source asd-client-source
       - name: Explicit browser-origin configuration
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --allowed-origin https://client.test --ws-deadline-seconds 1
       - name: TLS, ALPN and reverse-proxy qualification
