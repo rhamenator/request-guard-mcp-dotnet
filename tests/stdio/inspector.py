@@ -14,6 +14,7 @@ import tempfile
 INSPECTOR_VERSION = '2.13.0'
 INSPECTOR_PACKAGE = f'@modelcontextprotocol/inspector@{INSPECTOR_VERSION}'
 INSPECTOR_INTEGRITY = 'sha512-k+eCnlMFWTVRops5+vGljX74f+eb7XsvTCB3ODWuEKXhIwKL2cLcnwsO3vOfXIp0gczjc1kzl8lS5+cwvGPYdA=='
+INSPECTOR_TIMEOUT = 180
 EXPECTED_TOOLS = {
     'abuse_pattern_match', 'batch_classify', 'calibration_report', 'canary_eval',
     'classify', 'config_snapshot', 'drift_report', 'enrich_asn', 'enrich_ip',
@@ -63,11 +64,16 @@ def inspect(server_command, working_directory, *arguments):
     npx = shutil.which('npx')
     if not npx:
         raise RuntimeError('npx is not available on PATH')
-    result = subprocess.run(
-        [npx, '--yes', INSPECTOR_PACKAGE, '--cli', *server_command, *arguments,
-         '--format', 'json'],
-        capture_output=True, text=True, timeout=90, env=clean_environment(),
-        cwd=working_directory)
+    command = [npx, '--yes', INSPECTOR_PACKAGE, '--cli', *server_command, *arguments,
+               '--format', 'json']
+    try:
+        result = subprocess.run(
+            command, capture_output=True, text=True, timeout=INSPECTOR_TIMEOUT,
+            env=clean_environment(), cwd=working_directory)
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(
+            f'Inspector timed out after {INSPECTOR_TIMEOUT}s: '
+            f'stdout={error.stdout!r}; stderr={error.stderr!r}') from error
     if result.returncode:
         raise RuntimeError(
             f'Inspector failed with status {result.returncode}: stdout={result.stdout!r}; '
