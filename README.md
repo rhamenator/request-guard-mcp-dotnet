@@ -399,8 +399,10 @@ body timeout + the larger tool timeout + 2 seconds. Clients must tolerate reconn
 
 These controls follow Rust development-main PRs #160/#162, not the public v0.1.5
 contract. Kestrel's default cleartext listener uses HTTP/1; it does not auto-detect
-HTTP/2 prior knowledge on the same cleartext port as Rust does. The socket tests use
-an explicit HTTP/2 listener. A real Nginx termination gate qualifies TLS 1.3, ALPN h2,
+HTTP/2 prior knowledge on the same cleartext port as Rust does. A real-host regression gate
+requires HTTP/1.1 success, HTTP/2 prior-knowledge rejection and subsequent HTTP/1.1 recovery on
+that default listener; the HTTP/2 resource tests use an explicit HTTP/2 listener. A real Nginx
+termination gate qualifies TLS 1.3, ALPN h2,
 HTTP/1.1 and WebSocket proxying to the loopback backend. IIS, production-duration TLS,
 slow response consumers and full current-Rust transport qualification remain unverified. CI also
 runs a real Kestrel HTTP/2 connection under continuous traffic for the fixed 120-second age budget;

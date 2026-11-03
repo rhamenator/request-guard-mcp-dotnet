@@ -140,6 +140,28 @@ public class ConnectionResourceGuardTests
     }
 
     [Fact]
+    public async Task DefaultCleartextListenerRejectsHttp2PriorKnowledgeAndRecoversHttp1()
+    {
+        await using var host = await RunningServer.StartDefaultCleartextAsync(new LimitsConfig());
+        using (var http1 = host.Client(http2: false))
+        {
+            using var response = await http1.GetAsync("/");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpVersion.Version11, response.Version);
+        }
+
+        using (var priorKnowledge = host.Client())
+        {
+            await Assert.ThrowsAsync<HttpRequestException>(() => priorKnowledge.GetAsync("/"));
+        }
+
+        using var recovered = host.Client(http2: false);
+        using var recoveredResponse = await recovered.GetAsync("/");
+        Assert.Equal(HttpStatusCode.OK, recoveredResponse.StatusCode);
+        Assert.Equal(HttpVersion.Version11, recoveredResponse.Version);
+    }
+
+    [Fact]
     public async Task ExcessRequestGets503BeforeDownstreamCodeRuns()
     {
         using var guard = new ConnectionResourceGuard(new LimitsConfig());
@@ -317,6 +339,14 @@ public class ConnectionResourceGuardTests
 
         public static async Task<RunningServer> StartAsync(
             LimitsConfig limits, HttpProtocols protocols, TimeSpan? lifetime = null, bool productionDefaults = false)
+            => await StartAsync(limits, protocols, lifetime, productionDefaults, defaultCleartext: false);
+
+        public static async Task<RunningServer> StartDefaultCleartextAsync(LimitsConfig limits)
+            => await StartAsync(limits, null, null, productionDefaults: false, defaultCleartext: true);
+
+        private static async Task<RunningServer> StartAsync(
+            LimitsConfig limits, HttpProtocols? protocols, TimeSpan? lifetime, bool productionDefaults,
+            bool defaultCleartext)
         {
             var guard = productionDefaults
                 ? new ConnectionResourceGuard(limits)
@@ -324,10 +354,18 @@ public class ConnectionResourceGuardTests
                     lifetime ?? TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(1));
             var builder = WebApplication.CreateBuilder();
             builder.Logging.ClearProviders();
+            if (defaultCleartext)
+            {
+                builder.WebHost.UseUrls("http://127.0.0.1:0");
+            }
+
             builder.WebHost.ConfigureKestrel(options =>
             {
                 guard.ConfigureKestrel(options);
-                options.Listen(IPAddress.Loopback, 0, endpoint => endpoint.Protocols = protocols);
+                if (protocols is { } selectedProtocols)
+                {
+                    options.Listen(IPAddress.Loopback, 0, endpoint => endpoint.Protocols = selectedProtocols);
+                }
             });
             builder.Services.AddSingleton(new AppState(new AppConfig { Limits = limits, Auth = new AuthConfig { Enabled = false } }));
             builder.Services.AddSingleton(ToolRegistryFactory.Create());
