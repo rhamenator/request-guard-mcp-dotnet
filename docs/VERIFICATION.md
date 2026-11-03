@@ -226,16 +226,20 @@ Kestrel tests expire an incomplete upgraded message and then recover the sole TC
 cancellation still end at the configured write budget and abort the response, while
 caller cancellation is preserved. The production helper wraps MCP, health/readiness,
 metrics and auth-error body writes. Configuration rejects nonpositive budgets and
-values exceeding the cancellation timer's range. These tests do not establish every
-slow-consumer/proxy/IIS behavior; those remain in #25.
+values exceeding the cancellation timer's range. The opt-in
+`ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` gate uses a real Kestrel HTTP/1.1
+connection with a 1 KiB receive buffer, reads only the first response byte, and requires the default
+ten-second response deadline to abort that peer and return the sole TCP admission permit. This does
+not establish every slow-consumer, proxy or IIS behavior; those narrower residuals remain in #25.
 
-CI separately opts into the real 120-second HTTP/2 age test:
+CI separately opts into the real 120-second HTTP/2 age and production response-deadline tests:
 
 ```bash
 REQUEST_GUARD_ENDURANCE=1 dotnet test \
   tests/RequestGuardMcp.Tests/RequestGuardMcp.Tests.csproj \
   --configuration Release --no-build \
-  --filter FullyQualifiedName~ProductionDurationHttp2AgeRotatesRealConnection
+  --filter 'FullyQualifiedName~ProductionDurationHttp2AgeRotatesRealConnection|
+    FullyQualifiedName~ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission'
 ```
 
 It keeps a real Kestrel HTTP/2 connection active with requests every two seconds, requires the

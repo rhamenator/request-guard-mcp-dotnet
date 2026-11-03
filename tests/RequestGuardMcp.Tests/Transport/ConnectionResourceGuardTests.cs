@@ -227,6 +227,34 @@ public class ConnectionResourceGuardTests
     }
 
     [Fact]
+    [Trait("Category", "Endurance")]
+    public async Task ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("REQUEST_GUARD_ENDURANCE"), "1", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var limits = new LimitsConfig { MaxConnections = 1 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var stalled = new TcpClient { ReceiveBufferSize = 1024 };
+        using var setupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await stalled.ConnectAsync(IPAddress.Loopback, host.Port, setupDeadline.Token);
+        await stalled.GetStream().WriteAsync(Encoding.ASCII.GetBytes(
+            "GET /slow-consumer HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n"), setupDeadline.Token);
+
+        // Read only enough to prove that the real response started, then stop consuming it.
+        var firstByte = new byte[1];
+        Assert.Equal(1, await stalled.GetStream().ReadAsync(firstByte, setupDeadline.Token));
+        var started = TimeProvider.System.GetTimestamp();
+
+        using var recovered = await GetEventuallyAsync(host, http2: false, timeout: TimeSpan.FromSeconds(15));
+        var elapsed = TimeProvider.System.GetElapsedTime(started);
+        Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
+        Assert.InRange(elapsed, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
     public async Task Http2GracefulDrainCannotBeHeldByAnUnresponsivePeer()
     {
         await using var host = await RunningServer.StartAsync(new LimitsConfig { MaxConnections = 1, Http2IdleTimeoutSecs = 1 }, HttpProtocols.Http2);
@@ -376,6 +404,15 @@ public class ConnectionResourceGuardTests
             app.UseWebSockets();
             app.MapMcpServer();
             app.MapGet("/", context => context.Response.WriteAsync(context.Connection.Id));
+            app.MapGet("/slow-consumer", context => McpEndpoints.WriteWithDeadlineAsync(context, async token =>
+            {
+                var block = new byte[64 * 1024];
+                while (true)
+                {
+                    await context.Response.Body.WriteAsync(block, token);
+                    await context.Response.Body.FlushAsync(token);
+                }
+            }));
             await app.StartAsync();
             return new RunningServer(app, guard, new Uri(app.Urls.Single()).Port);
         }
@@ -388,9 +425,10 @@ public class ConnectionResourceGuardTests
         }
     }
 
-    private static async Task<HttpResponseMessage> GetEventuallyAsync(RunningServer host, bool http2 = true)
+    private static async Task<HttpResponseMessage> GetEventuallyAsync(
+        RunningServer host, bool http2 = true, TimeSpan? timeout = null)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+        using var deadline = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(6));
         while (true)
         {
             using var client = host.Client(http2);
@@ -398,7 +436,8 @@ public class ConnectionResourceGuardTests
             {
                 return await client.GetAsync("/", deadline.Token);
             }
-            catch (HttpRequestException) when (!deadline.IsCancellationRequested)
+            catch (Exception error) when (!deadline.IsCancellationRequested
+                && error is HttpRequestException or SocketException)
             {
                 // The peer can observe socket closure just before the connection middleware
                 // returns its admission permit. Retry with a fresh HTTP/2 connection while

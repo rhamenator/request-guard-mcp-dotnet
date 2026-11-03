@@ -64,8 +64,11 @@ HTTP/2 age is fixed at 120 seconds; socket tests shorten only that internal test
 `tests/protocol/proxy_tls.py` independently qualifies TLS 1.3, ALPN-selected HTTP/2,
 HTTP/1.1 fallback and WebSocket traffic through a real Nginx TLS terminator. The opt-in
 `ProductionDurationHttp2AgeRotatesRealConnection` gate holds a real Kestrel HTTP/2 connection under
-continuous traffic through the fixed 120-second production age. Packaged-artifact load,
-slow-consumer, IIS and broader client parity remain open. `DefaultCleartextListenerRejectsHttp2PriorKnowledgeAndRecoversHttp1`
+continuous traffic through the fixed 120-second production age.
+`ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` uses a real HTTP/1.1 peer that
+stops after the first response byte, requires the default ten-second output deadline to abort it,
+and proves recovery of the sole TCP permit. Packaged-artifact maximum load, broader hostile
+slow-consumer patterns, IIS and broader client parity remain open. `DefaultCleartextListenerRejectsHttp2PriorKnowledgeAndRecoversHttp1`
 also makes the same-port disposition executable: the production-shaped default cleartext listener
 must serve HTTP/1.1, reject HTTP/2 prior knowledge and remain healthy for a later HTTP/1.1 request.
 Same-port cleartext multiplexing is unsupported rather than an unverified parity claim.
