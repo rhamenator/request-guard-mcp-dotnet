@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -50,6 +51,11 @@ def main():
                  if path.is_file() and path.name != 'bundle-manifest.json'}
         assert metadata['files'] == files, 'bundle manifest/file checksums differ'
         executable = bundle / ('request-guard-mcp-dotnet.exe' if args.expected_rid == 'win-x64' else 'request-guard-mcp-dotnet')
+        if args.expected_rid == 'win-x64':
+            aspnet_core = ET.parse(bundle / 'web.config').find('./location/system.webServer/aspNetCore')
+            assert aspnet_core is not None, 'IIS web.config lacks the ASP.NET Core handler configuration'
+            assert aspnet_core.get('hostingModel', '').lower() == 'outofprocess', aspnet_core.attrib
+            assert aspnet_core.get('processPath') == r'.\request-guard-mcp-dotnet.exe', aspnet_core.attrib
         if os.name != 'nt':
             executable.chmod(0o755)
         environment = {**os.environ, 'DOTNET_ROOT': str(target / 'no-runtime'), 'DOTNET_ROOT_X64': str(target / 'no-runtime'),
@@ -70,6 +76,8 @@ def main():
             print(completed.stdout, end='')
             assert completed.returncode == 0, (name, completed.stdout)
             checks[name] = 'passed'
+        if args.expected_rid == 'win-x64':
+            checks['iis_out_of_process_configuration'] = 'passed'
         report = {'schema': 1, 'artifact': archive.name, 'sha256': checksum, 'source_sha': metadata['source_sha'],
                   'rid': metadata['rid'], 'sdk_version': metadata['sdk_version'],
                   'telemetry_resource_endurance_seconds': args.endurance_seconds, 'checks': checks,

@@ -68,7 +68,7 @@ continuous traffic through the fixed 120-second production age.
 `ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` uses a real HTTP/1.1 peer that
 stops after the first response byte, requires the default ten-second output deadline to abort it,
 and proves recovery of the sole TCP permit. Packaged-artifact maximum load, broader hostile
-slow-consumer patterns, IIS and broader client parity remain open. `DefaultCleartextListenerRejectsHttp2PriorKnowledgeAndRecoversHttp1`
+slow-consumer patterns, production-duration IIS/TLS and broader client parity remain open. `DefaultCleartextListenerRejectsHttp2PriorKnowledgeAndRecoversHttp1`
 also makes the same-port disposition executable: the production-shaped default cleartext listener
 must serve HTTP/1.1, reject HTTP/2 prior knowledge and remain healthy for a later HTTP/1.1 request.
 Same-port cleartext multiplexing is unsupported rather than an unverified parity claim.
@@ -77,6 +77,15 @@ freshly extracted supported-RID artifact for 120 seconds, records that duration 
 report, and applies exact metrics/secret-marker checks plus `/proc` resource ceilings where
 available. This is artifact endurance across the fixed production connection-age interval, not a
 maximum-load, slow-consumer, external-backend or long-term leak claim.
+
+DR-007a: Windows single-file bundles must use ANCM V2 out-of-process hosting, and the Request Guard
+direct-listener address must not overwrite ANCM's private port handoff. `HostingBindingTests` covers
+the binding choice; Windows native qualification parses the generated `web.config`, and the RC gate
+requires its retained pass record. A disposable Windows 11/IIS 10 VM then exercises the full
+HTTP/WebSocket envelope, authentication/origin and official-SDK tool matrix through IIS. The IIS
+profile explicitly records HTTP.sys's normalization of repeated identical Authorization fields;
+conflicting and malformed values remain rejected. IIS TLS and production-duration proxy evidence
+remain controlled follow-up under #25.
 
 ## Redis operation-record follow-up (Rust issue #159 / merged PR #163)
 
@@ -150,7 +159,7 @@ permits and reject unsupported timer values at startup. `WebSocketConnectionHand
 `McpEndpoints.WriteWithDeadlineAsync`, validated limits, `WebSocketDeadlineTests`,
 `HttpResponseDeadlineTests`, real incomplete-message admission recovery and the running
 protocol/native matrix trace these properties. The Nginx gate adds TLS/ALPN and proxied HTTP/WS
-evidence; production-duration/slow-consumer and IIS evidence remain separately required.
+evidence; production-duration/slow-consumer and IIS TLS evidence remain separately required.
 
 DR-015: Official release-candidate publication must fail before build or external write unless the
 version is `0.MINOR.PATCH`, the candidate is exact current protected `main`, every named current

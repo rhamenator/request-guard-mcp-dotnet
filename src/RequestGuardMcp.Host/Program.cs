@@ -1,5 +1,6 @@
 using RequestGuardMcp.Core.Configuration;
 using RequestGuardMcp.Core.Runtime;
+using RequestGuardMcp.Host;
 using RequestGuardMcp.Mcp;
 using RequestGuardMcp.Mcp.Transport;
 using RequestGuardMcp.Tools;
@@ -117,7 +118,13 @@ catch (ConfigValidationException ex)
     return 1;
 }
 
-builder.WebHost.UseUrls($"http://{appConfig.Host}:{appConfig.Port}");
+// ANCM supplies its own loopback port for IIS out-of-process hosting. Do not overwrite that
+// handoff with the direct-listener address; direct executable/container launches still use the
+// validated Request Guard host and port.
+if (HostingBinding.DirectListenerUrl(appConfig, Environment.GetEnvironmentVariable("ASPNETCORE_PORT")) is { } directListenerUrl)
+{
+    builder.WebHost.UseUrls(directListenerUrl);
+}
 var connectionGuard = new ConnectionResourceGuard(appConfig.Limits);
 builder.Services.AddSingleton(connectionGuard);
 builder.WebHost.ConfigureKestrel(connectionGuard.ConfigureKestrel);

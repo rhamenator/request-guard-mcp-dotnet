@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\src\RequestGuardMcp.Mcp\RequestGuardMcp.Mcp.csproj" />
     <ProjectReference Include="..\..\src\RequestGuardMcp.Tools\RequestGuardMcp.Tools.csproj" />
     <ProjectReference Include="..\..\src\RequestGuardMcp.Integrations\RequestGuardMcp.Integrations.csproj" />
+    <ProjectReference Include="..\..\src\RequestGuardMcp.Host\RequestGuardMcp.Host.csproj" />
   </ItemGroup>
 
 </Project>

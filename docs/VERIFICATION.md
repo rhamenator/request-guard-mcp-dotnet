@@ -125,7 +125,8 @@ pair runner explicitly binds both servers to loopback, rather than hiding the ch
 .NET default through payload normalization; a default-configuration test checks it. Missing protocol
 version is an explicit legacy/initialization compatibility path, not implicit support
 for every MCP revision. The separate Nginx gate below qualifies TLS/ALPN and reverse proxying on
-Linux. IIS, production-duration TLS and broader browser clients remain separate work in #25.
+Linux. The IIS gate below qualifies the bounded Windows HTTP/WebSocket profile; production-duration
+IIS/TLS and broader browser clients remain separate work in #25.
 
 The runner asserts controlled differences rather than normalizing them away. .NET rejects
 duplicate JSON properties, missing MCP media headers and duplicate Authorization headers, accepts
@@ -230,7 +231,8 @@ values exceeding the cancellation timer's range. The opt-in
 `ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` gate uses a real Kestrel HTTP/1.1
 connection with a 1 KiB receive buffer, reads only the first response byte, and requires the default
 ten-second response deadline to abort that peer and return the sole TCP admission permit. This does
-not establish every slow-consumer, proxy or IIS behavior; those narrower residuals remain in #25.
+not establish every slow-consumer or proxy behavior; production-duration IIS/TLS and those narrower
+residuals remain in #25.
 
 CI separately opts into the real 120-second HTTP/2 age and production response-deadline tests:
 
@@ -266,7 +268,35 @@ and logs live in a temporary directory and are deleted after the run.
 
 This proves the documented TLS-termination topology on Linux; it does not qualify public CAs,
 mutual TLS, forwarded-client identity, production-duration connections, arbitrary proxy
-configurations or IIS.
+configurations or IIS TLS termination.
+
+## IIS out-of-process qualification
+
+Windows self-contained release bundles must contain an ANCM V2 `web.config` with
+`hostingModel="OutOfProcess"`; `qualify_bundle.py` records
+`iis_out_of_process_configuration: passed` for `win-x64`, and the release-candidate gate requires
+that evidence. `HostingBindingTests` proves direct launches retain the configured Request Guard
+address while a present ANCM `ASPNETCORE_PORT` handoff is not overwritten.
+
+On a disposable Windows 11/IIS 10 VM with the IIS Web Server, WebSocket Protocol and matching .NET
+Hosting Bundle installed, deploy the bundle under a dedicated no-managed-code app pool. Configure
+the synthetic protocol token and origin used by the test harness, then run from an isolated client:
+
+```bash
+/tmp/request-guard-sdk/bin/python tests/protocol/run.py \
+  --url http://IIS_TEST_HOST:PORT \
+  --allowed-origin https://client.test \
+  --expected-server-name request-guard-mcp-dotnet \
+  --iis-proxy
+```
+
+The gate requires the invalid-envelope and recovery matrix over both HTTP and WebSocket, the
+negotiation/auth/origin profile, and official Python SDK initialization, schemas and all 23 tool
+calls. The IIS profile records HTTP.sys normalization of repeated identical Authorization fields;
+all conflicting, comma-joined, malformed, missing and incorrect credentials remain rejected. The
+November 3, 2026 local VM run used synthetic credentials and a host-only firewall rule and passed.
+It did not qualify IIS TLS termination, public exposure, client-certificate authentication,
+production-duration traffic, Windows Server editions or every IIS/ANCM version.
 
 ## Native archive qualification
 

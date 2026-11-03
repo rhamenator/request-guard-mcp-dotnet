@@ -3,6 +3,9 @@
   <PropertyGroup>
     <AssemblyName>request-guard-mcp-dotnet</AssemblyName>
     <UserSecretsId>request-guard-mcp-dotnet</UserSecretsId>
+    <!-- Single-file release bundles cannot run in-process under IIS. Out-of-process hosting also
+         preserves this server's Kestrel connection guards behind the IIS reverse proxy. -->
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
   </PropertyGroup>
 
   <ItemGroup>

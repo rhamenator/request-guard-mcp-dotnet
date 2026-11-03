@@ -87,7 +87,9 @@ jobs:
                .checks.http_ws_sdk == "passed" and .checks.configured_origin_sdk == "passed" and
                .checks.telemetry_resource_endurance == "passed" and
                .telemetry_resource_endurance_seconds == 120 and
-               .checks.stdio_sdk_process == "passed"' "$directory/qualification.json" >/dev/null
+               .checks.stdio_sdk_process == "passed" and
+               ($rid != "win-x64" or .checks.iis_out_of_process_configuration == "passed")' \
+              "$directory/qualification.json" >/dev/null
             cp "$directory/$archive" "$directory/$archive.sha256" dist/
             cp "$directory/qualification.json" "dist/qualification-$rid.json"
 
