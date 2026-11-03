@@ -35,6 +35,11 @@ msiexec.exe /i .\request-guard-mcp-dotnet-VERSION-win-x64.msi /qn /norestart
 Remove it through Installed Apps or with `msiexec.exe /x` and the same MSI. The installer does not
 modify `PATH`; configure clients with the absolute executable path.
 
+The installed payload also includes an ANCM V2 `web.config` for IIS 10 out-of-process hosting. IIS
+requires the matching .NET Hosting Bundle, Web Server and WebSocket Protocol features, a dedicated
+no-managed-code app pool, read/execute permission for its identity, and administrator-managed
+environment secrets. See the README's IIS section. IIS does not register a site during MSI install.
+
 ## macOS Intel and Apple silicon
 
 Choose the `osx-x64.pkg` build for Intel or `osx-arm64.pkg` for Apple silicon:

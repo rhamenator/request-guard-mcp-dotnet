@@ -238,7 +238,8 @@ def check_envelopes(url, reject_duplicate_properties=True, expected_allow_header
     print(f'PASS envelope contract: {len(INVALID)} invalid envelopes + syntax error over HTTP and WS; ignored input/recovery; GET405')
 
 
-def check_http_profile(url, allowed_origin=None, dotnet_hardened_profile=True):
+def check_http_profile(url, allowed_origin=None, dotnet_hardened_profile=True,
+                       iis_proxy_profile=False):
     parsed = urllib.parse.urlparse(url)
     payload = b'{"jsonrpc":"2.0","id":1,"method":"ping"}'
     normal = [('Authorization', f'Bearer {TOKEN}'), ('Content-Type', 'application/json'),
@@ -274,7 +275,7 @@ def check_http_profile(url, allowed_origin=None, dotnet_hardened_profile=True):
         (normal + [('MCP-Protocol-Version', '2024-11-05')], 400),
         (normal + [('MCP-Protocol-Version', '2025-06-18'), ('MCP-Protocol-Version', '2025-06-18')], 400),
         (normal + [('Authorization', f'Bearer {TOKEN}')],
-         401 if dotnet_hardened_profile else 200),
+         200 if iis_proxy_profile else (401 if dotnet_hardened_profile else 200)),
         ([(k, f'Bearer {TOKEN}, Bearer other' if k == 'Authorization' else v) for k, v in normal],
          401 if dotnet_hardened_profile else 403),
         ([(k, 'Bearer wrong-token' if k == 'Authorization' else v) for k, v in normal], 403),
@@ -290,7 +291,8 @@ def check_http_profile(url, allowed_origin=None, dotnet_hardened_profile=True):
         actual = send(headers)
         assert actual == expected, (headers, expected, actual)
     assert send(normal) == 200, 'valid traffic must recover after rejected headers'
-    print(f'PASS HTTP profile: {len(cases)} negotiation/auth/origin cases, recovery; configured origin={bool(allowed_origin)}')
+    print(f'PASS HTTP profile: {len(cases)} negotiation/auth/origin cases, recovery; '
+          f'configured origin={bool(allowed_origin)}; IIS normalization={iis_proxy_profile}')
 
 
 def check_ws_lifetime(url, seconds):
@@ -413,6 +415,8 @@ def main():
                         help='Run a bounded-label and process-resource endurance probe')
     parser.add_argument('--expected-server-name',
                         help='Expected initialize serverInfo.name (inferred for spawned known runtimes)')
+    parser.add_argument('--iis-proxy', action='store_true',
+                        help='For --url, accept IIS normalization of repeated identical Authorization fields')
     args = parser.parse_args()
     if args.reference_rust and not args.binary:
         parser.error('--reference-rust requires --binary')
@@ -426,11 +430,13 @@ def main():
         if args.otlp_failure or args.telemetry_endurance_seconds:
             parser.error('OTLP/endurance probes require a spawned host so logs/resources can be inspected')
         check_envelopes(args.url)
-        check_http_profile(args.url, args.allowed_origin)
+        check_http_profile(args.url, args.allowed_origin, iis_proxy_profile=args.iis_proxy)
         if args.ws_deadline_seconds:
             check_ws_lifetime(args.url, args.ws_deadline_seconds)
         asyncio.run(check_sdk(args.url, args.expected_server_name or 'request-guard-mcp-dotnet'))
         return
+    if args.iis_proxy:
+        parser.error('--iis-proxy requires --url')
     executable = (args.binary or args.dotnet_dll).resolve()
     if not executable.is_file():
         parser.error(f'build the host first; executable not found: {executable}')

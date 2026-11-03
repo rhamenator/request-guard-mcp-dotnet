@@ -57,10 +57,17 @@ prior-knowledge auto-detection in this host. A real default-listener gate requir
 success, HTTP/2 prior-knowledge rejection and later HTTP/1.1 recovery. HTTP/2 resource tests
 explicitly select that protocol;
 an actual Nginx TLS terminator now gates CA trust/rejection, TLS 1.3, ALPN-selected HTTP/2,
-HTTP/1.1 and WebSocket proxying on Linux. Public-CA, mTLS, IIS and production-duration proxy
-behavior remain outside that evidence. CI now exercises the HTTP/2 age limit against real Kestrel
+HTTP/1.1 and WebSocket proxying on Linux. Windows IIS 10 with ANCM V2 is separately qualified for
+out-of-process HTTP/WebSocket and official-SDK traffic from a disposable VM, but not IIS TLS,
+public-CA, mTLS or production-duration proxy behavior. CI now exercises the HTTP/2 age limit against real Kestrel
 for the full 120-second production budget under continuous traffic. That is not a packaged-artifact,
 maximum-load, leak or broader resource-exhaustion record.
+
+IIS/HTTP.sys collapses repeated identical Authorization fields before the application observes
+them. That semantically identical case is accepted on the qualified IIS path, while conflicting,
+comma-joined, malformed, missing and incorrect credentials are rejected. An upstream edge is
+required when policy must reject the raw repeated-field condition. Direct Kestrel and the qualified
+Nginx path retain the stricter reject-all-duplicates behavior.
 
 Native archives and installers target glibc Linux x64, Windows x64, Intel macOS and arm64 macOS.
 Linux musl/Alpine and Linux/Windows arm64 artifacts and OS service registration are not provided.

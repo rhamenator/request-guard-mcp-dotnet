@@ -144,9 +144,32 @@ must be positive and fit the cancellation timer's supported range (at most 42949
 
 These controls bound tested I/O paths. CI qualifies a real loopback Nginx TLS terminator with a
 throwaway CA, TLS 1.3, ALPN-selected HTTP/2, HTTP/1.1 fallback, pre-dispatch auth/origin rejection
-and an authenticated WebSocket upgrade. Production-duration TLS/ALPN, slow-consumer and IIS
-qualification remain separate work. The WebSocket test matrix uses a shorter configured receive
-budget for deterministic expiry/recovery tests.
+and an authenticated WebSocket upgrade. A Windows IIS 10/ANCM V2 gate separately qualifies
+authenticated HTTP, WebSocket and official-SDK calls; TLS termination and production-duration IIS
+traffic remain separate work. The WebSocket test matrix uses a shorter configured receive budget
+for deterministic expiry/recovery tests.
+
+### IIS reverse proxy on Windows
+
+Windows x64 self-contained bundles use ASP.NET Core Module V2 out-of-process hosting. This is
+required because single-file applications cannot run in-process under IIS, and it preserves the
+server's Kestrel connection guards behind IIS. Install the matching .NET Hosting Bundle, enable the
+IIS Web Server and WebSocket Protocol features, create a dedicated no-managed-code application pool,
+and point its site at the extracted or installed payload containing `web.config`. Grant the app-pool
+identity read/execute permission to that directory. IIS owns the public binding; ANCM supplies a
+private dynamic loopback port, so do not set `MCP__HOST` or `MCP__PORT` for this topology.
+
+Provide `AUTH_TOKENS`, `CACHE_SCOPE_HMAC_KEY`, allowed origins and optional backend credentials to
+the app-pool process using an administrator-controlled deployment secret mechanism. Never commit
+their values or put them in command-line arguments. The IIS worker and child executable have the
+configured app-pool identity's file/network permissions and can incur the same backend costs as a
+direct launch.
+
+IIS/HTTP.sys normalizes repeated identical `Authorization` fields into one value before the
+application sees them. The qualified profile therefore accepts that semantically identical case;
+conflicting, comma-joined, malformed, missing and incorrect credentials remain rejected. Deployments
+that must detect the raw repeated-field condition need an upstream edge that rejects it before IIS.
+The direct Kestrel and Nginx-qualified paths continue to reject every repeated Authorization field.
 
 ### Process-local stdio
 
@@ -413,8 +436,9 @@ that default listener; the HTTP/2 resource tests use an explicit HTTP/2 listener
 termination gate qualifies TLS 1.3, ALPN h2,
 HTTP/1.1 and WebSocket proxying to the loopback backend. A real Kestrel/TCP gate also stops reading
 after the first response byte and requires the production ten-second response deadline to abort that
-peer and release the sole connection admission permit. IIS, production-duration TLS and full
-current-Rust transport qualification remain unverified. CI also
+peer and release the sole connection admission permit. IIS HTTP/WebSocket is qualified through
+out-of-process ANCM; production-duration IIS/TLS and full current-Rust transport qualification
+remain unverified. CI also
 runs a real Kestrel HTTP/2 connection under continuous traffic for the fixed 120-second age budget;
 each supported native artifact also runs 120 seconds of bounded mixed telemetry/resource traffic on
 its matching hosted platform. These are production-duration gates relative to that connection-age
