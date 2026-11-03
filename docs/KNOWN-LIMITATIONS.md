@@ -53,7 +53,9 @@ equivalence for every other non-snapshot field.
 
 Connection controls added for Rust main #160/#162 are tested separately from the August
 differential baseline. Kestrel does not provide same-port cleartext HTTP/1 + HTTP/2
-prior-knowledge auto-detection in this host. HTTP/2 tests explicitly select that protocol;
+prior-knowledge auto-detection in this host. A real default-listener gate requires HTTP/1.1
+success, HTTP/2 prior-knowledge rejection and later HTTP/1.1 recovery. HTTP/2 resource tests
+explicitly select that protocol;
 an actual Nginx TLS terminator now gates CA trust/rejection, TLS 1.3, ALPN-selected HTTP/2,
 HTTP/1.1 and WebSocket proxying on Linux. Public-CA, mTLS, IIS and production-duration proxy
 behavior remain outside that evidence. CI now exercises the HTTP/2 age limit against real Kestrel
