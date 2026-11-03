@@ -85,6 +85,8 @@ jobs:
             jq -e --arg sha "$GITHUB_SHA" --arg rid "$rid" --arg archive "$archive" \
               '.schema == 1 and .source_sha == $sha and .rid == $rid and .artifact == $archive and
                .checks.http_ws_sdk == "passed" and .checks.configured_origin_sdk == "passed" and
+               .checks.telemetry_resource_endurance == "passed" and
+               .telemetry_resource_endurance_seconds == 120 and
                .checks.stdio_sdk_process == "passed"' "$directory/qualification.json" >/dev/null
             cp "$directory/$archive" "$directory/$archive.sha256" dist/
             cp "$directory/qualification.json" "dist/qualification-$rid.json"

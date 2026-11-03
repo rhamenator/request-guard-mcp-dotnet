@@ -262,11 +262,20 @@ python3 tests/protocol/lock_negative.py
 Intel macOS and arm64 macOS hosted runners. It validates archive/file checksums,
 source/RID provenance and safe single-root extraction, then runs the actual extracted
 binary through the HTTP/WebSocket envelope and all-tool official SDK suite plus stdio
-process/SDK tests. Runtime lookup paths point at an absent directory; the executable
+process/SDK tests. Each extracted artifact also runs the bounded telemetry/resource probe for
+120 seconds: 25 unknown-tool plus health request pairs per second, exact bounded metric labels,
+secret-marker exclusion, and process ceilings where the platform exposes `/proc`. The retained
+report records the duration and `telemetry_resource_endurance` result. Runtime lookup paths point
+at an absent directory; the executable
 runs directly without invoking `dotnet`. The dependency-drift negative control requires
 NU1004. Test reports record the exact archive digest, source, RID and SDK. Development
 candidate archives/reports are retained for seven days, without release/tag/registry
 publication. Check current run results before making a platform qualification claim.
+
+The 120-second artifact probe is production-duration relative to this repository's fixed
+HTTP/2 connection-age budget. It is not a maximum-throughput benchmark, a long-term memory-leak
+study or evidence for external backends, arbitrary collectors, slow response consumers or hostile
+network peers.
 
 The four-RID `ReleaseBundle` profile pins dependencies separately from normal builds,
 and `global.json` pins SDK10.0.402 with roll-forward disabled, matching the container.

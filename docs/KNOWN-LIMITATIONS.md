@@ -69,6 +69,9 @@ installed uninstall script because PKG has no native uninstall transaction. Pack
 and macOS packages are not notarized. Matching hosted runners qualify fresh portable extraction,
 SDK clients and installer install/launch/upgrade/uninstall/residue; backend TLS, physical LAN/router,
 enterprise deployment systems and every supported-distribution version remain separate evidence.
+Each extracted native archive has a 120-second bounded mixed-traffic telemetry/resource gate on its
+matching hosted platform. That evidence is not a maximum-load, long-term leak, slow-consumer or
+external-backend endurance claim.
 Development Actions artifacts are not official release candidates or stable releases. Checksums and
 workflow manifests establish consistency and traceability, not signed publisher identity.
 

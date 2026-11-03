@@ -69,6 +69,11 @@ slow-consumer, IIS and broader client parity remain open. `DefaultCleartextListe
 also makes the same-port disposition executable: the production-shaped default cleartext listener
 must serve HTTP/1.1, reject HTTP/2 prior knowledge and remain healthy for a later HTTP/1.1 request.
 Same-port cleartext multiplexing is unsupported rather than an unverified parity claim.
+`qualify_bundle.py` also repeats the bounded mixed-traffic telemetry/resource probe against every
+freshly extracted supported-RID artifact for 120 seconds, records that duration in the retained
+report, and applies exact metrics/secret-marker checks plus `/proc` resource ceilings where
+available. This is artifact endurance across the fixed production connection-age interval, not a
+maximum-load, slow-consumer, external-backend or long-term leak claim.
 
 ## Redis operation-record follow-up (Rust issue #159 / merged PR #163)
 
