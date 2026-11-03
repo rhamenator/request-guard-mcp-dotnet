@@ -411,12 +411,14 @@ HTTP/2 prior knowledge on the same cleartext port as Rust does. A real-host regr
 requires HTTP/1.1 success, HTTP/2 prior-knowledge rejection and subsequent HTTP/1.1 recovery on
 that default listener; the HTTP/2 resource tests use an explicit HTTP/2 listener. A real Nginx
 termination gate qualifies TLS 1.3, ALPN h2,
-HTTP/1.1 and WebSocket proxying to the loopback backend. IIS, production-duration TLS,
-slow response consumers and full current-Rust transport qualification remain unverified. CI also
+HTTP/1.1 and WebSocket proxying to the loopback backend. A real Kestrel/TCP gate also stops reading
+after the first response byte and requires the production ten-second response deadline to abort that
+peer and release the sole connection admission permit. IIS, production-duration TLS and full
+current-Rust transport qualification remain unverified. CI also
 runs a real Kestrel HTTP/2 connection under continuous traffic for the fixed 120-second age budget;
 each supported native artifact also runs 120 seconds of bounded mixed telemetry/resource traffic on
 its matching hosted platform. These are production-duration gates relative to that connection-age
-budget, not maximum-load, long-term leak, slow-consumer or external-backend claims. Existing
+budget, not maximum-load, long-term leak, every slow-consumer pattern or external-backend claims. Existing
 `config_snapshot` keeps its historical schema; these new limits are configured via
 startup settings and are not yet listed by that tool. Snapshots are always secret-safe:
 `redact_secrets` may be true or omitted, while false is rejected. A configured OTLP endpoint

@@ -70,8 +70,10 @@ and macOS packages are not notarized. Matching hosted runners qualify fresh port
 SDK clients and installer install/launch/upgrade/uninstall/residue; backend TLS, physical LAN/router,
 enterprise deployment systems and every supported-distribution version remain separate evidence.
 Each extracted native archive has a 120-second bounded mixed-traffic telemetry/resource gate on its
-matching hosted platform. That evidence is not a maximum-load, long-term leak, slow-consumer or
-external-backend endurance claim.
+matching hosted platform. That evidence is not a maximum-load, long-term leak or external-backend
+endurance claim. A separate real Kestrel/TCP gate proves that one HTTP/1.1 peer which stops after the
+first response byte is aborted at the default ten-second output deadline and releases the sole
+admission permit; it is not evidence for every hostile slow-consumer pattern.
 Development Actions artifacts are not official release candidates or stable releases. Checksums and
 workflow manifests establish consistency and traceability, not signed publisher identity.
 
