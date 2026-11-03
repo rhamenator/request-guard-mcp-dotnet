@@ -182,6 +182,11 @@ server secret is passed on the command line. This evidence is Inspector-over-std
 remote HTTP is unsupported because the server intentionally does not implement Streamable HTTP
 sessions or SSE responses.
 
+The Linux installer job repeats that exact Inspector smoke against `/usr/bin/request-guard-mcp-dotnet`
+after a clean DEB install and after a synthetic-prior upgrade. Its retained installer report records
+`mcp_inspector_stdio: passed`. Windows/macOS installed artifacts retain official Python SDK evidence;
+Inspector is not yet claimed on those installed platforms.
+
 ## WebSocket and output deadlines
 
 ```bash
