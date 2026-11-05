@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using RequestGuardMcp.Core.Configuration;
@@ -15,11 +16,14 @@ public class HttpResponseDeadlineTests
         await using var state = new AppState(new AppConfig { Auth = new AuthConfig { Enabled = false }, Limits = new LimitsConfig { HttpResponseWriteTimeoutSecs = 1 } });
         using var services = new ServiceCollection().AddSingleton(state).BuildServiceProvider();
         var lifetime = new Lifetime();
+        var connection = new ConnectionLifetime();
         var context = new DefaultHttpContext { RequestServices = services };
         context.Features.Set<IHttpRequestLifetimeFeature>(lifetime);
+        context.Features.Set<IConnectionLifetimeFeature>(connection);
         var stalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await McpEndpoints.WriteWithDeadlineAsync(context, _ => stalled.Task).WaitAsync(TimeSpan.FromSeconds(4));
         Assert.True(lifetime.Aborted);
+        Assert.True(connection.Aborted);
     }
 
     [Fact]
@@ -52,6 +56,13 @@ public class HttpResponseDeadlineTests
     {
         public bool Aborted { get; private set; }
         public CancellationToken RequestAborted { get; set; }
+        public void Abort() => Aborted = true;
+    }
+
+    private sealed class ConnectionLifetime : IConnectionLifetimeFeature
+    {
+        public bool Aborted { get; private set; }
+        public CancellationToken ConnectionClosed { get; set; }
         public void Abort() => Aborted = true;
     }
 }

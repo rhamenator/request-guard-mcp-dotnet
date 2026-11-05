@@ -2,6 +2,7 @@ using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -216,6 +217,9 @@ public static class McpEndpoints
         {
             // The response may already have started. Abort instead of appending a
             // second envelope or retaining the request on an unresponsive writer.
+            // HttpContext.Abort resets only the current stream on HTTP/2; abort the
+            // physical connection as well so it cannot retain an admission permit.
+            context.Features.Get<IConnectionLifetimeFeature>()?.Abort();
             context.Abort();
         }
     }

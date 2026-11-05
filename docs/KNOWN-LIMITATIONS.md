@@ -78,9 +78,10 @@ SDK clients and installer install/launch/upgrade/uninstall/residue; backend TLS,
 enterprise deployment systems and every supported-distribution version remain separate evidence.
 Each extracted native archive has a 120-second bounded mixed-traffic telemetry/resource gate on its
 matching hosted platform. That evidence is not a maximum-load, long-term leak or external-backend
-endurance claim. A separate real Kestrel/TCP gate proves that one HTTP/1.1 peer which stops after the
-first response byte is aborted at the default ten-second output deadline and releases the sole
-admission permit; it is not evidence for every hostile slow-consumer pattern.
+endurance claim. Separate real Kestrel gates prove that an HTTP/1.1 peer and an exact-version HTTP/2
+stream which stop after the first response byte are aborted at the default ten-second output
+deadline and release the sole admission permit; this is not evidence for every hostile or
+multiplexed slow-consumer pattern.
 The remote proxy endurance mode verifies exact metric deltas, bounded labels and recovery through an
 already-running URL, but it cannot inspect the remote worker's resources or logs. It must not be
 reported as process-resource, leak, or secret-nondisclosure evidence.

@@ -90,7 +90,7 @@ jobs:
       - name: Production-duration connection and slow-consumer boundaries
         env:
           REQUEST_GUARD_ENDURANCE: "1"
-        run: dotnet test tests/RequestGuardMcp.Tests/RequestGuardMcp.Tests.csproj --configuration Release --no-build --filter 'FullyQualifiedName~ProductionDurationHttp2AgeRotatesRealConnection|FullyQualifiedName~ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission'
+        run: dotnet test tests/RequestGuardMcp.Tests/RequestGuardMcp.Tests.csproj --configuration Release --no-build --filter 'FullyQualifiedName~ProductionDurationHttp2AgeRotatesRealConnection|FullyQualifiedName~ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission|FullyQualifiedName~ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission'
       - name: Unavailable OTLP sink isolation and credential redaction
         run: /tmp/mcp-sdk/bin/python tests/protocol/run.py --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll --otlp-failure
       - name: 120-second telemetry cardinality and resource endurance
