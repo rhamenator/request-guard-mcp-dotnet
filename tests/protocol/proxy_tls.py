@@ -18,6 +18,9 @@ import urllib.error
 import urllib.request
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'parity'))
+from contract import WebSocket
+
 TOKEN = 'synthetic-protocol-client-token-at-least-32-bytes'
 
 
@@ -181,6 +184,27 @@ def websocket_health(base_url, ca_cert):
             assert response['id'] == 42 and response['result']['status'] == 'healthy', response
 
 
+def shared_client_websocket_health(base_url, ca_cert):
+    """Exercise the same TLS-capable raw client used by the full protocol runner."""
+    previous_ca = os.environ.get('SSL_CERT_FILE')
+    os.environ['SSL_CERT_FILE'] = str(ca_cert)
+    try:
+        client = WebSocket(base_url, TOKEN, subprotocol='mcp')
+        try:
+            client.send(b'{"jsonrpc":"2.0","id":43,"method":"health"}')
+            opcode, body = client.receive()
+            response = json.loads(body)
+            assert opcode == 1 and response['id'] == 43
+            assert response['result']['status'] == 'healthy', response
+        finally:
+            client.close()
+    finally:
+        if previous_ca is None:
+            os.environ.pop('SSL_CERT_FILE', None)
+        else:
+            os.environ['SSL_CERT_FILE'] = previous_ca
+
+
 def receive_exact(connection, length):
     data = bytearray()
     while len(data) < length:
@@ -264,10 +288,11 @@ def main():
                                              origin='https://evil.test')
             assert status == 403 and not isinstance(response, dict), (status, response)
             websocket_health(base_url, ca_cert)
+            shared_client_websocket_health(base_url, ca_cert)
 
             with urllib.request.urlopen(f'http://127.0.0.1:{backend_port}/metrics', timeout=3) as response:
                 metrics = response.read().decode()
-            assert re.search(r'^mcp_requests_total\{tool="health",status="ok"\} 3$',
+            assert re.search(r'^mcp_requests_total\{tool="health",status="ok"\} 4$',
                              metrics, re.MULTILINE), metrics
             with urllib.request.urlopen(f'http://127.0.0.1:{backend_port}/health', timeout=3) as response:
                 assert response.status == 200
