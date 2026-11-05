@@ -230,9 +230,11 @@ metrics and auth-error body writes. Configuration rejects nonpositive budgets an
 values exceeding the cancellation timer's range. The opt-in
 `ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` gate uses a real Kestrel HTTP/1.1
 connection with a 1 KiB receive buffer, reads only the first response byte, and requires the default
-ten-second response deadline to abort that peer and return the sole TCP admission permit. This does
-not establish every slow-consumer or proxy behavior; production-duration IIS/TLS and those narrower
-residuals remain in #25.
+ten-second response deadline to abort that peer and return the sole TCP admission permit.
+`ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` repeats the production
+deadline and sole-permit recovery requirement over a real exact-version HTTP/2 connection whose
+application stops after one body byte. These do not establish every slow-consumer, multiplexed-stream
+or proxy behavior; those narrower residuals remain in #25.
 
 CI separately opts into the real 120-second HTTP/2 age and production response-deadline tests:
 
@@ -241,14 +243,16 @@ REQUEST_GUARD_ENDURANCE=1 dotnet test \
   tests/RequestGuardMcp.Tests/RequestGuardMcp.Tests.csproj \
   --configuration Release --no-build \
   --filter 'FullyQualifiedName~ProductionDurationHttp2AgeRotatesRealConnection|
-    FullyQualifiedName~ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission'
+    FullyQualifiedName~ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission|
+    FullyQualifiedName~ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission'
 ```
 
 It keeps a real Kestrel HTTP/2 connection active with requests every two seconds, requires the
 connection identity to survive at least 115 seconds, and requires rotation by 135 seconds. This
 uses the public `ConnectionResourceGuard` constructor and therefore its fixed 120-second production
 budget. It is production-duration server evidence, but not packaged-artifact, throughput,
-maximum-connection or leak evidence.
+maximum-connection or leak evidence. The two response-consumer cases separately require the default
+ten-second output deadline and recovery over real HTTP/1.1 and HTTP/2 connections.
 
 ## TLS/ALPN reverse-proxy qualification
 

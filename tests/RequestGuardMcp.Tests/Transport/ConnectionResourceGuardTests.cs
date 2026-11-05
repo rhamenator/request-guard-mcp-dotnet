@@ -255,6 +255,36 @@ public class ConnectionResourceGuardTests
     }
 
     [Fact]
+    [Trait("Category", "Endurance")]
+    public async Task ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("REQUEST_GUARD_ENDURANCE"), "1", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var limits = new LimitsConfig { MaxConnections = 1 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http2);
+        using var stalledClient = host.Client();
+        using var setupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var stalledResponse = await stalledClient.GetAsync(
+            "/slow-consumer", HttpCompletionOption.ResponseHeadersRead, setupDeadline.Token);
+        await using var stalledBody = await stalledResponse.Content.ReadAsStreamAsync(setupDeadline.Token);
+
+        // Consume only one body byte. HTTP/2 flow control must not let this stream retain
+        // the sole admitted TCP connection beyond the production response-write deadline.
+        var firstByte = new byte[1];
+        Assert.Equal(1, await stalledBody.ReadAsync(firstByte, setupDeadline.Token));
+        var started = TimeProvider.System.GetTimestamp();
+
+        using var recovered = await GetEventuallyAsync(host, timeout: TimeSpan.FromSeconds(15));
+        var elapsed = TimeProvider.System.GetElapsedTime(started);
+        Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
+        Assert.Equal(HttpVersion.Version20, recovered.Version);
+        Assert.InRange(elapsed, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
     public async Task Http2GracefulDrainCannotBeHeldByAnUnresponsivePeer()
     {
         await using var host = await RunningServer.StartAsync(new LimitsConfig { MaxConnections = 1, Http2IdleTimeoutSecs = 1 }, HttpProtocols.Http2);

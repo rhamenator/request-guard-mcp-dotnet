@@ -441,9 +441,11 @@ requires HTTP/1.1 success, HTTP/2 prior-knowledge rejection and subsequent HTTP/
 that default listener; the HTTP/2 resource tests use an explicit HTTP/2 listener. A real Nginx
 termination gate qualifies TLS 1.3, ALPN h2,
 HTTP/1.1 and WebSocket proxying to the loopback backend. A real Kestrel/TCP gate also stops reading
-after the first response byte and requires the production ten-second response deadline to abort that
-peer and release the sole connection admission permit. IIS HTTP/WebSocket is qualified through
-out-of-process ANCM; production-duration IIS/TLS and full current-Rust transport qualification
+after the first response byte over both HTTP/1.1 and an exact-version HTTP/2 stream, then requires
+the production ten-second response deadline to abort the peer and release the sole connection
+admission permit. IIS HTTP/WebSocket is qualified through out-of-process ANCM with ephemeral-CA TLS
+1.3, ALPN HTTP/2, HTTP/1.1 fallback, the official SDK and a 120-second bounded proxy run; public CAs,
+client certificates, IIS worker resource/log ceilings and full current-Rust transport qualification
 remain unverified. CI also
 runs a real Kestrel HTTP/2 connection under continuous traffic for the fixed 120-second age budget;
 each supported native artifact also runs 120 seconds of bounded mixed telemetry/resource traffic on
