@@ -81,6 +81,9 @@ matching hosted platform. That evidence is not a maximum-load, long-term leak or
 endurance claim. A separate real Kestrel/TCP gate proves that one HTTP/1.1 peer which stops after the
 first response byte is aborted at the default ten-second output deadline and releases the sole
 admission permit; it is not evidence for every hostile slow-consumer pattern.
+The remote proxy endurance mode verifies exact metric deltas, bounded labels and recovery through an
+already-running URL, but it cannot inspect the remote worker's resources or logs. It must not be
+reported as process-resource, leak, or secret-nondisclosure evidence.
 Development Actions artifacts are not official release candidates or stable releases. Checksums and
 workflow manifests establish consistency and traceability, not signed publisher identity.
 

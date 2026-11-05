@@ -50,7 +50,9 @@ Update this matrix whenever a requirement, implementation path, or verification 
   metric labels are limited to registered tool names plus `__unknown__`. Dispatcher overload
   and 100-name cardinality regressions verify this boundary. The running-artifact probe extends
   it to 120 seconds of bounded mixed traffic, exact metrics, log exclusion, and process ceilings
-  against .NET and both exact maintained Rust references; it is not a throughput/leak benchmark.
+  against .NET and both exact maintained Rust references. A baseline-delta form applies the same
+  bounded traffic and metric-label checks through an already-running remote proxy without claiming
+  access to its process resources or logs; it is not a throughput/leak benchmark.
 
 ## Connection-resource follow-up (Rust main 740eac2)
 
