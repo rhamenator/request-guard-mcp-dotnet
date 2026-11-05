@@ -125,8 +125,9 @@ pair runner explicitly binds both servers to loopback, rather than hiding the ch
 .NET default through payload normalization; a default-configuration test checks it. Missing protocol
 version is an explicit legacy/initialization compatibility path, not implicit support
 for every MCP revision. The separate Nginx gate below qualifies TLS/ALPN and reverse proxying on
-Linux. The IIS gate below qualifies the bounded Windows HTTP/WebSocket profile; production-duration
-IIS/TLS and broader browser clients remain separate work in #25.
+Linux. The IIS gate below qualifies TLS/ALPN, the bounded Windows HTTP/WebSocket/official-SDK
+profile, and 120 seconds of proxy traffic. Arbitrary proxies and browser automation beyond the
+documented clients are not claimed release support.
 
 The runner asserts controlled differences rather than normalizing them away. .NET rejects
 duplicate JSON properties, missing MCP media headers and duplicate Authorization headers, accepts
@@ -234,7 +235,7 @@ ten-second response deadline to abort that peer and return the sole TCP admissio
 `ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` repeats the production
 deadline and sole-permit recovery requirement over a real exact-version HTTP/2 connection whose
 application stops after one body byte. These do not establish every slow-consumer, multiplexed-stream
-or proxy behavior; those narrower residuals remain in #25.
+or proxy behavior; those are disclosed residual limitations rather than release-candidate claims.
 
 CI separately opts into the real 120-second HTTP/2 age and production response-deadline tests:
 

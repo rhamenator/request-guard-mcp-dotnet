@@ -88,8 +88,10 @@ the binding choice; Windows native qualification parses the generated `web.confi
 requires its retained pass record. A disposable Windows 11/IIS 10 VM then exercises the full
 HTTP/WebSocket envelope, authentication/origin and official-SDK tool matrix through IIS. The IIS
 profile explicitly records HTTP.sys's normalization of repeated identical Authorization fields;
-conflicting and malformed values remain rejected. IIS TLS and production-duration proxy evidence
-remain controlled follow-up under #25.
+conflicting and malformed values remain rejected. The ephemeral-CA IIS gate adds TLS 1.3,
+ALPN-selected HTTP/2, HTTP/1.1 fallback and 120 seconds of bounded exact-delta proxy traffic.
+Public CAs, client certificates, IIS worker resource/log ceilings and arbitrary proxies are
+explicit non-claims, not unverified release requirements.
 
 ## Redis operation-record follow-up (Rust issue #159 / merged PR #163)
 
