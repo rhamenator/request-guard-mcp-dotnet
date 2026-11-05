@@ -9,6 +9,7 @@ import re
 import urllib.parse
 from pathlib import Path
 import socket
+import ssl
 import struct
 import subprocess
 import sys
@@ -173,6 +174,83 @@ def check_telemetry_endurance(url, seconds, pid):
           f'{health_count} healthy calls, two bounded tool labels{resource_summary}')
 
 
+def optional_metric_value(metrics, family, labels):
+    """Read a metric that may not have been created before the first request."""
+    try:
+        return metric_value(metrics, family, labels)
+    except AssertionError:
+        return 0
+
+
+def check_remote_telemetry_endurance(url, seconds):
+    """Exercise an already-running proxy target without claiming process inspection."""
+    assert seconds >= 1
+    baseline = get_metrics(url)
+    assert CARDINALITY_MARKER not in baseline
+    baseline_labels = set(re.findall(r'tool="([^"]+)"', baseline))
+    counter_specs = [
+        ('mcp_requests_total', [('tool', '__unknown__'), ('status', 'error')]),
+        ('mcp_tool_errors_total', [('tool', '__unknown__'), ('error_code', 'TOOL_NOT_FOUND')]),
+        ('mcp_request_duration_seconds_count', [('tool', '__unknown__')]),
+        ('mcp_requests_total', [('tool', 'health'), ('status', 'ok')]),
+        ('mcp_request_duration_seconds_count', [('tool', 'health')]),
+    ]
+    baseline_values = [optional_metric_value(baseline, family, labels)
+                       for family, labels in counter_specs]
+
+    started = time.monotonic()
+    deadline = started + seconds
+    request_id = 0
+    unknown_count = 0
+    health_count = 0
+    next_request = started
+    while time.monotonic() < deadline:
+        request_id += 1
+        probe = f'{CARDINALITY_MARKER}{request_id:08d}-synthetic-secret'
+        status, body = post(url, json.dumps({
+            'jsonrpc': '2.0', 'id': request_id, 'method': probe,
+        }))
+        response = json.loads(body)
+        assert status == 200 and response['error']['code'] == -404, response
+        unknown_count += 1
+
+        request_id += 1
+        status, body = post(url, json.dumps({
+            'jsonrpc': '2.0', 'id': request_id, 'method': 'health',
+        }))
+        response = json.loads(body)
+        assert status == 200 and response['result']['status'] == 'healthy', response
+        health_count += 1
+
+        if unknown_count == 1 or unknown_count % 250 == 0:
+            interim = get_metrics(url)
+            assert CARDINALITY_MARKER not in interim
+            assert len(interim) < 64 * 1024, len(interim)
+
+        next_request += 0.04
+        delay = next_request - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+
+    metrics = get_metrics(url)
+    assert CARDINALITY_MARKER not in metrics
+    final_labels = set(re.findall(r'tool="([^"]+)"', metrics))
+    assert final_labels - baseline_labels <= {'__unknown__', 'health'}, (
+        baseline_labels, final_labels)
+    expected_deltas = [unknown_count, unknown_count, unknown_count,
+                       health_count, health_count]
+    for (family, labels), before, expected in zip(
+            counter_specs, baseline_values, expected_deltas):
+        after = metric_value(metrics, family, labels)
+        assert after - before == expected, (family, labels, before, after, expected)
+    assert re.search(r'^mcp_active_connections 0$', metrics, re.MULTILINE), metrics
+    elapsed = time.monotonic() - started
+    assert elapsed >= seconds, elapsed
+    print(f'PASS remote telemetry endurance: {elapsed:.1f}s, '
+          f'{unknown_count} unique unknown + {health_count} healthy calls, '
+          'bounded metric labels and exact counter deltas; process resources/logs not inspected')
+
+
 def check_envelopes(url, reject_duplicate_properties=True, expected_allow_header='POST'):
     client = WebSocket(url, TOKEN)
     try:
@@ -246,7 +324,11 @@ def check_http_profile(url, allowed_origin=None, dotnet_hardened_profile=True,
               ('Accept', 'application/json, text/event-stream')]
 
     def send(headers):
-        connection = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=5)
+        if parsed.scheme == 'https':
+            connection = http.client.HTTPSConnection(
+                parsed.hostname, parsed.port, timeout=5, context=ssl.create_default_context())
+        else:
+            connection = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=5)
         try:
             connection.putrequest('POST', '/mcp')
             for key, value in headers:
@@ -413,6 +495,8 @@ def main():
     parser.add_argument('--otlp-failure', action='store_true', help='Qualify unavailable OTLP sink isolation and log redaction')
     parser.add_argument('--telemetry-endurance-seconds', type=int,
                         help='Run a bounded-label and process-resource endurance probe')
+    parser.add_argument('--remote-telemetry-endurance-seconds', type=int,
+                        help='Run bounded-label endurance against --url without process/log claims')
     parser.add_argument('--expected-server-name',
                         help='Expected initialize serverInfo.name (inferred for spawned known runtimes)')
     parser.add_argument('--iis-proxy', action='store_true',
@@ -424,11 +508,19 @@ def main():
         parser.error('WebSocket budget must be positive')
     if args.telemetry_endurance_seconds is not None and args.telemetry_endurance_seconds < 1:
         parser.error('telemetry endurance duration must be positive')
+    if (args.remote_telemetry_endurance_seconds is not None
+            and args.remote_telemetry_endurance_seconds < 1):
+        parser.error('remote telemetry endurance duration must be positive')
+    if args.telemetry_endurance_seconds and args.remote_telemetry_endurance_seconds:
+        parser.error('local and remote telemetry endurance probes are mutually exclusive')
     if args.otlp_failure and args.telemetry_endurance_seconds:
         parser.error('run OTLP failure and telemetry endurance as separate isolated-host probes')
     if args.url:
         if args.otlp_failure or args.telemetry_endurance_seconds:
             parser.error('OTLP/endurance probes require a spawned host so logs/resources can be inspected')
+        if args.remote_telemetry_endurance_seconds:
+            check_remote_telemetry_endurance(args.url, args.remote_telemetry_endurance_seconds)
+            return
         check_envelopes(args.url)
         check_http_profile(args.url, args.allowed_origin, iis_proxy_profile=args.iis_proxy)
         if args.ws_deadline_seconds:
@@ -437,6 +529,8 @@ def main():
         return
     if args.iis_proxy:
         parser.error('--iis-proxy requires --url')
+    if args.remote_telemetry_endurance_seconds:
+        parser.error('--remote-telemetry-endurance-seconds requires --url')
     executable = (args.binary or args.dotnet_dll).resolve()
     if not executable.is_file():
         parser.error(f'build the host first; executable not found: {executable}')

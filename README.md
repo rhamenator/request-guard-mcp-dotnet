@@ -412,6 +412,12 @@ evidence, not a throughput benchmark or a claim about every production collector
 controls do not establish current Rust parity for TCP/HTTP/WebSocket connection and slow-client
 limits.
 
+For an isolated, separately managed proxy deployment, `tests/protocol/run.py --url URL
+--remote-telemetry-endurance-seconds 120` applies the same bounded traffic rate and checks exact
+Prometheus counter deltas, bounded labels, and recovery. Because it cannot inspect the remote worker
+or captured logs, it is proxy-traffic evidence only and does not replace the process-resource and
+log assertions in the spawned-host gate.
+
 ### Connection resource limits
 
 The Kestrel host caps admitted TCP connections, including upgraded WebSockets, at

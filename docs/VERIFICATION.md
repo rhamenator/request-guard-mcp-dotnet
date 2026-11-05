@@ -295,8 +295,30 @@ negotiation/auth/origin profile, and official Python SDK initialization, schemas
 calls. The IIS profile records HTTP.sys normalization of repeated identical Authorization fields;
 all conflicting, comma-joined, malformed, missing and incorrect credentials remain rejected. The
 November 3, 2026 local VM run used synthetic credentials and a host-only firewall rule and passed.
-It did not qualify IIS TLS termination, public exposure, client-certificate authentication,
-production-duration traffic, Windows Server editions or every IIS/ANCM version.
+On November 5, 2026 the exact `win-x64` CI artifact from `61555fd8cfab0706421ddc5a427eabe1a9d8f146`
+was redeployed to the disposable Windows 11/IIS 10 clone behind an ephemeral two-day test CA and a
+host-only firewall rule. Untrusted-certificate rejection, trusted TLS 1.3, ALPN-selected HTTP/2,
+HTTP/1.1 fallback, the complete HTTP/WebSocket/IIS/official-SDK matrix, and 120 seconds of 25
+unknown/healthy request pairs per second all passed. The endurance run completed 3,000 calls of each
+kind with exact Prometheus deltas, bounded labels, and post-run recovery. It did not qualify public
+exposure, public CAs, client-certificate authentication, Windows Server editions, every IIS/ANCM
+version, or IIS worker resource/log ceilings.
+
+For a fresh isolated IIS deployment, the remote-only endurance mode can hold the same bounded
+25 unknown/healthy request pairs per second through the proxy without requiring access to the
+Windows worker process or its logs:
+
+```bash
+SSL_CERT_FILE=/path/to/isolated-test-ca.pem \
+  /tmp/request-guard-sdk/bin/python tests/protocol/run.py \
+  --url https://IIS_TEST_HOST:PORT \
+  --remote-telemetry-endurance-seconds 120
+```
+
+The probe snapshots counters before traffic, requires exact counter deltas, rejects
+attacker-selected metric labels, bounds the metrics document, and checks post-run connection
+recovery. It deliberately does not claim process-resource or log inspection; collect those
+separately on the IIS host when making a resource or secret-nondisclosure claim.
 
 ## Native archive qualification
 
@@ -422,6 +444,12 @@ claim. Run a short local form with:
   --dotnet-dll src/RequestGuardMcp.Host/bin/Release/net10.0/request-guard-mcp-dotnet.dll \
   --telemetry-endurance-seconds 15
 ```
+
+For a separately managed proxy target, use `--url URL
+--remote-telemetry-endurance-seconds 120`. That form compares Prometheus counter deltas with a
+pre-run snapshot and preserves the label and connection checks, but cannot inspect the remote
+process, file descriptors, threads or captured logs. It is proxy-traffic endurance evidence, not a
+substitute for the spawned-host resource and log gate above.
 
 ## Independence and residual limitations
 

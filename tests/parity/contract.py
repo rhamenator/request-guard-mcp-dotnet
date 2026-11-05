@@ -17,6 +17,7 @@ import os
 import pathlib
 import re
 import socket
+import ssl
 import struct
 import sys
 import time
@@ -208,11 +209,16 @@ def normalize_generated_request_ids(value: Any) -> None:
 class WebSocket:
     def __init__(self, url: str, token: str | None = None, subprotocol: str | None = None):
         parsed = urllib.parse.urlparse(url)
-        self.sock = socket.create_connection((parsed.hostname or "127.0.0.1", parsed.port or 80), timeout=10)
+        tls = parsed.scheme in {"https", "wss"}
+        port = parsed.port or (443 if tls else 80)
+        self.sock = socket.create_connection((parsed.hostname or "127.0.0.1", port), timeout=10)
+        if tls:
+            self.sock = ssl.create_default_context().wrap_socket(
+                self.sock, server_hostname=parsed.hostname or "127.0.0.1")
         key = base64.b64encode(os.urandom(16)).decode()
         headers = [
             f"GET /mcp HTTP/1.1",
-            f"Host: {parsed.hostname}:{parsed.port}",
+            f"Host: {parsed.hostname}:{port}",
             "Upgrade: websocket",
             "Connection: Upgrade",
             f"Sec-WebSocket-Key: {key}",
@@ -238,9 +244,16 @@ class WebSocket:
     @staticmethod
     def upgrade_status(url: str, token: str | None = None) -> int:
         parsed = urllib.parse.urlparse(url)
-        with socket.create_connection((parsed.hostname or "127.0.0.1", parsed.port or 80), timeout=10) as sock:
+        tls = parsed.scheme in {"https", "wss"}
+        port = parsed.port or (443 if tls else 80)
+        connection = socket.create_connection(
+            (parsed.hostname or "127.0.0.1", port), timeout=10)
+        if tls:
+            connection = ssl.create_default_context().wrap_socket(
+                connection, server_hostname=parsed.hostname or "127.0.0.1")
+        with connection as sock:
             key = base64.b64encode(os.urandom(16)).decode()
-            headers = ["GET /mcp HTTP/1.1", f"Host: {parsed.hostname}:{parsed.port}", "Upgrade: websocket", "Connection: Upgrade", f"Sec-WebSocket-Key: {key}", "Sec-WebSocket-Version: 13"]
+            headers = ["GET /mcp HTTP/1.1", f"Host: {parsed.hostname}:{port}", "Upgrade: websocket", "Connection: Upgrade", f"Sec-WebSocket-Key: {key}", "Sec-WebSocket-Version: 13"]
             if token is not None:
                 headers.append(f"Authorization: Bearer {token}")
             sock.sendall(("\r\n".join(headers) + "\r\n\r\n").encode())
