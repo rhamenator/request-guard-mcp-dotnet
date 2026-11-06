@@ -173,7 +173,8 @@ response-consumer patterns are explicit non-claims rather than unverified releas
 
 DR-015: Official release-candidate publication must fail before build or external write unless the
 version is `0.MINOR.PATCH`, the candidate is exact current protected `main`, every named current
-security/runtime/integration/native-bundle/installer check succeeded, and a closed owner-readiness
+security/runtime/integration/native-bundle/installer check (including real Redis and PostgreSQL
+recovery qualification) succeeded, and a closed owner-readiness
 record contains the exact version/SHA, evidence and limitation fields, independent-review disclosure,
 no blocking high-severity findings and an exact approval comment from an owner or collaborator.
 `release_candidate_gate.py`, its negative-control suite, the release-candidate workflow and

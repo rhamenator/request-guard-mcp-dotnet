@@ -50,8 +50,8 @@ The `Official Release Candidate` workflow is manually dispatched from `main`. It
 
 - accepts only a `0.MINOR.PATCH` version matching `Directory.Build.props`;
 - requires the current exact `main` commit;
-- requires successful exact-candidate build, test, parity, dependency, security, Redis, container,
-  four-platform native-bundle and four-platform installer checks;
+- requires successful exact-candidate build, test, parity, dependency, security, Redis, PostgreSQL,
+  container, four-platform native-bundle and four-platform installer checks;
 - validates the closed owner readiness issue and exact approval comment; and
 - rejects an existing tag, GitHub release or container version.
 
