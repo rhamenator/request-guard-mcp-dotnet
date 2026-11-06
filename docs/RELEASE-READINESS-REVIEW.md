@@ -50,8 +50,8 @@ The `Official Release Candidate` workflow is manually dispatched from `main`. It
 
 - accepts only a `0.MINOR.PATCH` version matching `Directory.Build.props`;
 - requires the current exact `main` commit;
-- requires successful exact-candidate build, test, parity, dependency, security, Redis, container,
-  four-platform native-bundle and four-platform installer checks;
+- requires successful exact-candidate build, test, parity, dependency, security, Redis, PostgreSQL,
+  container, four-platform native-bundle and four-platform installer checks;
 - validates the closed owner readiness issue and exact approval comment; and
 - rejects an existing tag, GitHub release or container version.
 
@@ -63,7 +63,7 @@ The installer jobs build DEB/RPM, MSI and both macOS PKG variants only from the 
 native archives. They retain checksum/provenance records and must pass clean install, payload
 integrity, installed launch, synthetic-version upgrade, uninstall and residue checks. Packages are
 unsigned and the readiness record must preserve that limitation; signing/notarization remains
-tracked separately under issue #27.
+explicitly deferred under closed issue #27 and remains outside the current release-candidate gate.
 
 Stable 1.0 publication is outside the current workflow and requires an explicit future policy
 decision. Do not create release tags manually.

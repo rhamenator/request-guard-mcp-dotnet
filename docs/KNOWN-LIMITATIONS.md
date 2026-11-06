@@ -58,8 +58,10 @@ success, HTTP/2 prior-knowledge rejection and later HTTP/1.1 recovery. HTTP/2 re
 explicitly select that protocol;
 an actual Nginx TLS terminator now gates CA trust/rejection, TLS 1.3, ALPN-selected HTTP/2,
 HTTP/1.1 and WebSocket proxying on Linux. Windows IIS 10 with ANCM V2 is separately qualified for
-out-of-process HTTP/WebSocket and official-SDK traffic from a disposable VM, but not IIS TLS,
-public-CA, mTLS or production-duration proxy behavior. CI now exercises the HTTP/2 age limit against real Kestrel
+out-of-process HTTP/WebSocket and official-SDK traffic from a disposable VM. Its ephemeral-CA gate
+also covers TLS 1.3, ALPN-selected HTTP/2, HTTP/1.1 fallback and 120 seconds of bounded proxy
+traffic. Public CAs, mTLS, IIS worker resource/log ceilings and arbitrary IIS versions remain
+non-claims. CI now exercises the HTTP/2 age limit against real Kestrel
 for the full 120-second production budget under continuous traffic. That is not a packaged-artifact,
 maximum-load, leak or broader resource-exhaustion record.
 
@@ -80,8 +82,9 @@ Each extracted native archive has a 120-second bounded mixed-traffic telemetry/r
 matching hosted platform. That evidence is not a maximum-load, long-term leak or external-backend
 endurance claim. Separate real Kestrel gates prove that an HTTP/1.1 peer and an exact-version HTTP/2
 stream which stop after the first response byte are aborted at the default ten-second output
-deadline and release the sole admission permit; this is not evidence for every hostile or
-multiplexed slow-consumer pattern.
+deadline and release the sole admission permit. A 16-stream gate repeats that recovery with every
+permitted stream stalled on one verified connection; this is not evidence for every hostile
+slow-consumer pattern.
 The remote proxy endurance mode verifies exact metric deltas, bounded labels and recovery through an
 already-running URL, but it cannot inspect the remote worker's resources or logs. It must not be
 reported as process-resource, leak, or secret-nondisclosure evidence.

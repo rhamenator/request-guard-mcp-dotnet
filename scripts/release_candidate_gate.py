@@ -26,6 +26,7 @@ REQUIRED_CHECKS = {
     "Current Rust Classifier (f76ff9d2558fac705f091d9b858d3bc180b4f0bd)",
     "Current Rust Classifier (2660c1fbfd71b38108dfc7b9decd309e4a8e480c)",
     "Real Redis pause, outage and recovery",
+    "VerifyFull trust, rejection, outage and recovery",
     "Native bundle (linux-x64)",
     "Native bundle (win-x64)",
     "Native bundle (osx-x64)",

@@ -145,9 +145,10 @@ must be positive and fit the cancellation timer's supported range (at most 42949
 These controls bound tested I/O paths. CI qualifies a real loopback Nginx TLS terminator with a
 throwaway CA, TLS 1.3, ALPN-selected HTTP/2, HTTP/1.1 fallback, pre-dispatch auth/origin rejection
 and an authenticated WebSocket upgrade. A Windows IIS 10/ANCM V2 gate separately qualifies
-authenticated HTTP, WebSocket and official-SDK calls; TLS termination and production-duration IIS
-traffic remain separate work. The WebSocket test matrix uses a shorter configured receive budget
-for deterministic expiry/recovery tests.
+authenticated HTTP, WebSocket and official-SDK calls plus ephemeral-CA TLS 1.3, ALPN HTTP/2,
+HTTP/1.1 fallback and 120 seconds of bounded proxy traffic. Public CAs, client certificates, IIS
+worker resource/log ceilings and arbitrary IIS versions are not claimed. The WebSocket test matrix
+uses a shorter configured receive budget for deterministic expiry/recovery tests.
 
 ### IIS reverse proxy on Windows
 
@@ -195,8 +196,8 @@ notifications produce no output. EOF exits cleanly; Ctrl+C/SIGTERM cancels pendi
 Output writes have a five-second deadline; a stuck reader causes process failure.
 This is a sequential transport: requests finish in input order, and notification-based
 in-flight cancellation is not implemented. SDK/process and installed-binary evidence runs on
-Linux, Windows, Intel macOS and arm64 macOS hosted runners. OS-service and additional
-client-specific qualification remain open.
+Linux, Windows, Intel macOS and arm64 macOS hosted runners. OS-service integration and additional
+clients are not part of the supported release-candidate surface.
 
 The pinned MCP Inspector CLI is also qualified over stdio against the running Release build
 (Node.js 22.19 or newer is required by this Inspector release):
@@ -443,7 +444,8 @@ termination gate qualifies TLS 1.3, ALPN h2,
 HTTP/1.1 and WebSocket proxying to the loopback backend. A real Kestrel/TCP gate also stops reading
 after the first response byte over both HTTP/1.1 and an exact-version HTTP/2 stream, then requires
 the production ten-second response deadline to abort the peer and release the sole connection
-admission permit. IIS HTTP/WebSocket is qualified through out-of-process ANCM with ephemeral-CA TLS
+admission permit. A second HTTP/2 gate repeats the recovery with all 16 permitted streams stalled
+on one verified connection. IIS HTTP/WebSocket is qualified through out-of-process ANCM with ephemeral-CA TLS
 1.3, ALPN HTTP/2, HTTP/1.1 fallback, the official SDK and a 120-second bounded proxy run; public CAs,
 client certificates, IIS worker resource/log ceilings and full current-Rust transport qualification
 remain unverified. CI also

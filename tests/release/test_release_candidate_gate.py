@@ -52,6 +52,10 @@ class ReleaseCandidateGateTests(unittest.TestCase):
             "Current Rust Classifier (2660c1fbfd71b38108dfc7b9decd309e4a8e480c)",
             gate.REQUIRED_CHECKS,
         )
+        self.assertIn(
+            "VerifyFull trust, rejection, outage and recovery",
+            gate.REQUIRED_CHECKS,
+        )
         gate.require_exact_main({"commit": {"sha": SHA}}, SHA, "main", "branch")
         gate.require_checks({"check_runs": [
             {"name": name, "status": "completed", "conclusion": "success"}
@@ -76,11 +80,20 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         runs[0]["conclusion"] = "failure"
         with self.assertRaises(gate.GateError):
             gate.require_checks({"check_runs": runs})
+        runs[0]["conclusion"] = "success"
         with self.assertRaises(gate.GateError):
             gate.require_checks({"total_count": len(runs) + 1, "check_runs": runs})
-        runs[0]["conclusion"] = "success"
         runs[0]["status"] = "in_progress"
         with self.assertRaises(gate.GateError):
+            gate.require_checks({"check_runs": runs})
+
+    def test_postgres_qualification_is_required(self):
+        runs = [
+            {"name": name, "status": "completed", "conclusion": "success"}
+            for name in gate.REQUIRED_CHECKS
+            if name != "VerifyFull trust, rejection, outage and recovery"
+        ]
+        with self.assertRaisesRegex(gate.GateError, "VerifyFull trust"):
             gate.require_checks({"check_runs": runs})
 
     def test_latest_check_attempt_controls_retry_result(self):
