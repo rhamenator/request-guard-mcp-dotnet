@@ -63,7 +63,7 @@ The installer jobs build DEB/RPM, MSI and both macOS PKG variants only from the 
 native archives. They retain checksum/provenance records and must pass clean install, payload
 integrity, installed launch, synthetic-version upgrade, uninstall and residue checks. Packages are
 unsigned and the readiness record must preserve that limitation; signing/notarization remains
-tracked separately under issue #27.
+explicitly deferred under closed issue #27 and remains outside the current release-candidate gate.
 
 Stable 1.0 publication is outside the current workflow and requires an explicit future policy
 decision. Do not create release tags manually.

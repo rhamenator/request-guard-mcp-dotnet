@@ -234,8 +234,10 @@ connection with a 1 KiB receive buffer, reads only the first response byte, and 
 ten-second response deadline to abort that peer and return the sole TCP admission permit.
 `ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` repeats the production
 deadline and sole-permit recovery requirement over a real exact-version HTTP/2 connection whose
-application stops after one body byte. These do not establish every slow-consumer, multiplexed-stream
-or proxy behavior; those are disclosed residual limitations rather than release-candidate claims.
+application stops after one body byte. The multiplexed counterpart opens all 16 permitted streams
+on one verified connection, consumes one byte from each, and requires the first deadline to release
+the sole TCP permit. These do not establish every slow-consumer or proxy behavior; those are
+disclosed residual limitations rather than release-candidate claims.
 
 CI separately opts into the real 120-second HTTP/2 age and production response-deadline tests:
 
@@ -245,15 +247,17 @@ REQUEST_GUARD_ENDURANCE=1 dotnet test \
   --configuration Release --no-build \
   --filter 'FullyQualifiedName~ProductionDurationHttp2AgeRotatesRealConnection|
     FullyQualifiedName~ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission|
-    FullyQualifiedName~ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission'
+    FullyQualifiedName~ProductionHttp2ResponseDeadlineAbortsSlowConsumerAndReleasesAdmission|
+    FullyQualifiedName~ProductionHttp2DeadlineAbortsMultiplexedSlowConsumersAndReleasesAdmission'
 ```
 
 It keeps a real Kestrel HTTP/2 connection active with requests every two seconds, requires the
 connection identity to survive at least 115 seconds, and requires rotation by 135 seconds. This
 uses the public `ConnectionResourceGuard` constructor and therefore its fixed 120-second production
 budget. It is production-duration server evidence, but not packaged-artifact, throughput,
-maximum-connection or leak evidence. The two response-consumer cases separately require the default
-ten-second output deadline and recovery over real HTTP/1.1 and HTTP/2 connections.
+maximum-connection or leak evidence. The response-consumer cases separately require the default
+ten-second output deadline and recovery over real HTTP/1.1, single-stream HTTP/2 and fully occupied
+16-stream HTTP/2 connections.
 
 ## TLS/ALPN reverse-proxy qualification
 
@@ -272,8 +276,8 @@ version and installs the runner package only when it is absent. The CA, private 
 and logs live in a temporary directory and are deleted after the run.
 
 This proves the documented TLS-termination topology on Linux; it does not qualify public CAs,
-mutual TLS, forwarded-client identity, production-duration connections, arbitrary proxy
-configurations or IIS TLS termination.
+mutual TLS, forwarded-client identity, production-duration connections or arbitrary proxy
+configurations. The separate section below records the bounded IIS TLS evidence.
 
 ## IIS out-of-process qualification
 

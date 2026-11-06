@@ -70,9 +70,10 @@ continuous traffic through the fixed 120-second production age.
 `ProductionResponseDeadlineAbortsSlowConsumerAndReleasesAdmission` uses a real HTTP/1.1 peer that
 stops after the first response byte, requires the default ten-second output deadline to abort it,
 and proves recovery of the sole TCP permit. The HTTP/2 counterpart uses an exact-version client,
-stops after one body byte and requires the same production deadline and sole-permit recovery.
-Packaged-artifact maximum load, broader hostile or multiplexed slow-consumer patterns and broader
-client parity remain open. `DefaultCleartextListenerRejectsHttp2PriorKnowledgeAndRecoversHttp1`
+stops after one body byte and requires the same production deadline and sole-permit recovery. A
+second HTTP/2 gate stalls all 16 permitted streams on one verified connection and requires the
+first deadline to release that permit. Packaged-artifact maximum load, broader hostile
+slow-consumer patterns and broader client parity remain open. `DefaultCleartextListenerRejectsHttp2PriorKnowledgeAndRecoversHttp1`
 also makes the same-port disposition executable: the production-shaped default cleartext listener
 must serve HTTP/1.1, reject HTTP/2 prior knowledge and remain healthy for a later HTTP/1.1 request.
 Same-port cleartext multiplexing is unsupported rather than an unverified parity claim.
@@ -166,8 +167,9 @@ permits and reject unsupported timer values at startup. `WebSocketConnectionHand
 `HttpResponseDeadlineTests`, real incomplete-message admission recovery and the running
 protocol/native matrix trace these properties. The Nginx gate adds TLS/ALPN and proxied HTTP/WS
 evidence; real HTTP/1.1 and HTTP/2 slow-consumer gates apply the default output deadline, and the
-disposable IIS gate adds TLS/ALPN, HTTP/WS/SDK and bounded-duration proxy evidence. Broader hostile
-or multiplexed response-consumer patterns remain separately required.
+disposable IIS gate adds TLS/ALPN, HTTP/WS/SDK and bounded-duration proxy evidence. A real
+16-stream HTTP/2 gate covers a fully occupied multiplexed connection; other hostile
+response-consumer patterns are explicit non-claims rather than unverified release requirements.
 
 DR-015: Official release-candidate publication must fail before build or external write unless the
 version is `0.MINOR.PATCH`, the candidate is exact current protected `main`, every named current

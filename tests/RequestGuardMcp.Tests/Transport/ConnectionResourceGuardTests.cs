@@ -285,6 +285,52 @@ public class ConnectionResourceGuardTests
     }
 
     [Fact]
+    [Trait("Category", "Endurance")]
+    public async Task ProductionHttp2DeadlineAbortsMultiplexedSlowConsumersAndReleasesAdmission()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("REQUEST_GUARD_ENDURANCE"), "1", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var limits = new LimitsConfig { MaxConnections = 1 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http2);
+        using var stalledClient = host.MultiplexedClient();
+        using var setupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+
+        var stalledResponses = await Task.WhenAll(Enumerable.Range(0, 16).Select(async _ =>
+        {
+            var response = await stalledClient.GetAsync(
+                "/slow-consumer", HttpCompletionOption.ResponseHeadersRead, setupDeadline.Token);
+            var body = await response.Content.ReadAsStreamAsync(setupDeadline.Token);
+            var firstByte = new byte[1];
+            Assert.Equal(1, await body.ReadAsync(firstByte, setupDeadline.Token));
+            return response;
+        }));
+
+        try
+        {
+            Assert.All(stalledResponses, response => Assert.Equal(HttpVersion.Version20, response.Version));
+            Assert.Single(stalledResponses.Select(response =>
+                response.Headers.GetValues("X-Test-Connection-Id").Single()).Distinct(StringComparer.Ordinal));
+            var started = TimeProvider.System.GetTimestamp();
+
+            using var recovered = await GetEventuallyAsync(host, timeout: TimeSpan.FromSeconds(15));
+            var elapsed = TimeProvider.System.GetElapsedTime(started);
+            Assert.Equal(HttpStatusCode.OK, recovered.StatusCode);
+            Assert.Equal(HttpVersion.Version20, recovered.Version);
+            Assert.InRange(elapsed, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(15));
+        }
+        finally
+        {
+            foreach (var response in stalledResponses)
+            {
+                response.Dispose();
+            }
+        }
+    }
+
+    [Fact]
     public async Task Http2GracefulDrainCannotBeHeldByAnUnresponsivePeer()
     {
         await using var host = await RunningServer.StartAsync(new LimitsConfig { MaxConnections = 1, Http2IdleTimeoutSecs = 1 }, HttpProtocols.Http2);
@@ -395,6 +441,18 @@ public class ConnectionResourceGuardTests
             Timeout = TimeSpan.FromSeconds(8),
         };
 
+        public HttpClient MultiplexedClient() => new(new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = false,
+            MaxConnectionsPerServer = 1,
+        })
+        {
+            BaseAddress = new Uri($"http://127.0.0.1:{port}"),
+            DefaultRequestVersion = HttpVersion.Version20,
+            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact,
+            Timeout = TimeSpan.FromSeconds(20),
+        };
+
         public static async Task<RunningServer> StartAsync(
             LimitsConfig limits, HttpProtocols protocols, TimeSpan? lifetime = null, bool productionDefaults = false)
             => await StartAsync(limits, protocols, lifetime, productionDefaults, defaultCleartext: false);
@@ -436,6 +494,7 @@ public class ConnectionResourceGuardTests
             app.MapGet("/", context => context.Response.WriteAsync(context.Connection.Id));
             app.MapGet("/slow-consumer", context => McpEndpoints.WriteWithDeadlineAsync(context, async token =>
             {
+                context.Response.Headers["X-Test-Connection-Id"] = context.Connection.Id;
                 var block = new byte[64 * 1024];
                 while (true)
                 {
