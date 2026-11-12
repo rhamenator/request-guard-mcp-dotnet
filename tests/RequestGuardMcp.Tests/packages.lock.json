@@ -222,8 +222,8 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.4.29",
-        "contentHash": "LKL/mB4lRuiLy/ld2E6Sot7zYsgpKKi8K7AWwydy1pgDFgza/A/lJcYCm/b7f5IglgMzT7Y9VCDTcWLq00wx7w=="
+        "resolved": "3.4.31",
+        "contentHash": "iveGez1C2lMZRLwGZM2Ta9qDtUR1haO5YhCfqLPndcwWS39/ypwjNLmB+B9kxw1XvZnXATXvD+kGtfQdOnYXlg=="
       },
       "System.IO.Hashing": {
         "type": "Transitive",
@@ -275,7 +275,7 @@
         "dependencies": {
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.20.1, )",
           "OpenTelemetry.Extensions.Hosting": "[1.20.1, )",
-          "OpenTelemetry.Instrumentation.AspNetCore": "[1.20.1, )",
+          "OpenTelemetry.Instrumentation.AspNetCore": "[1.20.2, )",
           "RequestGuardMcp.Core": "[0.1.0, )",
           "RequestGuardMcp.Integrations": "[0.1.0, )",
           "RequestGuardMcp.Mcp": "[0.1.0, )",
@@ -292,7 +292,7 @@
           "MaxMind.GeoIP2": "[6.1.0, )",
           "Npgsql": "[10.0.3, )",
           "RequestGuardMcp.Core": "[0.1.0, )",
-          "StackExchange.Redis": "[3.4.29, )"
+          "StackExchange.Redis": "[3.4.31, )"
         }
       },
       "requestguardmcp.mcp": {
@@ -355,21 +355,21 @@
       },
       "OpenTelemetry.Instrumentation.AspNetCore": {
         "type": "CentralTransitive",
-        "requested": "[1.20.1, )",
-        "resolved": "1.20.1",
-        "contentHash": "pDO+Ed5iblMTvSVGcXzoLp8q20XHhXmK0wD/H3PGNHwDFlwZpV+bDWd/Euo6hNB4E0ruqzTFD76Btm+m0uCYNw==",
+        "requested": "[1.20.2, )",
+        "resolved": "1.20.2",
+        "contentHash": "WVCabg8epzvm3Ogvrz3AYlUnfgNpOnuCgkHpN9a78e7SCg9K1GDQYHKGjgV6QubHasi6toXdq1IrI9G5FIxL3Q==",
         "dependencies": {
           "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.20.1, 2.0.0)"
         }
       },
       "StackExchange.Redis": {
         "type": "CentralTransitive",
-        "requested": "[3.4.29, )",
-        "resolved": "3.4.29",
-        "contentHash": "a/tpPHvCbzSUvnjtNaFqDmF5bTsMraA2Ms7wpcM/gNo9SU/vBwlU6aGLAWH9NiGUGG0tElz+9Ec8PKEKZKvuvA==",
+        "requested": "[3.4.31, )",
+        "resolved": "3.4.31",
+        "contentHash": "LOw65ufYLNSXs7t7KSNH6NNvK4qBYCAZEU80OcVUG94Ixib6unKH4kovpHuOdzHcsi6JwkYIoRDkU1dPDq78Rw==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.13",
-          "RESPite": "3.4.29",
+          "RESPite": "3.4.31",
           "System.IO.Hashing": "10.0.13"
         }
       }
