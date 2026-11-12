@@ -362,7 +362,7 @@ study or evidence for external backends, arbitrary collectors, slow response con
 network peers.
 
 The four-RID `ReleaseBundle` profile pins dependencies separately from normal builds,
-and `global.json` pins SDK 10.0.403 with roll-forward disabled, matching the container.
+and `global.json` pins SDK 10.0.404 with roll-forward disabled, matching the container.
 The original locked single-file publish failed NU1004 for missing RID/ILLink entries;
 local release-lock restore/publish succeeds without rewriting the five locks. SDK
 updates require reviewing/regenerating native locks and rerunning all platforms.
@@ -474,7 +474,7 @@ started manually. It builds the digest-pinned image and rejects fixed HIGH/CRITI
 findings with Trivy; a successful NuGet audit alone is not container evidence.
 The 2026-10-19 scheduled scan found fixed advisories in the old .NET 10.0.11 runtime. The
 November 3 post-merge scan then found GHSA-p3jp-9v83-76w9 in .NET 10.0.13. The replacement
-pins SDK 10.0.403 and ASP.NET runtime 10.0.14 from Microsoft Container Registry. Treat those
+pins SDK 10.0.404 and ASP.NET runtime 10.0.15 from Microsoft Container Registry. Treat those
 versions as candidates until the hosted container scan passes; record the exact workflow run
 rather than inheriting an earlier scan result.
 No native bundles, official release candidate or stable release are published by this workflow.
