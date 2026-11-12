@@ -21,6 +21,10 @@ qualifies the JSON-response HTTP path and process-local `--stdio`. Negotiation/a
 checks are exercised separately. SSE, sessions and OAuth discovery are not implemented.
 No official .NET release candidate or stable release has been published.
 
+### Related server and companion skill
+
+For a published native release, start with the [Rust Request Guard MCP server](https://github.com/rhamenator/request-guard-mcp). The optional [$6 companion skill on Agensi](https://www.agensi.io/skills/request-guard-mcp) supplies agent instructions for a separately installed server; it is not a .NET binary or a requirement to use either free GPL-3.0-or-later project. The marketplace package has its own version and compatibility requirements. Do not assume it certifies .NET compatibility; check this project's [parity matrix](docs/PARITY-MATRIX.md) and validate your chosen client.
+
 The .NET port implements all 23 sibling Rust tool contracts, HTTP/WebSocket JSON-RPC transports,
 Bearer authentication, bounded concurrency/timeouts, two-level caching, PostgreSQL persistence and
 reporting, Redis threat/canary/queue services, MaxMind enrichment, HMAC-attested JA3/JA4 rules,
