@@ -22,7 +22,8 @@ make parity-integration
 
 `tests/parity/rust-baseline.txt` is the reviewed contract revision. The runner compares complete
 tool payloads and error codes while normalizing generated IDs/times/latencies, server ports,
-and language build metadata. The historical Rust pin's redundant null envelope members and its
+and independently released package/runtime build metadata (`version` and `model_version`). The
+historical Rust pin's redundant null envelope members and its
 `[REDACTED]` marker for an absent OTLP endpoint are explicit baseline-only migration exceptions:
 .NET must omit the unused envelope branch and follow current Rust's null-for-absent snapshot.
 The runner also expects historical Rust notification 204 versus .NET 202. Regression tests ensure
@@ -336,7 +337,7 @@ Use a clean committed revision (the builder always snapshots Git HEAD, not worki
 ```bash
 python3 scripts/native_bundle.py --rid linux-x64 --output-dir out/native
 /tmp/request-guard-sdk/bin/python tests/protocol/qualify_bundle.py \
-  --archive out/native/request-guard-mcp-dotnet-0.1.0-dev-linux-x64.tar.gz \
+  --archive out/native/request-guard-mcp-dotnet-0.1.1-dev-linux-x64.tar.gz \
   --expected-rid linux-x64 --expected-source "$(git rev-parse HEAD)" \
   --report out/native/qualification.json
 python3 tests/protocol/lock_negative.py

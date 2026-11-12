@@ -17,7 +17,7 @@ public sealed record BuildInfo(string Version, string GitCommit, string BuildDat
     {
         var version = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? "0.1.0";
+            ?? "0.1.1";
 
         return new BuildInfo(
             Version: version,

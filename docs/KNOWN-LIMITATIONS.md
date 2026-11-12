@@ -11,8 +11,10 @@ These are explicit scope boundaries, not untracked defects.
 - Compatibility is established against the exact Rust revision in
   `tests/parity/rust-baseline.txt`. Advancing that revision requires review and a green differential
   suite; it is not assumed automatically.
-- Language/runtime build metadata necessarily differs. The legacy `model_info.build_info.rust_version`
-  wire key is retained for compatibility but contains the .NET runtime version in this port.
+- Package and runtime build metadata necessarily differs between independently released Rust and
+  .NET builds. Differential gates normalize the `version` and `model_version` provenance fields;
+  the legacy `model_info.build_info.rust_version` wire key is retained for compatibility but
+  contains the .NET runtime version in this port.
 - `RustConfigFileParser` accepts the application configuration shapes supported by this repository
   in JSON, INI, TOML, YAML, RON, and JSON5. It is not intended as a general-purpose implementation
   of every feature in those data languages.

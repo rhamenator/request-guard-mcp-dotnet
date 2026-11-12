@@ -24,7 +24,7 @@ def digest(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rid', choices=RIDS, required=True)
-    parser.add_argument('--version', default='0.1.0-dev')
+    parser.add_argument('--version', default='0.1.1-dev')
     parser.add_argument('--output-dir', type=Path, required=True)
     args = parser.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', args.version):

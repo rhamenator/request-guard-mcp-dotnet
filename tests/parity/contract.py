@@ -132,7 +132,9 @@ def normalize_payload(value: Any) -> Any:
             elif key == "port":
                 normalized[key] = "<server-port>"
             elif key in {"version", "model_version"} and isinstance(child, str):
-                normalized[key] = child.split("+", 1)[0]
+                # Package versions identify independently released Rust and .NET
+                # builds; they are provenance, not classifier/protocol behavior.
+                normalized[key] = "<runtime-version>"
             else:
                 normalized[key] = normalize_payload(child)
         return normalized

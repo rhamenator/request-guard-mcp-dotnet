@@ -19,7 +19,8 @@ work and unverified gaps are tracked in the
 work alongside direct HTTP/WebSocket JSON-RPC calls. The pinned official Python SDK
 qualifies the JSON-response HTTP path and process-local `--stdio`. Negotiation/auth/origin
 checks are exercised separately. SSE, sessions and OAuth discovery are not implemented.
-No official .NET release candidate or stable release has been published.
+The immutable [v0.1.0 official release candidate](https://github.com/rhamenator/request-guard-mcp-dotnet/releases/tag/v0.1.0)
+has been published. The current source targets v0.1.1; no stable release has been published.
 
 The .NET port implements all 23 sibling Rust tool contracts, HTTP/WebSocket JSON-RPC transports,
 Bearer authentication, bounded concurrency/timeouts, two-level caching, PostgreSQL persistence and
@@ -37,7 +38,8 @@ through the same negative-envelope, lifecycle, HTTP profile, official SDK and st
 used for .NET. It also checks 82 shared classifier cases against both references and 165 cases
 against current main. The current-main-only set includes its expanded
 sensitive-route grammar and ordinary-route false-positive controls; each case checks the complete
-classification result after excluding only measured latency and runtime build metadata. This is
+classification result after excluding only measured latency and independently released
+package/runtime build metadata. This is
 revision-scoped executable evidence, not a claim of full current-main backend parity.
 
 The assurance baseline is DO-178C-inspired and appropriate to a sole-maintainer project; it is not
@@ -243,8 +245,10 @@ tests/
 
 ## Native development bundles
 
-No official release-candidate bundles are published yet. Build a development archive from the **committed**
-Git revision with Python 3.12+ and the exact SDK in `global.json`:
+Official pre-1.0 release-candidate bundles are published on the
+[GitHub Releases page](https://github.com/rhamenator/request-guard-mcp-dotnet/releases). Build a
+development archive from the **committed** Git revision with Python 3.12+ and the exact SDK in
+`global.json`:
 
 ```bash
 python3 scripts/native_bundle.py --rid linux-x64 --output-dir out/native

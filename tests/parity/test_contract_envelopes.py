@@ -22,6 +22,17 @@ class EnvelopeMigrationTests(unittest.TestCase):
         value = {'jsonrpc': '2.0', 'id': 1, 'result': {'error': None, 'value': None}}
         self.assertEqual(normalize(value), value)
 
+    def test_independent_package_versions_are_runtime_metadata(self):
+        rust = {'jsonrpc': '2.0', 'id': 1, 'result': {
+            'model_version': '0.1.0', 'server': {'version': '0.1.0'},
+            'api_version': '2025-06-18'}}
+        dotnet = {'jsonrpc': '2.0', 'id': 1, 'result': {
+            'model_version': '0.1.1+commit', 'server': {'version': '0.1.1+commit'},
+            'api_version': '2025-06-18'}}
+        self.assertEqual(normalize(rust), normalize(dotnet))
+        self.assertEqual(
+            normalize(dotnet)['result']['api_version'], '2025-06-18')
+
     def test_historical_absent_otlp_redaction_is_narrow(self):
         case = Case('config_snapshot', {'redact_secrets': True}, 'config_snapshot/redacted')
         legacy = {'result': {'snapshot': {'telemetry': {'otlp_endpoint': '[REDACTED]'}}}}
