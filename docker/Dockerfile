@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.403-noble@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.404-noble@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb AS build
 ARG VERSION=0.1.0
 WORKDIR /src
 COPY . .
@@ -7,7 +7,7 @@ RUN dotnet restore RequestGuardMcp.slnx --locked-mode \
        --configuration Release --no-restore --output /app \
        /p:UseAppHost=false /p:Version=$VERSION
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-noble-chiseled@sha256:c89a6a61f494f20a5ae302990e814627a8d91b332fd4a8e7c1707c2d4da9555d AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.15-noble-chiseled@sha256:7c625e44e5d588b4d7b2a913e94ca4bd5098ce47442da404829e4c7936a764e1 AS runtime
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 ARG VERSION=0.1.0
