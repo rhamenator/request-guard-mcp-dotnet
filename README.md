@@ -38,7 +38,8 @@ through the same negative-envelope, lifecycle, HTTP profile, official SDK and st
 used for .NET. It also checks 82 shared classifier cases against both references and 165 cases
 against current main. The current-main-only set includes its expanded
 sensitive-route grammar and ordinary-route false-positive controls; each case checks the complete
-classification result after excluding only measured latency and runtime build metadata. This is
+classification result after excluding only measured latency and independently released
+package/runtime build metadata. This is
 revision-scoped executable evidence, not a claim of full current-main backend parity.
 
 The assurance baseline is DO-178C-inspired and appropriate to a sole-maintainer project; it is not

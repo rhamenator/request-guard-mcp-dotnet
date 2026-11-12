@@ -22,7 +22,8 @@ make parity-integration
 
 `tests/parity/rust-baseline.txt` is the reviewed contract revision. The runner compares complete
 tool payloads and error codes while normalizing generated IDs/times/latencies, server ports,
-and language build metadata. The historical Rust pin's redundant null envelope members and its
+and independently released package/runtime build metadata (`version` and `model_version`). The
+historical Rust pin's redundant null envelope members and its
 `[REDACTED]` marker for an absent OTLP endpoint are explicit baseline-only migration exceptions:
 .NET must omit the unused envelope branch and follow current Rust's null-for-absent snapshot.
 The runner also expects historical Rust notification 204 versus .NET 202. Regression tests ensure
