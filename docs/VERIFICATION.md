@@ -336,7 +336,7 @@ Use a clean committed revision (the builder always snapshots Git HEAD, not worki
 ```bash
 python3 scripts/native_bundle.py --rid linux-x64 --output-dir out/native
 /tmp/request-guard-sdk/bin/python tests/protocol/qualify_bundle.py \
-  --archive out/native/request-guard-mcp-dotnet-0.1.0-dev-linux-x64.tar.gz \
+  --archive out/native/request-guard-mcp-dotnet-0.1.1-dev-linux-x64.tar.gz \
   --expected-rid linux-x64 --expected-source "$(git rev-parse HEAD)" \
   --report out/native/qualification.json
 python3 tests/protocol/lock_negative.py
