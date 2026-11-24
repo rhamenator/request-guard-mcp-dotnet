@@ -34,18 +34,28 @@ SHARED_CASES = [
 ] + [({"path": "/a%2Fb%2Fc%2Fd%2Fe%2Ff%2Fg%2Fh%2Fi"}, "path_deep", True)] + [
     ({"user_agent": user_agent}, "ua_ai_bot", True)
     for user_agent in [
-        "GPTBot", "ChatGPT-User", "Claude-Web", "anthropic-ai", "Bytespider", "CCBot",
-        "cohere-ai", "DuckAssistBot", "FacebookBot", "Google-Extended", "ImagesiftBot",
-        "PerplexityBot", "Scrapy", "python-httpx", "python-requests", "aiohttp", "curl/",
-        "wget/", "libwww-perl", "Go-http-client", "Java/", "okhttp",
+        "GPTBot", "ChatGPT-User", "OAI-SearchBot", "ClaudeBot", "Claude-User", "Claude-SearchBot",
+        "Claude-Web", "anthropic-ai", "Bytespider", "CCBot", "cohere-ai",
+        "cohere-training-data-crawler", "DuckAssistBot", "FacebookBot", "meta-externalagent",
+        "meta-externalfetcher", "Google-Extended", "ImagesiftBot", "PerplexityBot",
+        "Perplexity-User", "Applebot-Extended", "Amazonbot", "Diffbot", "omgili", "omgilibot",
+        "Timpibot", "YouBot", "AI2Bot", "Scrapy",
+    ]
+] + [
+    ({"user_agent": user_agent}, "ua_generic_client", True)
+    for user_agent in [
+        "python-httpx", "python-requests", "aiohttp", "curl/", "wget/",
+        "libwww-perl", "Go-http-client", "Java/", "okhttp",
     ]
 ] + [
     ({"user_agent": user_agent}, "ua_scraper", True)
     for user_agent in [
         "beautifulsoup", "mechanize", "selenium", "phantom", "puppeteer", "playwright",
-        "headless", "crawler", "spider", "bot", "scraper", "masscan", "nikto", "sqlmap",
-        "httpclient",
+        "headless", "scraper", "masscan", "nikto", "sqlmap", "httpclient",
     ]
+] + [
+    ({"user_agent": "Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0", "robots_violation": True}, "robots_violation", True),
+    ({"user_agent": "Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0", "robots_violation": False}, "robots_violation", False),
 ] + [
     ({"headers": {}}, "header_missing_accept", True),
     ({"headers": {}}, "header_missing_accept_language", True),
@@ -220,7 +230,7 @@ def check_startup_security(rust_repo, revision):
         ({"TLS_FINGERPRINT_ATTESTATION_KEY": "prefix_replace_me_0123456789abcdef0123456789abcdef"},
          "embedded TLS-attestation placeholder"),
         ({"MCP__LIMITS__HTTP2_IDLE_TIMEOUT_SECS": "0"}, "zero HTTP/2 idle timeout"),
-    ] if revision == "2660c1fbfd71b38108dfc7b9decd309e4a8e480c" else []
+    ] if revision == "30e17669f73b58bd310d247b0c69af91f55de2de" else []
     for implementation, command, workdir in commands:
         for overrides, case in shared + current_only:
             assert_startup_rejected(command, workdir, overrides, f"{implementation}: {case}")
@@ -237,7 +247,7 @@ def main():
         raise RuntimeError(f"Rust revision mismatch: {actual}")
     build(rust_repo)
     check_startup_security(rust_repo, actual)
-    cases = SHARED_CASES + (CURRENT_MAIN_CASES if actual == "2660c1fbfd71b38108dfc7b9decd309e4a8e480c" else [])
+    cases = SHARED_CASES + (CURRENT_MAIN_CASES if actual == "30e17669f73b58bd310d247b0c69af91f55de2de" else [])
     token = "synthetic-classifier-parity-token"
     with tempfile.TemporaryDirectory(prefix="classifier-parity-") as directory:
         with Pair(
