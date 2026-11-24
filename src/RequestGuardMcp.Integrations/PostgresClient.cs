@@ -460,6 +460,7 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
             Path = path,
             Method = request.Method,
             Headers = headers,
+            RobotsViolation = request.RobotsViolation,
         };
     }
 

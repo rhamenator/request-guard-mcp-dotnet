@@ -15,14 +15,20 @@ public sealed partial class RuleEngine
 {
     private static readonly string[] ModernBrowserMarkers = ["chrome/", "crios/", "firefox/", "fxios/", "safari/", "edg/"];
     [GeneratedRegex(
-        "(GPTBot|ChatGPT-User|Claude-Web|anthropic-ai|Bytespider|CCBot|cohere-ai|DuckAssistBot|" +
-        "FacebookBot|Google-Extended|ImagesiftBot|PerplexityBot|Scrapy|python-httpx|python-requests|" +
-        "aiohttp|curl/|wget/|libwww-perl|Go-http-client|Java/|okhttp)",
+        "(GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|Claude-Web|anthropic-ai|" +
+        "Bytespider|CCBot|cohere-ai|cohere-training-data-crawler|DuckAssistBot|FacebookBot|meta-externalagent|" +
+        "meta-externalfetcher|Google-Extended|ImagesiftBot|PerplexityBot|Perplexity-User|Applebot-Extended|" +
+        "Amazonbot|Diffbot|omgili(?:bot)?|Timpibot|YouBot|AI2Bot|Scrapy)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex AiBotUserAgent();
 
     [GeneratedRegex(
-        "(scrapy|beautifulsoup|mechanize|selenium|phantom|puppeteer|playwright|headless|crawler|spider|bot|scraper|\\bmasscan\\b|\\bnikto\\b|\\bsqlmap\\b|\\bhttpclient\\b)",
+        "(python-httpx|python-requests|aiohttp|\\bcurl/|\\bwget/|libwww-perl|Go-http-client|\\bJava/|okhttp)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex GenericClientUserAgent();
+
+    [GeneratedRegex(
+        "(scrapy|beautifulsoup|mechanize|selenium|phantom|puppeteer|playwright|headless|scraper|\\bmasscan\\b|\\bnikto\\b|\\bsqlmap\\b|\\bhttpclient\\b)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex ScrapingUserAgent();
 
@@ -67,6 +73,16 @@ public sealed partial class RuleEngine
 
         EvaluateTlsFingerprint(request, tlsConfig, signals);
 
+        if (request.RobotsViolation)
+        {
+            signals.Add(new Signal(
+                "robots_violation",
+                1.0,
+                0.9,
+                SignalSource.RuleEngine,
+                "Caller reports the client requested a path disallowed by robots.txt"));
+        }
+
         return signals;
     }
 
@@ -105,6 +121,10 @@ public sealed partial class RuleEngine
         else if (ScrapingUserAgent().IsMatch(userAgent))
         {
             signals.Add(new Signal("ua_scraper", 1.0, 0.7, SignalSource.RuleEngine, "User-agent matches scraping tool pattern"));
+        }
+        else if (GenericClientUserAgent().IsMatch(userAgent))
+        {
+            signals.Add(new Signal("ua_generic_client", 0.5, 0.25, SignalSource.RuleEngine, "User-agent is a generic programmatic HTTP client (weak evidence)"));
         }
 
         if (userAgent.Length == 0)

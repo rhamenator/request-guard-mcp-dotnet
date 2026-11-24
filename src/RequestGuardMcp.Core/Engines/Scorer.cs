@@ -52,7 +52,7 @@ public sealed class Scorer
             return ThreatCategory.AiScraping;
         }
 
-        if (names.Contains("ua_scraper"))
+        if (names.Contains("ua_scraper") || names.Contains("robots_violation"))
         {
             return ThreatCategory.Scraping;
         }

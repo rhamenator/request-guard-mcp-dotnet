@@ -36,6 +36,7 @@ public static class RequestFingerprint
                 ["ja4"] = request.TlsJa4,
                 ["source"] = request.TlsFingerprintSource,
             } : null,
+            ["robots_violation"] = request.RobotsViolation,
         };
 
         return Sha256(input.ToJsonString());
@@ -59,7 +60,7 @@ public static class RequestFingerprint
             .ToArray();
         var input = new JsonObject
         {
-            ["schema"] = "classification-v3",
+            ["schema"] = "classification-v4",
             ["version"] = version,
             ["git_commit"] = gitCommit,
             ["known_bad_ja3"] = new JsonArray(ja3),
