@@ -22,12 +22,12 @@ public sealed class RedactPreviewTool : IMcpTool
 
     public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var request = McpJson.RequiredParams<RedactPreviewRequest>(parameters);
-        var payload = request.Payload?.DeepClone();
         var fields = request.Fields ?? [.. DefaultSensitiveFields];
+        var payload = request.Payload?.DeepClone();
 
-        var fieldsRedacted = JsonRedaction.FindPresentFields(payload, fields);
-        JsonRedaction.RedactFields(payload, fields);
+        var fieldsRedacted = JsonRedaction.RedactAndCollectPresentFields(payload, fields, cancellationToken);
 
         var response = new RedactPreviewResponse(payload, fieldsRedacted);
         return Task.FromResult(JsonSerializer.SerializeToNode(response, McpJson.Options));
