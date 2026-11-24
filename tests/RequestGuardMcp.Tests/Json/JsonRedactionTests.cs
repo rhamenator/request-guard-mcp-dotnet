@@ -56,4 +56,36 @@ public class JsonRedactionTests
 
         Assert.Equal(["authorization"], present);
     }
+
+    [Fact]
+    public void RedactAndCollectPresentFieldsDeduplicatesAndRedactsInOnePass()
+    {
+        var node = JsonNode.Parse("""{"Token":"abc","nested":{"api_key":"xyz"}}""")!;
+
+        var present = JsonRedaction.RedactAndCollectPresentFields(node, ["token", "TOKEN", "api_key"]);
+
+        Assert.Equal(["token", "api_key"], present);
+        Assert.Equal("[REDACTED]", node["Token"]!.GetValue<string>());
+        Assert.Equal("[REDACTED]", node["nested"]!["api_key"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void RedactFieldsEnforcesFieldAndDepthBoundsAndCancellation()
+    {
+        var node = JsonNode.Parse("""{"token":"abc"}""")!;
+        var tooManyFields = Enumerable.Range(0, JsonRedaction.MaxFields + 1).Select(i => $"f{i}").ToList();
+        Assert.Throws<ArgumentException>(() => JsonRedaction.RedactFields(node, tooManyFields));
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.Throws<OperationCanceledException>(() => JsonRedaction.RedactFields(node, ["token"], cts.Token));
+
+        var nested = JsonNode.Parse("""{"authorization":{"token":"secret"}}""")!;
+        var nestedPresent = JsonRedaction.RedactAndCollectPresentFields(nested, ["authorization", "token"]);
+        Assert.Equal(["authorization", "token"], nestedPresent);
+        Assert.Equal("[REDACTED]", nested["authorization"]!.GetValue<string>());
+
+        var manyNulls = new JsonArray(Enumerable.Repeat<JsonNode?>(null, JsonRedaction.MaxNodes).ToArray());
+        Assert.Throws<ArgumentException>(() => JsonRedaction.RedactFields(manyNulls, ["token"]));
+    }
 }
