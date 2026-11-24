@@ -101,11 +101,6 @@ public static class JsonRedaction
         ref int nodes,
         CancellationToken cancellationToken)
     {
-        if (value is null)
-        {
-            return;
-        }
-
         cancellationToken.ThrowIfCancellationRequested();
         if (depth > MaxDepth)
         {
@@ -115,6 +110,11 @@ public static class JsonRedaction
         if (++nodes > MaxNodes)
         {
             throw new ArgumentException($"Payload exceeds maximum redaction node count ({MaxNodes}).");
+        }
+
+        if (value is null)
+        {
+            return;
         }
 
         switch (value)
@@ -128,6 +128,19 @@ public static class JsonRedaction
                         if (fieldSet.Contains(key))
                         {
                             present?.Add(key);
+                            if (present is not null)
+                            {
+                                Traverse(obj[key], fieldSet, present, redact: false, depth + 1, ref nodes, cancellationToken);
+                            }
+                            else
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                if (++nodes > MaxNodes)
+                                {
+                                    throw new ArgumentException($"Payload exceeds maximum redaction node count ({MaxNodes}).");
+                                }
+                            }
+
                             obj[key] = RedactedPlaceholder;
                         }
                         else

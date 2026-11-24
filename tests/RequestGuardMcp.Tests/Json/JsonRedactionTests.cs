@@ -79,5 +79,13 @@ public class JsonRedactionTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
         Assert.Throws<OperationCanceledException>(() => JsonRedaction.RedactFields(node, ["token"], cts.Token));
+
+        var nested = JsonNode.Parse("""{"authorization":{"token":"secret"}}""")!;
+        var nestedPresent = JsonRedaction.RedactAndCollectPresentFields(nested, ["authorization", "token"]);
+        Assert.Equal(["authorization", "token"], nestedPresent);
+        Assert.Equal("[REDACTED]", nested["authorization"]!.GetValue<string>());
+
+        var manyNulls = new JsonArray(Enumerable.Repeat<JsonNode?>(null, JsonRedaction.MaxNodes).ToArray());
+        Assert.Throws<ArgumentException>(() => JsonRedaction.RedactFields(manyNulls, ["token"]));
     }
 }
