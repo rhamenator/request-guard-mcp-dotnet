@@ -13,7 +13,7 @@
          (matching the Rust project's own deadpool-redis/sqlx/maxminddb choices) — the BCL has no
          safe equivalent for any of these three. -->
     <PackageVersion Include="StackExchange.Redis" Version="3.4.31" />
-    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Npgsql" Version="11.0.0" />
     <PackageVersion Include="MaxMind.GeoIP2" Version="6.1.0" />
     <PackageVersion Include="MaxMind.Db" Version="5.2.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
