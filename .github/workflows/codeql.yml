@@ -22,7 +22,9 @@ jobs:
           - language: actions
             build-mode: none
           - language: csharp
-            build-mode: manual
+            # 'none' analyses the repository's own source and honours paths-ignore; a manual build also analyses
+            # compiler output (regex and MaxMind source-generator files under obj/), which cannot be fixed here.
+            build-mode: none
     steps:
       - name: Check out controlled baseline
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,11 +38,6 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
-      - name: Build (C# only)
-        if: matrix.language == 'csharp'
-        run: |
-          dotnet restore RequestGuardMcp.slnx --locked-mode
-          dotnet build RequestGuardMcp.slnx --configuration Release --no-restore
       - name: Analyze
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
         with:

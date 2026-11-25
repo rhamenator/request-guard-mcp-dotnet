@@ -1,5 +1,4 @@
-# Compiler output is analysed as source because the C# build is "manual", but nobody maintains it:
-# regex and MaxMind source-generator files under obj/ produced >100 findings that cannot be fixed in this repository.
+# Compiler output is not maintained source. With build-mode: none these exclusions apply (they do not for a manual build).
 name: Request Guard MCP .NET CodeQL configuration
 paths-ignore:
   - '**/obj/**'
