@@ -51,6 +51,12 @@ public interface IPostgresClient
 
     public Task<CalibrationSummary> CalibrationSummaryAsync(string callerScope, DateTimeOffset start, CancellationToken cancellationToken = default);
 
-    /// <summary>Delete up to <paramref name="batchSize"/> decisions older than <paramref name="olderThan"/> (their feedback goes with them) and return how many were removed.</summary>
-    public Task<int> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default);
+    /// <summary>Delete up to <paramref name="batchSize"/> expired decisions and up to <paramref name="batchSize"/> expired feedback rows, and report how many of each were removed.</summary>
+    public Task<PurgeResult> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Rows removed by one retention batch. <see cref="Largest"/> being at the batch size means more may remain.</summary>
+public readonly record struct PurgeResult(int Decisions, int Feedback)
+{
+    public int Largest => Math.Max(Decisions, Feedback);
 }

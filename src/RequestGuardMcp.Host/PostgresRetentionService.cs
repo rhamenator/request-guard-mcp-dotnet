@@ -18,10 +18,10 @@ internal sealed class PostgresRetentionService(IPostgresClient postgres, Postgre
             try
             {
                 var removed = await RunOnceAsync(stoppingToken).ConfigureAwait(false);
-                if (removed > 0 && logger.IsEnabled(LogLevel.Information))
+                if ((removed.Decisions > 0 || removed.Feedback > 0) && logger.IsEnabled(LogLevel.Information))
                 {
                     var days = config.RetentionDays;
-                    logger.LogInformation("Retention removed {Count} decisions older than {Days} days.", removed, days);
+                    logger.LogInformation("Retention removed {Decisions} decisions and {Feedback} feedback rows older than {Days} days.", removed.Decisions, removed.Feedback, days);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -37,18 +37,20 @@ internal sealed class PostgresRetentionService(IPostgresClient postgres, Postgre
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false));
     }
 
-    /// <summary>Run batches until one comes back smaller than the batch size; returns the total removed.</summary>
-    internal async Task<int> RunOnceAsync(CancellationToken cancellationToken)
+    /// <summary>Run batches until neither table fills a batch; returns the totals removed.</summary>
+    internal async Task<PurgeResult> RunOnceAsync(CancellationToken cancellationToken)
     {
         var cutoff = clock.GetUtcNow().AddDays(-config.RetentionDays);
-        var total = 0;
+        int decisions = 0, feedback = 0;
         while (true)
         {
-            var removed = await postgres.PurgeExpiredAsync(cutoff, config.RetentionBatchSize, cancellationToken).ConfigureAwait(false);
-            total += removed;
-            if (removed < config.RetentionBatchSize)
+            var batch = await postgres.PurgeExpiredAsync(cutoff, config.RetentionBatchSize, cancellationToken).ConfigureAwait(false);
+            decisions += batch.Decisions;
+            feedback += batch.Feedback;
+            // Keep going while either table filled its batch: expired feedback can outlive its decision's timestamp.
+            if (batch.Largest < config.RetentionBatchSize)
             {
-                return total;
+                return new PurgeResult(decisions, feedback);
             }
         }
     }

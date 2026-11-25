@@ -28,6 +28,6 @@ public sealed class NullPostgresClient : IPostgresClient
     public Task<CalibrationSummary> CalibrationSummaryAsync(string callerScope, DateTimeOffset start, CancellationToken cancellationToken = default) =>
         throw AppErrorException.IntegrationUnavailable("PostgreSQL integration is disabled");
 
-    public Task<int> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default) =>
+    public Task<PurgeResult> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default) =>
         throw AppErrorException.IntegrationUnavailable("PostgreSQL integration is disabled");
 }

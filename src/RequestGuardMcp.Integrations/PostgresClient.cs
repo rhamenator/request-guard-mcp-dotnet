@@ -311,6 +311,15 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
             return;
         }
 
+        // Serialize trimming per caller and table. Without this, concurrent writers each count before the others commit, see only
+        // their own new row, delete nothing, and the cap is exceeded permanently. The lock is held to the end of the transaction;
+        // under READ COMMITTED the count below then sees every row committed by the writer that held the lock before us.
+        await using (var gate = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", connection, transaction))
+        {
+            gate.Parameters.Add(new NpgsqlParameter { Value = $"cap:{table}:{callerScope}" });
+            await gate.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         // table and key are fixed identifiers chosen by the two call sites above, never user input.
         var sql = $"DELETE FROM {table} WHERE {key} IN (SELECT {key} FROM {table} WHERE caller_scope = $1 ORDER BY created_at DESC, {key} OFFSET $2)";
         await using var command = new NpgsqlCommand(sql, connection, transaction);
@@ -319,24 +328,26 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<int> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default)
+    public async Task<PurgeResult> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        int feedbackRemoved;
         // Feedback rows reference decisions with ON DELETE CASCADE; old feedback on newer decisions is removed too.
         await using (var feedback = new NpgsqlCommand(
             "DELETE FROM mcp_feedback WHERE feedback_id IN (SELECT feedback_id FROM mcp_feedback WHERE created_at < $1 ORDER BY created_at LIMIT $2)", connection))
         {
             feedback.Parameters.Add(new NpgsqlParameter { Value = olderThan });
             feedback.Parameters.Add(new NpgsqlParameter { Value = (long)batchSize });
-            await feedback.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            feedbackRemoved = await feedback.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
         await using var decisions = new NpgsqlCommand(
             "DELETE FROM mcp_decisions WHERE request_id IN (SELECT request_id FROM mcp_decisions WHERE created_at < $1 ORDER BY created_at LIMIT $2)", connection);
         decisions.Parameters.Add(new NpgsqlParameter { Value = olderThan });
         decisions.Parameters.Add(new NpgsqlParameter { Value = (long)batchSize });
-        return await decisions.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        var decisionsRemoved = await decisions.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        return new PurgeResult(decisionsRemoved, feedbackRemoved);
     }
 
     public async Task<DriftSummary> DriftSummaryAsync(string callerScope, DateTimeOffset start, DateTimeOffset midpoint, CancellationToken cancellationToken = default)
