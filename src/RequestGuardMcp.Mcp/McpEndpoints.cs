@@ -99,7 +99,8 @@ public static class McpEndpoints
         bodyDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.HttpBodyTimeoutSecs));
         try
         {
-            using var body = new MemoryStream();
+            // Pre-size to the declared length so the buffer does not double while growing (the reservation covers its capacity).
+            using var body = new MemoryStream(context.Request.ContentLength is { } declaredLength && declaredLength > 0 ? (int)Math.Min(declaredLength, declared) : 0);
             await context.Request.Body.CopyToAsync(body, bodyDeadline.Token).ConfigureAwait(false);
             text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true)
                 .GetString(body.GetBuffer(), 0, checked((int)body.Length));

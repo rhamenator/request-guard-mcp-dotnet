@@ -202,7 +202,7 @@ public class AppConfigTests
             case "http2_idle": config.Limits.Http2IdleTimeoutSecs = 0; break;
             case "http1_lifetime": config.Limits.Http1MaxLifetimeSecs = 0; break;
             case "http1_requests": config.Limits.Http1MaxRequests = 0; break;
-            case "inflight_budget": config.Limits.MaxInflightRequestBytes = config.Limits.MaxRequestBytes; break;   // below 3 x one request
+            case "inflight_budget": config.Limits.MaxInflightRequestBytes = config.Limits.MaxRequestBytes; break;   // below 4 x one request
         }
 
         Assert.Throws<ConfigValidationException>(config.Validate);

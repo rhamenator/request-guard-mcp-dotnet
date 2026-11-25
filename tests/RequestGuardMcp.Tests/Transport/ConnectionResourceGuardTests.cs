@@ -145,8 +145,8 @@ public class ConnectionResourceGuardTests
     [Fact]
     public async Task InFlightBodyBudgetRefusesExcessRequestsAndRecovers()
     {
-        // One maximum-size request (1000 bytes, reserved as 3000) fills the whole budget.
-        var limits = new LimitsConfig { MaxRequestBytes = 1000, MaxInflightRequestBytes = 3000 };
+        // One maximum-size request (1000 bytes, reserved as 4000) fills the whole budget.
+        var limits = new LimitsConfig { MaxRequestBytes = 1000, MaxInflightRequestBytes = 4000 };
         await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         const string ping = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}";
@@ -210,6 +210,29 @@ public class ConnectionResourceGuardTests
         }
 
         Assert.Equal(0, budget.Used);
+    }
+
+    [Fact]
+    public async Task WebSocketMessagesFitTheMinimumValidatedBudget()
+    {
+        // The smallest budget that validates (4 x MaxRequestBytes) must still admit a small and a maximum-size message.
+        var limits = new LimitsConfig { MaxRequestBytes = 1000, MaxInflightRequestBytes = 4000 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var socket = new ClientWebSocket();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{host.Port}/mcp"), deadline.Token);
+
+        const string health = """{"jsonrpc":"2.0","id":1,"method":"health"}""";
+        foreach (var message in new[] { health, health + new string(' ', 1000 - health.Length) })
+        {
+            await socket.SendAsync(Encoding.UTF8.GetBytes(message).AsMemory(), WebSocketMessageType.Text, true, deadline.Token);
+            var response = new byte[4096];
+            var received = await socket.ReceiveAsync(response.AsMemory(), deadline.Token);
+            Assert.Equal(WebSocketMessageType.Text, received.MessageType);
+            Assert.Contains("healthy", Encoding.UTF8.GetString(response, 0, received.Count), StringComparison.Ordinal);
+        }
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", deadline.Token);
     }
 
     [Theory]

@@ -8,8 +8,11 @@ namespace RequestGuardMcp.Core.Runtime;
 /// </summary>
 public sealed class RequestMemoryBudget(long capacityBytes)
 {
-    /// <summary>Bytes of memory held per byte of message: the raw buffer plus the UTF-16 string made from it.</summary>
-    public const int ExpansionFactor = 3;
+    /// <summary>
+    /// Worst-case bytes of memory held per byte of message: a growing <c>MemoryStream</c> can hold up to twice the message length
+    /// as capacity, and the decoded UTF-16 string holds up to twice the message length again. JSON parsing and responses are not counted.
+    /// </summary>
+    public const int ExpansionFactor = 4;
 
     private long _used;
 

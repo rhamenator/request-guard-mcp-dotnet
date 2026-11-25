@@ -22,14 +22,8 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
             while (socket.State == WebSocketState.Open)
             {
                 using var messageStream = new MemoryStream();
-                // Each message holds a growing reservation from the shared in-flight byte budget (issue 81).
-                using var memory = state.RequestMemory.TryReserve(ReceiveBufferSize);
-                if (memory is null)
-                {
-                    await WriteBoundedAsync(token => socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, "server busy", token), state, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-
+                // Each message holds a reservation that grows with the bytes actually received (issue 81); it starts empty.
+                using var memory = state.RequestMemory.TryReserve(0)!;
                 using var messageDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 messageDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.WebSocketIdleTimeoutSecs));
                 WebSocketReceiveResult result;
@@ -50,8 +44,7 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
                         return;
                     }
 
-                    if (messageStream.Length + result.Count > memory.HeldBytes / RequestMemoryBudget.ExpansionFactor - ReceiveBufferSize &&
-                        !memory.TryGrow(ReceiveBufferSize))
+                    if (!memory.TryGrow(result.Count))
                     {
                         await WriteBoundedAsync(token => socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, "server busy", token), state, cancellationToken).ConfigureAwait(false);
                         return;
@@ -69,7 +62,7 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
                 string text;
                 try
                 {
-                    text = StrictUtf8.GetString(messageStream.ToArray());
+                    text = StrictUtf8.GetString(messageStream.GetBuffer(), 0, checked((int)messageStream.Length));
                 }
                 catch (DecoderFallbackException)
                 {
