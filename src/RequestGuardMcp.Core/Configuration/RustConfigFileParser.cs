@@ -133,7 +133,7 @@ public static class RustConfigFileParser
     {
         var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var section = string.Empty;
-        foreach (var rawLine in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        foreach (var (rawLine, lineIndex) in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').Select((value, index) => (value, index)))
         {
             var line = StripComment(StripComment(rawLine, ';'), '#').Trim();
             if (line.Length == 0)
@@ -150,7 +150,7 @@ public static class RustConfigFileParser
             var equals = FindUnquoted(line, '=');
             if (equals <= 0)
             {
-                throw new FormatException($"invalid INI assignment: {line}");
+                throw new FormatException($"invalid INI assignment on line {lineIndex + 1} (the line is not shown because configuration files can hold secrets)");
             }
 
             var key = line[..equals].Trim();
@@ -165,7 +165,7 @@ public static class RustConfigFileParser
     {
         var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var section = new List<string>();
-        foreach (var rawLine in LogicalTomlLines(text))
+        foreach (var (rawLine, lineIndex) in LogicalTomlLines(text).Select((value, index) => (value, index)))
         {
             var line = StripComment(rawLine, '#').Trim();
             if (line.Length == 0)
@@ -182,7 +182,7 @@ public static class RustConfigFileParser
             var equals = FindUnquoted(line, '=');
             if (equals <= 0)
             {
-                throw new FormatException($"invalid TOML assignment: {line}");
+                throw new FormatException($"invalid TOML assignment in logical entry {lineIndex + 1} (the line is not shown because configuration files can hold secrets)");
             }
 
             var path = section.Concat(SplitDottedKey(line[..equals])).ToArray();
@@ -261,7 +261,7 @@ public static class RustConfigFileParser
         var parents = new Stack<(int Indent, string Path)>();
         var sequenceIndexes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var rawLine in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        foreach (var (rawLine, lineIndex) in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').Select((value, index) => (value, index)))
         {
             if (rawLine.Trim() is "" or "---" or "...")
             {
@@ -307,7 +307,7 @@ public static class RustConfigFileParser
             var colon = FindUnquoted(line, ':');
             if (colon <= 0)
             {
-                throw new FormatException($"invalid YAML mapping: {line}");
+                throw new FormatException($"invalid YAML mapping on line {lineIndex + 1} (the line is not shown because configuration files can hold secrets)");
             }
 
             var key = Unquote(line[..colon].Trim());
