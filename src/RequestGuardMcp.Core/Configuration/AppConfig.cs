@@ -1,3 +1,4 @@
+using RequestGuardMcp.Core.Runtime;
 using RequestGuardMcp.Core.Util;
 
 namespace RequestGuardMcp.Core.Configuration;
@@ -86,6 +87,11 @@ public sealed class AppConfig
             Limits.HealthDeadlineSecs <= 0)
         {
             throw new ConfigValidationException("all request, batch, concurrency, and timeout limits must be positive");
+        }
+
+        if (Limits.MaxInflightRequestBytes < (long)Limits.MaxRequestBytes * RequestMemoryBudget.ExpansionFactor)
+        {
+            throw new ConfigValidationException("max_inflight_request_bytes must admit at least one maximum-size request (4 x max_request_bytes)");
         }
 
         // CancelAfter(TimeSpan) is bounded by UInt32 milliseconds. Reject values
@@ -210,6 +216,9 @@ public sealed class AuthConfig
 public sealed class LimitsConfig
 {
     public int MaxRequestBytes { get; set; } = 1024 * 1024;
+
+    /// <summary>Aggregate budget for request bodies and WebSocket messages being read or processed at once (each byte is budgeted at 4 bytes of memory). Excess requests are refused with 503 / a WebSocket close instead of queueing.</summary>
+    public long MaxInflightRequestBytes { get; set; } = 64L * 1024 * 1024;
     public int MaxBatchSize { get; set; } = 50;
     public int GlobalConcurrency { get; set; } = 256;
     public int MaxConnections { get; set; } = 256;

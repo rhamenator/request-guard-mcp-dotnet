@@ -130,6 +130,111 @@ public class ConnectionResourceGuardTests
         }
     }
 
+    private static async Task<string> PostStatusLineAsync(int port, string body, int declaredLength, CancellationToken token)
+    {
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, port, token);
+        var stream = client.GetStream();
+        var head = $"POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: {declaredLength}\r\n\r\n";
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(head + body), token);
+        var buffer = new byte[256];
+        var read = await stream.ReadAsync(buffer, token);
+        return Encoding.ASCII.GetString(buffer, 0, read).Split("\r\n")[0];
+    }
+
+    [Fact]
+    public async Task InFlightBodyBudgetRefusesExcessRequestsAndRecovers()
+    {
+        // One maximum-size request (1000 bytes, reserved as 4000) fills the whole budget.
+        var limits = new LimitsConfig { MaxRequestBytes = 1000, MaxInflightRequestBytes = 4000 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        const string ping = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}";
+
+        using var holder = new TcpClient();
+        await holder.ConnectAsync(IPAddress.Loopback, host.Port, deadline.Token);
+        var holderHead = "POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: 1000\r\n\r\n{";
+        await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes(holderHead), deadline.Token);
+        await Task.Delay(300, deadline.Token);   // the body is incomplete, so its reservation is still held
+
+        Assert.StartsWith("HTTP/1.1 503", await PostStatusLineAsync(host.Port, ping, ping.Length, deadline.Token), StringComparison.Ordinal);
+
+        holder.Dispose();                        // the abandoned request ends and returns its reservation
+        string status;
+        do
+        {
+            await Task.Delay(100, deadline.Token);
+            status = await PostStatusLineAsync(host.Port, ping, ping.Length, deadline.Token);
+        }
+        while (status.StartsWith("HTTP/1.1 503", StringComparison.Ordinal));
+        Assert.StartsWith("HTTP/1.1 200", status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RequestMemoryBudgetNeverExceedsItsCapacityUnderContention()
+    {
+        var budget = new RequestMemoryBudget(10 * RequestMemoryBudget.ExpansionFactor * 100);   // room for ten 100-byte messages
+        var peak = 0L;
+        await Parallel.ForEachAsync(Enumerable.Range(0, 2000), new ParallelOptions { MaxDegreeOfParallelism = 32 }, async (_, token) =>
+        {
+            using var lease = budget.TryReserve(100);
+            if (lease is not null)
+            {
+                InterlockedMax(ref peak, budget.Used);
+                await Task.Yield();
+            }
+        });
+
+        Assert.True(peak <= budget.Capacity, $"peak {peak} exceeded capacity {budget.Capacity}");
+        Assert.Equal(0, budget.Used);   // everything is returned
+    }
+
+    private static void InterlockedMax(ref long target, long value)
+    {
+        long current;
+        while (value > (current = Interlocked.Read(ref target)) && Interlocked.CompareExchange(ref target, value, current) != current)
+        {
+        }
+    }
+
+    [Fact]
+    public void RequestMemoryLeaseGrowsAndReturnsEverything()
+    {
+        var budget = new RequestMemoryBudget(10 * RequestMemoryBudget.ExpansionFactor);
+        using (var lease = budget.TryReserve(4)!)
+        {
+            Assert.True(lease.TryGrow(4));
+            Assert.False(lease.TryGrow(4));          // 12 > 10 message bytes of capacity
+            Assert.Equal(8 * RequestMemoryBudget.ExpansionFactor, lease.HeldBytes);
+            Assert.Null(budget.TryReserve(4));       // only 2 left
+        }
+
+        Assert.Equal(0, budget.Used);
+    }
+
+    [Fact]
+    public async Task WebSocketMessagesFitTheMinimumValidatedBudget()
+    {
+        // The smallest budget that validates (4 x MaxRequestBytes) must still admit a small and a maximum-size message.
+        var limits = new LimitsConfig { MaxRequestBytes = 1000, MaxInflightRequestBytes = 4000 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var socket = new ClientWebSocket();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{host.Port}/mcp"), deadline.Token);
+
+        const string health = """{"jsonrpc":"2.0","id":1,"method":"health"}""";
+        foreach (var message in new[] { health, health + new string(' ', 1000 - health.Length) })
+        {
+            await socket.SendAsync(Encoding.UTF8.GetBytes(message).AsMemory(), WebSocketMessageType.Text, true, deadline.Token);
+            var response = new byte[4096];
+            var received = await socket.ReceiveAsync(response.AsMemory(), deadline.Token);
+            Assert.Equal(WebSocketMessageType.Text, received.MessageType);
+            Assert.Contains("healthy", Encoding.UTF8.GetString(response, 0, received.Count), StringComparison.Ordinal);
+        }
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", deadline.Token);
+    }
+
     [Theory]
     [InlineData("PRI * HTTP/2.0\r\n")]
     [InlineData("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")]

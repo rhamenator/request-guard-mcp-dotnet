@@ -80,12 +80,27 @@ public static class McpEndpoints
             return;
         }
 
+        // Reserve the worst-case memory for this body before reading any of it (issue 81). The declared length is used
+        // when present; chunked or unknown lengths reserve the configured maximum. Refuse at once when the aggregate
+        // budget is exhausted: callers retry, and total buffered input stays inside the memory envelope.
+        var declared = context.Request.ContentLength is { } length && length >= 0
+            ? Math.Min(length, state.Config.Limits.MaxRequestBytes)
+            : state.Config.Limits.MaxRequestBytes;
+        using var memory = state.RequestMemory.TryReserve(declared);
+        if (memory is null)
+        {
+            context.Response.Headers.RetryAfter = "1";
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
         string text;
         using var bodyDeadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
         bodyDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.HttpBodyTimeoutSecs));
         try
         {
-            using var body = new MemoryStream();
+            // Pre-size to the declared length so the buffer does not double while growing (the reservation covers its capacity).
+            using var body = new MemoryStream(context.Request.ContentLength is { } declaredLength && declaredLength > 0 ? (int)Math.Min(declaredLength, declared) : 0);
             await context.Request.Body.CopyToAsync(body, bodyDeadline.Token).ConfigureAwait(false);
             text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true)
                 .GetString(body.GetBuffer(), 0, checked((int)body.Length));
