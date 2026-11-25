@@ -111,6 +111,25 @@ public class ConnectionResourceGuardTests
         // Reaching end-of-stream before the 10 s deadline (the keep-alive timeout is 60 s) is the evidence of the close.
     }
 
+    [Fact]
+    public async Task AnUpgradeHeaderWithoutARealUpgradeDoesNotLiftTheHttp1Bounds()
+    {
+        var limits = new LimitsConfig { Http1MaxRequests = 2 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, host.Port);
+        var stream = client.GetStream();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var request = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n\r\n");
+        await stream.WriteAsync(request, deadline.Token);
+        await stream.WriteAsync(request, deadline.Token);
+        var buffer = new byte[4096];
+        while (await stream.ReadAsync(buffer, deadline.Token) != 0)
+        {
+            // Closed at the cap despite the Upgrade header; a hang would hit the 10 s deadline instead.
+        }
+    }
+
     [Theory]
     [InlineData("PRI * HTTP/2.0\r\n")]
     [InlineData("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")]

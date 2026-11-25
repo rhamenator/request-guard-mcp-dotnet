@@ -107,10 +107,19 @@ public sealed class ConnectionResourceGuard : IDisposable
         }
 
         var http2 = context.Request.Protocol == "HTTP/2";
-        if (!http2 && IsWebSocketUpgrade(context.Request))
+        if (!http2)
         {
-            // An upgraded connection is no longer an HTTP/1 request loop; its own idle and write limits apply.
-            budget.MarkUpgraded();
+            // Exempt the connection only once the server really switches protocols (101). A request that merely
+            // carries an Upgrade header and is answered normally (or rejected before authentication) stays bounded.
+            context.Response.OnStarting(() =>
+            {
+                if (context.Response.StatusCode == StatusCodes.Status101SwitchingProtocols)
+                {
+                    budget.MarkUpgraded();
+                }
+
+                return Task.CompletedTask;
+            });
         }
 
         if (!budget.Admit(http2))
@@ -128,9 +137,6 @@ public sealed class ConnectionResourceGuard : IDisposable
             budget.Complete(http2);
         }
     }
-
-    private static bool IsWebSocketUpgrade(HttpRequest request) =>
-        request.Headers.Upgrade.Any(value => value is not null && value.Contains("websocket", StringComparison.OrdinalIgnoreCase));
 
     public void Dispose() => _permits.Dispose();
 }
