@@ -1,12 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0.404-noble@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb AS build
 ARG VERSION=0.1.1
+ARG GIT_COMMIT=unknown
 WORKDIR /src
 COPY global.json Directory.Build.props Directory.Packages.props RequestGuardMcp.slnx .editorconfig ./
 COPY src/ ./src/
 RUN dotnet restore src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj --locked-mode \
     && dotnet publish src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj \
        --configuration Release --no-restore --output /app \
-       /p:UseAppHost=false /p:Version=$VERSION
+       /p:UseAppHost=false /p:Version=$VERSION /p:SourceRevisionId=$GIT_COMMIT
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.15-noble-chiseled@sha256:7c625e44e5d588b4d7b2a913e94ca4bd5098ce47442da404829e4c7936a764e1 AS runtime
 ARG GIT_COMMIT=unknown

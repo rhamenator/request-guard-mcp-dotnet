@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     image: request-guard-mcp-dotnet:local
     restart: unless-stopped
     ports: ["8085:8085"]
@@ -10,6 +12,9 @@ services:
       AUTH_TOKENS: ${AUTH_TOKENS:?set AUTH_TOKENS}
       CACHE_SCOPE_HMAC_KEY: ${CACHE_SCOPE_HMAC_KEY:?set CACHE_SCOPE_HMAC_KEY}
       MCP__REDIS__URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379
+      # This stack has its own private Redis. Locally built images have no embedded source revision unless GIT_COMMIT is
+      # exported before `docker compose build`, so name the cache explicitly (issue 80).
+      MCP__REDIS__CACHE_DOMAIN: ${MCP_CACHE_DOMAIN:-compose-local}
       MCP__POSTGRES__URL: Host=postgres;Port=5432;Database=mcp;Username=mcp;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
     depends_on:
       redis: { condition: service_healthy }

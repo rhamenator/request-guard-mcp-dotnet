@@ -228,6 +228,9 @@ public sealed class RedisConfig
     public int PoolSize { get; set; } = 16;
     public string KeyPrefix { get; set; } = "request_guard";
     public int CacheTtlSecs { get; set; } = 300;
+
+    /// <summary>Explicit, unique name mixed into every cache key. Required when Redis is used and the executable has no embedded source revision (issue 80); otherwise optional.</summary>
+    public string? CacheDomain { get; set; }
 }
 
 public sealed class PostgresConfig

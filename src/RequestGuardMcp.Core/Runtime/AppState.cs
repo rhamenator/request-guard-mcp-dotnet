@@ -36,7 +36,7 @@ public sealed class AppState : IAsyncDisposable
         Semaphore = new SemaphoreSlim(config.Limits.GlobalConcurrency, config.Limits.GlobalConcurrency);
         BuildInfo = BuildInfo.Current();
         ClassificationCacheDomain = Util.RequestFingerprint.ComputeCacheDomain(
-            config.TlsFingerprints, BuildInfo.Version, BuildInfo.GitCommit);
+            config.TlsFingerprints, BuildInfo.Version, BuildInfo.GitCommit, config.Redis.CacheDomain);
         Cache = new InMemoryCacheStore();
         Reputation = new ReputationClient(Redis);
         RefreshFeatureFlags();
