@@ -80,6 +80,20 @@ public static class McpEndpoints
             return;
         }
 
+        // Reserve the worst-case memory for this body before reading any of it (issue 81). The declared length is used
+        // when present; chunked or unknown lengths reserve the configured maximum. Refuse at once when the aggregate
+        // budget is exhausted: callers retry, and total buffered input stays inside the memory envelope.
+        var declared = context.Request.ContentLength is { } length && length >= 0
+            ? Math.Min(length, state.Config.Limits.MaxRequestBytes)
+            : state.Config.Limits.MaxRequestBytes;
+        using var memory = state.RequestMemory.TryReserve(declared);
+        if (memory is null)
+        {
+            context.Response.Headers.RetryAfter = "1";
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
         string text;
         using var bodyDeadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
         bodyDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.HttpBodyTimeoutSecs));

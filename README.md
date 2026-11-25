@@ -452,6 +452,16 @@ so existing deployments keep their data:
 
 Still the operator's job: disk, WAL and table-size alerts, a per-token rate limit at your reverse proxy, and a
 retention window that matches your privacy policy.
+### In-flight request memory budget
+
+`MCP__LIMITS__MAX_INFLIGHT_REQUEST_BYTES` (default 64 MiB) is an aggregate budget for request bodies and WebSocket
+messages being read or processed at once (issue 81). After authentication and before the body is read, a request
+reserves its worst case: the declared `Content-Length` (or `MCP__LIMITS__MAX_REQUEST_BYTES` when chunked or unknown),
+times 3 for the raw buffer plus the decoded string. A WebSocket message grows its reservation as fragments arrive.
+When the budget is exhausted an HTTP request is refused immediately with 503 and `Retry-After: 1`, and a WebSocket
+connection is closed with "server busy"; nothing queues. The value must admit at least one maximum-size request
+(3 x `MAX_REQUEST_BYTES`). Size it from the memory you give the process, and consider a smaller
+`MAX_REQUEST_BYTES` (default 1 MiB) if your callers send small payloads.
 
 ### Connection resource limits
 

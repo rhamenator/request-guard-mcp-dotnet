@@ -22,6 +22,14 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
             while (socket.State == WebSocketState.Open)
             {
                 using var messageStream = new MemoryStream();
+                // Each message holds a growing reservation from the shared in-flight byte budget (issue 81).
+                using var memory = state.RequestMemory.TryReserve(ReceiveBufferSize);
+                if (memory is null)
+                {
+                    await WriteBoundedAsync(token => socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, "server busy", token), state, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
                 using var messageDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 messageDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.WebSocketIdleTimeoutSecs));
                 WebSocketReceiveResult result;
@@ -39,6 +47,13 @@ public sealed class WebSocketConnectionHandler(McpDispatcher dispatcher, ILogger
                     if (messageStream.Length + result.Count > state.Config.Limits.MaxRequestBytes)
                     {
                         await WriteBoundedAsync(token => socket.CloseOutputAsync(WebSocketCloseStatus.MessageTooBig, "request too large", token), state, cancellationToken).ConfigureAwait(false);
+                        return;
+                    }
+
+                    if (messageStream.Length + result.Count > memory.HeldBytes / RequestMemoryBudget.ExpansionFactor - ReceiveBufferSize &&
+                        !memory.TryGrow(ReceiveBufferSize))
+                    {
+                        await WriteBoundedAsync(token => socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, "server busy", token), state, cancellationToken).ConfigureAwait(false);
                         return;
                     }
 
