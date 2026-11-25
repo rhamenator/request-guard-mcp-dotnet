@@ -7,7 +7,7 @@ using RequestGuardMcp.Core.Configuration;
 
 namespace RequestGuardMcp.Mcp.Transport;
 
-/// <summary>Pre-authentication connection admission and HTTP/2 lifetime bounds.</summary>
+/// <summary>Pre-authentication connection admission and HTTP/1 and HTTP/2 lifetime bounds.</summary>
 public sealed class ConnectionResourceGuard : IDisposable
 {
     internal const int Http2RequestCap = 128;
@@ -50,7 +50,7 @@ public sealed class ConnectionResourceGuard : IDisposable
             return;
         }
 
-        using var budget = new ConnectionBudget(_limits, _clock, _http2Lifetime);
+        using var budget = new ConnectionBudget(_limits, _clock, _http2Lifetime);   // HTTP/1 bounds come from the limits
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(connection.ConnectionClosed);
         _connections[connection.ConnectionId] = budget;
         var monitor = budget.WaitForCloseAsync(stop.Token);
@@ -64,10 +64,11 @@ public sealed class ConnectionResourceGuard : IDisposable
                 {
                     connection.Abort();
                 }
-                else if (reason == CloseReason.Http2Limit)
+                else if (reason is CloseReason.Http2Limit or CloseReason.Http1Limit)
                 {
-                    // Kestrel sends GOAWAY and drains accepted streams. A peer that does not
-                    // finish the exchange cannot keep the socket beyond the drain budget.
+                    // HTTP/2: Kestrel sends GOAWAY and drains accepted streams. HTTP/1: the next response carries
+                    // Connection: close. A peer that does not finish the exchange (including a slow reader that never
+                    // drains its responses) cannot keep the socket beyond the drain budget.
                     connection.Features.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
                     if (await Task.WhenAny(processing, Task.Delay(_drain, stop.Token)).ConfigureAwait(false) != processing)
                     {
@@ -106,6 +107,12 @@ public sealed class ConnectionResourceGuard : IDisposable
         }
 
         var http2 = context.Request.Protocol == "HTTP/2";
+        if (!http2 && IsWebSocketUpgrade(context.Request))
+        {
+            // An upgraded connection is no longer an HTTP/1 request loop; its own idle and write limits apply.
+            budget.MarkUpgraded();
+        }
+
         if (!budget.Admit(http2))
         {
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
@@ -122,10 +129,13 @@ public sealed class ConnectionResourceGuard : IDisposable
         }
     }
 
+    private static bool IsWebSocketUpgrade(HttpRequest request) =>
+        request.Headers.Upgrade.Any(value => value is not null && value.Contains("websocket", StringComparison.OrdinalIgnoreCase));
+
     public void Dispose() => _permits.Dispose();
 }
 
-internal enum CloseReason { Http1, FirstRequestTimeout, Http2Limit }
+internal enum CloseReason { Http1Limit, FirstRequestTimeout, Http2Limit }
 
 internal sealed class ConnectionBudget(LimitsConfig limits, TimeProvider clock, TimeSpan http2Lifetime) : IDisposable
 {
@@ -136,6 +146,7 @@ internal sealed class ConnectionBudget(LimitsConfig limits, TimeProvider clock, 
     private long _idleSince;
     private bool _seen;
     private bool _http2;
+    private bool _upgraded;
     private int _requests;
     private int _active;
 
@@ -160,9 +171,26 @@ internal sealed class ConnectionBudget(LimitsConfig limits, TimeProvider clock, 
                 _requests++;
                 _active++;
             }
+            else
+            {
+                // HTTP/1: count requests so the connection is closed gracefully at the cap. Requests already
+                // pipelined are still answered (the response carries Connection: close); the age bound below is
+                // what stops a peer that never reads them.
+                _requests++;
+            }
 
             Signal();
             return true;
+        }
+    }
+
+    /// <summary>Exempt this connection from the HTTP/1 age and request bounds (WebSocket upgrade).</summary>
+    public void MarkUpgraded()
+    {
+        lock (_gate)
+        {
+            _upgraded = true;
+            Signal();
         }
     }
 
@@ -200,7 +228,22 @@ internal sealed class ConnectionBudget(LimitsConfig limits, TimeProvider clock, 
                 {
                     if (!_http2)
                     {
-                        return CloseReason.Http1;
+                        if (_upgraded)
+                        {
+                            // Wait only for a state change or for the connection to end.
+                            remaining = Timeout.InfiniteTimeSpan;
+                        }
+                        else
+                        {
+                            // Non-renewable: later requests never extend the age (issue 83).
+                            remaining = TimeSpan.FromSeconds(limits.Http1MaxLifetimeSecs) - clock.GetElapsedTime(_first);
+                            if (_requests >= limits.Http1MaxRequests || remaining <= TimeSpan.Zero)
+                            {
+                                return CloseReason.Http1Limit;
+                            }
+                        }
+
+                        goto Wait;
                     }
 
                     remaining = http2Lifetime - clock.GetElapsedTime(_first);
@@ -217,7 +260,12 @@ internal sealed class ConnectionBudget(LimitsConfig limits, TimeProvider clock, 
                 }
             }
 
-            remaining = remaining < TimeSpan.FromMilliseconds(int.MaxValue) ? remaining : TimeSpan.FromMilliseconds(int.MaxValue);
+        Wait:
+            if (remaining != Timeout.InfiniteTimeSpan)
+            {
+                remaining = remaining < TimeSpan.FromMilliseconds(int.MaxValue) ? remaining : TimeSpan.FromMilliseconds(int.MaxValue);
+            }
+
             _ = await _changed.WaitAsync(remaining, cancellationToken).ConfigureAwait(false);
         }
     }
