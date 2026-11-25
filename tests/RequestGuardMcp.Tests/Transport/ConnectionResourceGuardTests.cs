@@ -39,6 +39,97 @@ public class ConnectionResourceGuardTests
         Assert.Equal(CloseReason.Http2Limit, await budget.WaitForCloseAsync(CancellationToken.None));
     }
 
+    private sealed class ManualTimeProvider : TimeProvider
+    {
+        private long _ticks;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Interlocked.Read(ref _ticks);
+        public void Advance(TimeSpan by) => Interlocked.Add(ref _ticks, by.Ticks);
+    }
+
+    [Fact]
+    public async Task Http1ConnectionAgeIsNonRenewable()
+    {
+        var clock = new ManualTimeProvider();
+        using var budget = new ConnectionBudget(new LimitsConfig { Http1MaxLifetimeSecs = 10, Http1MaxRequests = 1000 }, clock, TimeSpan.FromSeconds(120));
+        Assert.True(budget.Admit(http2: false));
+        clock.Advance(TimeSpan.FromSeconds(6));
+        Assert.True(budget.Admit(http2: false));   // periodic traffic must not extend the age
+        var wait = budget.WaitForCloseAsync(CancellationToken.None);
+        Assert.False(await Task.WhenAny(wait, Task.Delay(150)) == wait, "closed before the age was reached");
+        clock.Advance(TimeSpan.FromSeconds(5));
+        Assert.True(budget.Admit(http2: false));   // wakes the monitor
+        Assert.Equal(CloseReason.Http1Limit, await wait.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task Http1ConnectionClosesAtTheRequestCap()
+    {
+        using var budget = new ConnectionBudget(new LimitsConfig { Http1MaxRequests = 3 }, TimeProvider.System, TimeSpan.FromSeconds(120));
+        Assert.True(budget.Admit(http2: false));
+        Assert.True(budget.Admit(http2: false));
+        var wait = budget.WaitForCloseAsync(CancellationToken.None);
+        Assert.False(await Task.WhenAny(wait, Task.Delay(150)) == wait);
+        Assert.True(budget.Admit(http2: false));
+        Assert.Equal(CloseReason.Http1Limit, await wait.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task UpgradedConnectionIsExemptFromTheHttp1Bounds()
+    {
+        var clock = new ManualTimeProvider();
+        using var budget = new ConnectionBudget(new LimitsConfig { Http1MaxLifetimeSecs = 1, Http1MaxRequests = 1 }, clock, TimeSpan.FromSeconds(120));
+        budget.MarkUpgraded();
+        Assert.True(budget.Admit(http2: false));
+        clock.Advance(TimeSpan.FromHours(1));
+        using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => budget.WaitForCloseAsync(stop.Token));
+    }
+
+    [Fact]
+    public async Task Http1ConnectionIsClosedGracefullyAtTheRequestCap()
+    {
+        var limits = new LimitsConfig { Http1MaxRequests = 2 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, host.Port);
+        var stream = client.GetStream();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var request = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        var seen = new StringBuilder();
+        var buffer = new byte[4096];
+        await stream.WriteAsync(request, deadline.Token);
+        await stream.WriteAsync(request, deadline.Token);
+        int read;
+        while ((read = await stream.ReadAsync(buffer, deadline.Token)) != 0)
+        {
+            seen.Append(Encoding.ASCII.GetString(buffer, 0, read));
+        }
+
+        var text = seen.ToString();
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(text, "HTTP/1.1 200"));
+        // Reaching end-of-stream before the 10 s deadline (the keep-alive timeout is 60 s) is the evidence of the close.
+    }
+
+    [Fact]
+    public async Task AnUpgradeHeaderWithoutARealUpgradeDoesNotLiftTheHttp1Bounds()
+    {
+        var limits = new LimitsConfig { Http1MaxRequests = 2 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, host.Port);
+        var stream = client.GetStream();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var request = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n\r\n");
+        await stream.WriteAsync(request, deadline.Token);
+        await stream.WriteAsync(request, deadline.Token);
+        var buffer = new byte[4096];
+        while (await stream.ReadAsync(buffer, deadline.Token) != 0)
+        {
+            // Closed at the cap despite the Upgrade header; a hang would hit the 10 s deadline instead.
+        }
+    }
+
     [Theory]
     [InlineData("PRI * HTTP/2.0\r\n")]
     [InlineData("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")]

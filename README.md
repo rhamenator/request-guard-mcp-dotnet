@@ -439,6 +439,15 @@ beyond the count cap receive 503 before authentication or tool dispatch. Limit e
 requests Kestrel's graceful close/GOAWAY; the socket is aborted after a drain budget of
 body timeout + the larger tool timeout + 2 seconds. Clients must tolerate reconnects.
 
+HTTP/1 connections have the same two bounds (issue 83): a non-renewable age of
+`MCP__LIMITS__HTTP1_MAX_LIFETIME_SECS` (120) counted from the first request, so periodic
+traffic cannot extend it, and at most `MCP__LIMITS__HTTP1_MAX_REQUESTS` (100) requests.
+At either limit Kestrel is asked to close gracefully and the socket is aborted after the
+same drain budget, which also releases a connection whose peer never reads its responses.
+A connection upgraded to a WebSocket is exempt; it keeps its own idle and write limits.
+Add per-source rate and connection limits at a trusted reverse proxy as well, and do not
+expose the backend listener directly.
+
 These controls follow Rust development-main PRs #160/#162, not the public v0.1.5
 contract. Kestrel's default cleartext listener uses HTTP/1; it does not auto-detect
 HTTP/2 prior knowledge on the same cleartext port as Rust does. A real-host regression gate
