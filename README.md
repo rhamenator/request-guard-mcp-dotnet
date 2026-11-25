@@ -423,6 +423,14 @@ Prometheus counter deltas, bounded labels, and recovery. Because it cannot inspe
 or captured logs, it is proxy-traffic evidence only and does not replace the process-resource and
 log assertions in the spawned-host gate.
 
+### Build identity and the distributed cache
+
+Classification results cached in Redis are keyed by the build's version and source revision (issue 80), so two
+different builds never serve each other's cached verdicts. Docker images and native bundles embed the Git revision at
+publish time (`SourceRevisionId`); a runtime `GIT_COMMIT` variable is only a fallback for builds without one. A build
+that has no embedded revision refuses to start with Redis configured unless `MCP__REDIS__CACHE_DOMAIN` is set to a
+unique name. The cache schema was bumped, so entries written by earlier releases are not reused.
+
 ### Connection resource limits
 
 The Kestrel host caps admitted TCP connections, including upgraded WebSockets, at

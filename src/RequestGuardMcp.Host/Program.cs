@@ -150,6 +150,13 @@ if (appConfig.Telemetry.OtlpEndpoint is { } otlpEndpoint)
 }
 
 var appState = new AppState(appConfig);
+if (CacheIdentityGuard.Problem(appConfig, appState.BuildInfo) is { } cacheProblem)
+{
+    Console.Error.WriteLine($"configuration error: {cacheProblem}");
+    await appState.DisposeAsync().ConfigureAwait(false);
+    return 1;
+}
+
 try
 {
     if (appConfig.Redis.Url is not null)
