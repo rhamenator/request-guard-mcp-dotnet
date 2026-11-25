@@ -55,6 +55,13 @@ internal static class ToolResult
     }
 }
 
+/// <summary>Bounds on free text stored with feedback (issue 84).</summary>
+internal static class FeedbackLimits
+{
+    public const int MaxNotesChars = 2000;
+    public const int MaxReporterChars = 200;
+}
+
 public sealed class FeedbackTool : IMcpTool
 {
     public string Name => "feedback";
@@ -69,6 +76,11 @@ public sealed class FeedbackTool : IMcpTool
         if (!state.Config.Features.EnableFeedback || !state.Postgres.IsAvailable)
         {
             throw AppErrorException.IntegrationUnavailable("feedback requires PostgreSQL persistence and enable_feedback");
+        }
+
+        if (request.Notes is { Length: > FeedbackLimits.MaxNotesChars } || request.Reporter is { Length: > FeedbackLimits.MaxReporterChars })
+        {
+            throw AppErrorException.InvalidRequest($"notes must be at most {FeedbackLimits.MaxNotesChars} characters and reporter at most {FeedbackLimits.MaxReporterChars}");
         }
 
         var verdict = request.CorrectVerdict.ToLowerInvariant();
@@ -188,6 +200,11 @@ public sealed class EnrichUaTool : IMcpTool
             throw AppErrorException.IntegrationUnavailable("user-agent enrichment is disabled");
         }
 
+        if (request.UserAgent.Length > TextLimits.MaxUserAgentChars)
+        {
+            throw AppErrorException.InvalidRequest($"user_agent must be at most {TextLimits.MaxUserAgentChars} characters");
+        }
+
         var parsed = WootheeUaParser.Parse(request.UserAgent);
         var isBot = parsed?.Category == "crawler";
         return Task.FromResult(ToolResult.Json(new EnrichUaResponse(
@@ -277,18 +294,51 @@ public sealed partial class AbusePatternMatchTool : IMcpTool
     public Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
     {
         var request = McpJson.RequiredParams<AbusePatternMatchRequest>(parameters);
+        if (request.Text.Length > TextLimits.MaxAbuseTextChars)
+        {
+            throw AppErrorException.InvalidRequest($"text must be at most {TextLimits.MaxAbuseTextChars} characters");
+        }
+
         var categories = request.Categories ?? [];
-        var matches = Patterns.Where(pattern => categories.Count == 0 || categories.Contains(pattern.Category, StringComparer.Ordinal))
-            .Select(pattern => (Pattern: pattern, Match: pattern.Regex.Match(request.Text)))
-            .Where(result => result.Match.Success)
-            .Select(result => new PatternMatch(result.Pattern.Name, result.Pattern.Category, 0.9, result.Match.Value[..Math.Min(64, result.Match.Value.Length)]))
-            .ToList();
+        var matches = new List<PatternMatch>();
+        foreach (var pattern in Patterns)
+        {
+            // Check between patterns so a cancelled or timed-out call stops promptly (issue 79).
+            cancellationToken.ThrowIfCancellationRequested();
+            if (categories.Count != 0 && !categories.Contains(pattern.Category, StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            Match match;
+            try
+            {
+                match = pattern.Regex.Match(request.Text);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw AppErrorException.InvalidRequest("text could not be evaluated within the time limit");
+            }
+
+            if (match.Success)
+            {
+                matches.Add(new PatternMatch(pattern.Name, pattern.Category, 0.9, match.Value[..Math.Min(64, match.Value.Length)]));
+            }
+        }
+
         return Task.FromResult(ToolResult.Json(new AbusePatternMatchResponse(matches.Count > 0, matches, Math.Clamp(matches.Count * 0.3, 0.0, 1.0))));
     }
 
-    [GeneratedRegex(@"(\bSELECT\b.*\bFROM\b|\bUNION\b.*\bSELECT\b|\bDROP\b.*\bTABLE\b)", RegexOptions.IgnoreCase)] private static partial Regex SqlInjection();
-    [GeneratedRegex(@"(<script[\s\S]*?>|javascript:|on\w+\s*=)", RegexOptions.IgnoreCase)] private static partial Regex Xss();
-    [GeneratedRegex(@"(\.\./|\.\.\\|%2e%2e)", RegexOptions.IgnoreCase)] private static partial Regex PathTraversal();
-    [GeneratedRegex("(ignore previous instructions|you are now|forget your|disregard all|act as if you)", RegexOptions.IgnoreCase)] private static partial Regex PromptInjection();
-    [GeneratedRegex("(ssn|social security|credit card|cvv|api.?key|password|secret)", RegexOptions.IgnoreCase)] private static partial Regex SensitiveData();
+    [GeneratedRegex(@"(\bSELECT\b.*\bFROM\b|\bUNION\b.*\bSELECT\b|\bDROP\b.*\bTABLE\b)", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking, matchTimeoutMilliseconds: 250)] private static partial Regex SqlInjection();
+    [GeneratedRegex(@"(<script[\s\S]*?>|javascript:|on\w+\s*=)", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking, matchTimeoutMilliseconds: 250)] private static partial Regex Xss();
+    [GeneratedRegex(@"(\.\./|\.\.\\|%2e%2e)", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking, matchTimeoutMilliseconds: 250)] private static partial Regex PathTraversal();
+    [GeneratedRegex("(ignore previous instructions|you are now|forget your|disregard all|act as if you)", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking, matchTimeoutMilliseconds: 250)] private static partial Regex PromptInjection();
+    [GeneratedRegex("(ssn|social security|credit card|cvv|api.?key|password|secret)", RegexOptions.IgnoreCase | RegexOptions.NonBacktracking, matchTimeoutMilliseconds: 250)] private static partial Regex SensitiveData();
+}
+
+/// <summary>Tool-specific input bounds for attacker-controlled text that is matched against patterns (issue 79).</summary>
+internal static class TextLimits
+{
+    public const int MaxAbuseTextChars = 16 * 1024;
+    public const int MaxUserAgentChars = 1024;
 }

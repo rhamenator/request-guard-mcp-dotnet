@@ -28,5 +28,11 @@ public sealed class ClassifyRequest
     [JsonIgnore]
     public bool TlsFingerprintVerified { get; set; }
 
+    /// <summary>
+    /// Caller-reported: the client fetched a path that the origin's robots.txt disallows.
+    /// Absent or false leaves every score unchanged.
+    /// </summary>
+    public bool RobotsViolation { get; set; }
+
     public JsonNode? Extra { get; set; }
 }

@@ -39,6 +39,202 @@ public class ConnectionResourceGuardTests
         Assert.Equal(CloseReason.Http2Limit, await budget.WaitForCloseAsync(CancellationToken.None));
     }
 
+    private sealed class ManualTimeProvider : TimeProvider
+    {
+        private long _ticks;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Interlocked.Read(ref _ticks);
+        public void Advance(TimeSpan by) => Interlocked.Add(ref _ticks, by.Ticks);
+    }
+
+    [Fact]
+    public async Task Http1ConnectionAgeIsNonRenewable()
+    {
+        var clock = new ManualTimeProvider();
+        using var budget = new ConnectionBudget(new LimitsConfig { Http1MaxLifetimeSecs = 10, Http1MaxRequests = 1000 }, clock, TimeSpan.FromSeconds(120));
+        Assert.True(budget.Admit(http2: false));
+        clock.Advance(TimeSpan.FromSeconds(6));
+        Assert.True(budget.Admit(http2: false));   // periodic traffic must not extend the age
+        var wait = budget.WaitForCloseAsync(CancellationToken.None);
+        Assert.False(await Task.WhenAny(wait, Task.Delay(150)) == wait, "closed before the age was reached");
+        clock.Advance(TimeSpan.FromSeconds(5));
+        Assert.True(budget.Admit(http2: false));   // wakes the monitor
+        Assert.Equal(CloseReason.Http1Limit, await wait.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task Http1ConnectionClosesAtTheRequestCap()
+    {
+        using var budget = new ConnectionBudget(new LimitsConfig { Http1MaxRequests = 3 }, TimeProvider.System, TimeSpan.FromSeconds(120));
+        Assert.True(budget.Admit(http2: false));
+        Assert.True(budget.Admit(http2: false));
+        var wait = budget.WaitForCloseAsync(CancellationToken.None);
+        Assert.False(await Task.WhenAny(wait, Task.Delay(150)) == wait);
+        Assert.True(budget.Admit(http2: false));
+        Assert.Equal(CloseReason.Http1Limit, await wait.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task UpgradedConnectionIsExemptFromTheHttp1Bounds()
+    {
+        var clock = new ManualTimeProvider();
+        using var budget = new ConnectionBudget(new LimitsConfig { Http1MaxLifetimeSecs = 1, Http1MaxRequests = 1 }, clock, TimeSpan.FromSeconds(120));
+        budget.MarkUpgraded();
+        Assert.True(budget.Admit(http2: false));
+        clock.Advance(TimeSpan.FromHours(1));
+        using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => budget.WaitForCloseAsync(stop.Token));
+    }
+
+    [Fact]
+    public async Task Http1ConnectionIsClosedGracefullyAtTheRequestCap()
+    {
+        var limits = new LimitsConfig { Http1MaxRequests = 2 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, host.Port);
+        var stream = client.GetStream();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var request = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        var seen = new StringBuilder();
+        var buffer = new byte[4096];
+        await stream.WriteAsync(request, deadline.Token);
+        await stream.WriteAsync(request, deadline.Token);
+        int read;
+        while ((read = await stream.ReadAsync(buffer, deadline.Token)) != 0)
+        {
+            seen.Append(Encoding.ASCII.GetString(buffer, 0, read));
+        }
+
+        var text = seen.ToString();
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(text, "HTTP/1.1 200"));
+        // Reaching end-of-stream before the 10 s deadline (the keep-alive timeout is 60 s) is the evidence of the close.
+    }
+
+    [Fact]
+    public async Task AnUpgradeHeaderWithoutARealUpgradeDoesNotLiftTheHttp1Bounds()
+    {
+        var limits = new LimitsConfig { Http1MaxRequests = 2 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, host.Port);
+        var stream = client.GetStream();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var request = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n\r\n");
+        await stream.WriteAsync(request, deadline.Token);
+        await stream.WriteAsync(request, deadline.Token);
+        var buffer = new byte[4096];
+        while (await stream.ReadAsync(buffer, deadline.Token) != 0)
+        {
+            // Closed at the cap despite the Upgrade header; a hang would hit the 10 s deadline instead.
+        }
+    }
+
+    private static async Task<string> PostStatusLineAsync(int port, string body, int declaredLength, CancellationToken token)
+    {
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, port, token);
+        var stream = client.GetStream();
+        var head = $"POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: {declaredLength}\r\n\r\n";
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(head + body), token);
+        var buffer = new byte[256];
+        var read = await stream.ReadAsync(buffer, token);
+        return Encoding.ASCII.GetString(buffer, 0, read).Split("\r\n")[0];
+    }
+
+    [Fact]
+    public async Task InFlightBodyBudgetRefusesExcessRequestsAndRecovers()
+    {
+        // One maximum-size request (1000 bytes, reserved as 4000) fills the whole budget.
+        var limits = new LimitsConfig { MaxRequestBytes = 1000, MaxInflightRequestBytes = 4000 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        const string ping = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}";
+
+        using var holder = new TcpClient();
+        await holder.ConnectAsync(IPAddress.Loopback, host.Port, deadline.Token);
+        var holderHead = "POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: 1000\r\n\r\n{";
+        await holder.GetStream().WriteAsync(Encoding.ASCII.GetBytes(holderHead), deadline.Token);
+        await Task.Delay(300, deadline.Token);   // the body is incomplete, so its reservation is still held
+
+        Assert.StartsWith("HTTP/1.1 503", await PostStatusLineAsync(host.Port, ping, ping.Length, deadline.Token), StringComparison.Ordinal);
+
+        holder.Dispose();                        // the abandoned request ends and returns its reservation
+        string status;
+        do
+        {
+            await Task.Delay(100, deadline.Token);
+            status = await PostStatusLineAsync(host.Port, ping, ping.Length, deadline.Token);
+        }
+        while (status.StartsWith("HTTP/1.1 503", StringComparison.Ordinal));
+        Assert.StartsWith("HTTP/1.1 200", status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RequestMemoryBudgetNeverExceedsItsCapacityUnderContention()
+    {
+        var budget = new RequestMemoryBudget(10 * RequestMemoryBudget.ExpansionFactor * 100);   // room for ten 100-byte messages
+        var peak = 0L;
+        await Parallel.ForEachAsync(Enumerable.Range(0, 2000), new ParallelOptions { MaxDegreeOfParallelism = 32 }, async (_, token) =>
+        {
+            using var lease = budget.TryReserve(100);
+            if (lease is not null)
+            {
+                InterlockedMax(ref peak, budget.Used);
+                await Task.Yield();
+            }
+        });
+
+        Assert.True(peak <= budget.Capacity, $"peak {peak} exceeded capacity {budget.Capacity}");
+        Assert.Equal(0, budget.Used);   // everything is returned
+    }
+
+    private static void InterlockedMax(ref long target, long value)
+    {
+        long current;
+        while (value > (current = Interlocked.Read(ref target)) && Interlocked.CompareExchange(ref target, value, current) != current)
+        {
+        }
+    }
+
+    [Fact]
+    public void RequestMemoryLeaseGrowsAndReturnsEverything()
+    {
+        var budget = new RequestMemoryBudget(10 * RequestMemoryBudget.ExpansionFactor);
+        using (var lease = budget.TryReserve(4)!)
+        {
+            Assert.True(lease.TryGrow(4));
+            Assert.False(lease.TryGrow(4));          // 12 > 10 message bytes of capacity
+            Assert.Equal(8 * RequestMemoryBudget.ExpansionFactor, lease.HeldBytes);
+            Assert.Null(budget.TryReserve(4));       // only 2 left
+        }
+
+        Assert.Equal(0, budget.Used);
+    }
+
+    [Fact]
+    public async Task WebSocketMessagesFitTheMinimumValidatedBudget()
+    {
+        // The smallest budget that validates (4 x MaxRequestBytes) must still admit a small and a maximum-size message.
+        var limits = new LimitsConfig { MaxRequestBytes = 1000, MaxInflightRequestBytes = 4000 };
+        await using var host = await RunningServer.StartAsync(limits, HttpProtocols.Http1);
+        using var socket = new ClientWebSocket();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await socket.ConnectAsync(new Uri($"ws://127.0.0.1:{host.Port}/mcp"), deadline.Token);
+
+        const string health = """{"jsonrpc":"2.0","id":1,"method":"health"}""";
+        foreach (var message in new[] { health, health + new string(' ', 1000 - health.Length) })
+        {
+            await socket.SendAsync(Encoding.UTF8.GetBytes(message).AsMemory(), WebSocketMessageType.Text, true, deadline.Token);
+            var response = new byte[4096];
+            var received = await socket.ReceiveAsync(response.AsMemory(), deadline.Token);
+            Assert.Equal(WebSocketMessageType.Text, received.MessageType);
+            Assert.Contains("healthy", Encoding.UTF8.GetString(response, 0, received.Count), StringComparison.Ordinal);
+        }
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", deadline.Token);
+    }
+
     [Theory]
     [InlineData("PRI * HTTP/2.0\r\n")]
     [InlineData("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")]

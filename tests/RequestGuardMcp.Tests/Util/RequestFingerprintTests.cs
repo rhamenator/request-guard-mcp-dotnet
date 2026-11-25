@@ -42,8 +42,20 @@ public class RequestFingerprintTests
     public void AsciiVectorMatchesPinnedCurrentRustSerialization()
     {
         Assert.Equal(
-            "8c8d5d23afe162c77e90cc4d60484f77f417250df55d3f9af48cb464e3fd01fa",
+            "1a3bef989318959573e19ccd97e428369a0f8eb6a967c3f7b09dabf527ab58c8",
             RequestFingerprint.Compute("caller", Request(), "domain"));
+    }
+
+    [Fact]
+    public void RobotsViolationChangesTheCacheKey()
+    {
+        var baseReq = Request();
+        var flaggedReq = Request();
+        flaggedReq.RobotsViolation = true;
+
+        Assert.NotEqual(
+            Fingerprint("caller", baseReq),
+            Fingerprint("caller", flaggedReq));
     }
 
     [Fact]

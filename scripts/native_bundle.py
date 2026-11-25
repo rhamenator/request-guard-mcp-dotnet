@@ -44,11 +44,12 @@ def main():
         checkout.mkdir()
         with tarfile.open(tracked) as contents:
             contents.extractall(checkout, filter='data')
+        revision = subprocess.run(['git', 'rev-parse', source], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
         bundle = work / name
         environment = {**os.environ, 'DOTNET_NOLOGO': 'true', 'DOTNET_CLI_TELEMETRY_OPTOUT': 'true'}
         subprocess.run(['dotnet', 'publish', 'src/RequestGuardMcp.Host/RequestGuardMcp.Host.csproj',
                         '--configuration', 'Release', '--runtime', args.rid, '--output', str(bundle),
-                        '-p:ReleaseBundle=true', '-p:RestoreLockedMode=true', f'-p:Version={args.version}', '-m:2'],
+                        '-p:ReleaseBundle=true', '-p:RestoreLockedMode=true', f'-p:Version={args.version}', f'-p:SourceRevisionId={revision}', '-m:2'],
                        cwd=checkout, env=environment, check=True)
         executable = bundle / ('request-guard-mcp-dotnet.exe' if args.rid == 'win-x64' else 'request-guard-mcp-dotnet')
         if not executable.is_file():

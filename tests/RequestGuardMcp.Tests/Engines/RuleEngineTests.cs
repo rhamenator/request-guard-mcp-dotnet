@@ -1,4 +1,5 @@
 using RequestGuardMcp.Core.Engines;
+using RequestGuardMcp.Core.Models.Enums;
 using RequestGuardMcp.Core.Models.Request;
 
 namespace RequestGuardMcp.Tests.Engines;
@@ -177,5 +178,60 @@ public class RuleEngineTests
         var signals = RuleEngine.Evaluate(new ClassifyRequest { Path = "/a%2Fb%2Fc%2Fd%2Fe%2Ff%2Fg%2Fh%2Fi" });
 
         Assert.Contains(signals.Signals, signal => signal.Name == "path_deep");
+    }
+
+    [Theory]
+    [InlineData("curl/8.5.0")]
+    [InlineData("wget/1.21.4")]
+    [InlineData("python-requests/2.32.3")]
+    [InlineData("Go-http-client/1.1")]
+    [InlineData("okhttp/4.12.0")]
+    public void GenericProgrammaticClientsAreWeakEvidenceNotAiBots(string userAgent)
+    {
+        var signals = RuleEngine.Evaluate(new ClassifyRequest { UserAgent = userAgent });
+
+        Assert.Contains(signals.Signals, signal => signal.Name == "ua_generic_client");
+        Assert.DoesNotContain(signals.Signals, signal => signal.Name == "ua_ai_bot");
+        var result = Scorer.Score(signals);
+        Assert.NotEqual(Verdict.Block, result.Verdict);
+    }
+
+    [Theory]
+    [InlineData("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")]
+    [InlineData("Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)")]
+    [InlineData("Mozilla/5.0+(compatible; UptimeRobot/2.0; http://www.uptimerobot.com/)")]
+    [InlineData("Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)")]
+    public void WellKnownBenignCrawlersAreNotScrapers(string userAgent)
+    {
+        var signals = RuleEngine.Evaluate(new ClassifyRequest { UserAgent = userAgent, Path = "/" });
+
+        Assert.DoesNotContain(signals.Signals, signal => signal.Name == "ua_scraper");
+        var result = Scorer.Score(signals);
+        Assert.NotEqual(Verdict.Block, result.Verdict);
+    }
+
+    [Fact]
+    public void RobotsViolationIsAStrongStandaloneSignal()
+    {
+        var quietReq = new ClassifyRequest
+        {
+            UserAgent = "Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0",
+            Path = "/",
+        };
+        var quiet = Scorer.Score(RuleEngine.Evaluate(quietReq));
+        Assert.Equal(Verdict.Allow, quiet.Verdict);
+
+        var flaggedReq = new ClassifyRequest
+        {
+            UserAgent = quietReq.UserAgent,
+            Path = "/",
+            RobotsViolation = true,
+        };
+        var signals = RuleEngine.Evaluate(flaggedReq);
+        Assert.Contains(signals.Signals, signal => signal.Name == "robots_violation");
+        var flagged = Scorer.Score(signals);
+        Assert.Equal(Verdict.Block, flagged.Verdict);
+        Assert.Equal(ThreatCategory.Scraping, flagged.ThreatCategory);
+        Assert.True(flagged.Score > quiet.Score);
     }
 }

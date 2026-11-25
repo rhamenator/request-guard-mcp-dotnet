@@ -49,7 +49,7 @@ def comments(association="OWNER"):
 class ReleaseCandidateGateTests(unittest.TestCase):
     def test_happy_path_components(self):
         self.assertIn(
-            "Current Rust Classifier (2660c1fbfd71b38108dfc7b9decd309e4a8e480c)",
+            "Current Rust Classifier (30e17669f73b58bd310d247b0c69af91f55de2de)",
             gate.REQUIRED_CHECKS,
         )
         self.assertIn(

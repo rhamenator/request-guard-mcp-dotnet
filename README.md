@@ -423,6 +423,46 @@ Prometheus counter deltas, bounded labels, and recovery. Because it cannot inspe
 or captured logs, it is proxy-traffic evidence only and does not replace the process-resource and
 log assertions in the spawned-host gate.
 
+### Build identity and the distributed cache
+
+Classification results cached in Redis are keyed by the build's version and source revision (issue 80), so two
+different builds never serve each other's cached verdicts. Docker images and native bundles embed the Git revision at
+publish time (`SourceRevisionId`); a runtime `GIT_COMMIT` variable is only a fallback for builds without one. A build
+that has no embedded revision refuses to start with Redis configured unless `MCP__REDIS__CACHE_DOMAIN` is set to a
+unique name. The cache schema was bumped, so entries written by earlier releases are not reused.
+### Liveness and readiness
+
+`GET /health` is a constant-cost liveness check: it reports that the process is serving and never contacts Redis,
+PostgreSQL or GeoIP (issue 82), so a slow dependency cannot make unauthenticated health traffic consume backend
+capacity or cause restarts. Dependency state is reported by `GET /ready` and the authenticated `health` tool. Both share
+one in-flight check, reuse its result for `MCP__LIMITS__HEALTH_CACHE_SECS` (2) and give it a hard deadline of
+`MCP__LIMITS__HEALTH_DEADLINE_SECS` (3), after which the dependencies are reported unhealthy. The Redis PING is
+cancellation-aware. Keep `/ready` and `/metrics` off untrusted networks with your reverse proxy or network policy.
+### PostgreSQL retention and caps
+
+Persisted decisions and feedback grow without bound unless limited (issue 84). Both controls are off by default,
+so existing deployments keep their data:
+
+- `MCP__POSTGRES__RETENTION_DAYS` (0 = keep everything) deletes decisions, and their feedback, older than that many
+  days. A background job runs every `MCP__POSTGRES__RETENTION_INTERVAL_MINUTES` (60) and deletes in batches of
+  `MCP__POSTGRES__RETENTION_BATCH_SIZE` (1000) so no single statement holds a long lock.
+- `MCP__POSTGRES__MAX_ROWS_PER_CALLER` (0 = no cap) keeps at most that many decisions and that many feedback rows
+  per caller, removing the oldest inside the same transaction that writes the new row.
+- Feedback `notes` are limited to 2000 characters and `reporter` to 200.
+
+Still the operator's job: disk, WAL and table-size alerts, a per-token rate limit at your reverse proxy, and a
+retention window that matches your privacy policy.
+### In-flight request memory budget
+
+`MCP__LIMITS__MAX_INFLIGHT_REQUEST_BYTES` (default 64 MiB) is an aggregate budget for request bodies and WebSocket
+messages being read or processed at once (issue 81). After authentication and before the body is read, a request
+reserves its worst case: the declared `Content-Length` (or `MCP__LIMITS__MAX_REQUEST_BYTES` when chunked or unknown),
+times 4 (the stream's buffer capacity plus the decoded string). A WebSocket message grows its reservation as fragments arrive.
+When the budget is exhausted an HTTP request is refused immediately with 503 and `Retry-After: 1`, and a WebSocket
+connection is closed with "server busy"; nothing queues. The value must admit at least one maximum-size request
+(4 x `MAX_REQUEST_BYTES`). Size it from the memory you give the process, and consider a smaller
+`MAX_REQUEST_BYTES` (default 1 MiB) if your callers send small payloads.
+
 ### Connection resource limits
 
 The Kestrel host caps admitted TCP connections, including upgraded WebSockets, at
@@ -438,6 +478,15 @@ the first request, 16 concurrent streams and at most 128 admitted requests. Requ
 beyond the count cap receive 503 before authentication or tool dispatch. Limit expiry
 requests Kestrel's graceful close/GOAWAY; the socket is aborted after a drain budget of
 body timeout + the larger tool timeout + 2 seconds. Clients must tolerate reconnects.
+
+HTTP/1 connections have the same two bounds (issue 83): a non-renewable age of
+`MCP__LIMITS__HTTP1_MAX_LIFETIME_SECS` (120) counted from the first request, so periodic
+traffic cannot extend it, and at most `MCP__LIMITS__HTTP1_MAX_REQUESTS` (100) requests.
+At either limit Kestrel is asked to close gracefully and the socket is aborted after the
+same drain budget, which also releases a connection whose peer never reads its responses.
+A connection upgraded to a WebSocket is exempt; it keeps its own idle and write limits.
+Add per-source rate and connection limits at a trusted reverse proxy as well, and do not
+expose the backend listener directly.
 
 These controls follow Rust development-main PRs #160/#162, not the public v0.1.5
 contract. Kestrel's default cleartext listener uses HTTP/1; it does not auto-detect

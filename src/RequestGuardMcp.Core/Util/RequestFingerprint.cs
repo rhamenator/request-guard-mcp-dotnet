@@ -36,12 +36,13 @@ public static class RequestFingerprint
                 ["ja4"] = request.TlsJa4,
                 ["source"] = request.TlsFingerprintSource,
             } : null,
+            ["robots_violation"] = request.RobotsViolation,
         };
 
         return Sha256(input.ToJsonString());
     }
 
-    public static string ComputeCacheDomain(TlsFingerprintConfig tls, string version, string gitCommit)
+    public static string ComputeCacheDomain(TlsFingerprintConfig tls, string version, string gitCommit, string? cacheDomainOverride = null)
     {
         var ja3 = tls.KnownBadJa3
             .Select(value => TlsAttestation.NormalizeJa3(value))
@@ -59,9 +60,10 @@ public static class RequestFingerprint
             .ToArray();
         var input = new JsonObject
         {
-            ["schema"] = "classification-v3",
+            ["schema"] = "classification-v5",
             ["version"] = version,
             ["git_commit"] = gitCommit,
+            ["cache_domain"] = cacheDomainOverride ?? string.Empty,
             ["known_bad_ja3"] = new JsonArray(ja3),
             ["known_bad_ja4"] = new JsonArray(ja4),
         };

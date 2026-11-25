@@ -188,6 +188,9 @@ public class AppConfigTests
     [InlineData("headers")]
     [InlineData("body")]
     [InlineData("http2_idle")]
+    [InlineData("http1_lifetime")]
+    [InlineData("http1_requests")]
+    [InlineData("inflight_budget")]
     public void ConnectionLimitsMustBePositive(string field)
     {
         var config = new AppConfig { Auth = new AuthConfig { Enabled = false } };
@@ -197,6 +200,9 @@ public class AppConfigTests
             case "headers": config.Limits.HttpHeaderTimeoutSecs = 0; break;
             case "body": config.Limits.HttpBodyTimeoutSecs = 0; break;
             case "http2_idle": config.Limits.Http2IdleTimeoutSecs = 0; break;
+            case "http1_lifetime": config.Limits.Http1MaxLifetimeSecs = 0; break;
+            case "http1_requests": config.Limits.Http1MaxRequests = 0; break;
+            case "inflight_budget": config.Limits.MaxInflightRequestBytes = config.Limits.MaxRequestBytes; break;   // below 4 x one request
         }
 
         Assert.Throws<ConfigValidationException>(config.Validate);

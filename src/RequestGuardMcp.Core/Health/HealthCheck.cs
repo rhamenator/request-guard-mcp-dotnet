@@ -13,6 +13,28 @@ public static class HealthCheck
 {
     private static readonly DateTimeOffset StartTime = DateTimeOffset.UtcNow;
 
+    /// <summary>Constant-cost liveness: the process is up and serving. Never touches Redis, PostgreSQL or GeoIP (issue 82).</summary>
+    public static HealthResponse Liveness(AppState state) => new(
+        Status: "healthy",
+        Version: state.BuildInfo.Version,
+        UptimeSeconds: (ulong)Math.Max(0, (DateTimeOffset.UtcNow - StartTime).TotalSeconds),
+        Checks: new Dictionary<string, ComponentHealth>
+        {
+            ["server"] = new ComponentHealth("healthy", Message: null, LatencyMs: 0),
+            ["cache"] = new ComponentHealth("healthy", Message: null, LatencyMs: null),
+        });
+
+    /// <summary>The result reported when the bounded dependency check did not finish in time.</summary>
+    internal static HealthResponse TimedOut(AppState state) => new(
+        Status: "unhealthy",
+        Version: state.BuildInfo.Version,
+        UptimeSeconds: (ulong)Math.Max(0, (DateTimeOffset.UtcNow - StartTime).TotalSeconds),
+        Checks: new Dictionary<string, ComponentHealth>
+        {
+            ["server"] = new ComponentHealth("healthy", Message: null, LatencyMs: 0),
+            ["dependencies"] = new ComponentHealth("unhealthy", "the dependency health check did not finish before its deadline", LatencyMs: null),
+        });
+
     public static async Task<HealthResponse> RunAsync(AppState state, CancellationToken cancellationToken = default)
     {
         var uptime = (ulong)Math.Max(0, (DateTimeOffset.UtcNow - StartTime).TotalSeconds);

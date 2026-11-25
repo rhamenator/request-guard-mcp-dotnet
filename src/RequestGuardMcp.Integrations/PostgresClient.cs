@@ -23,8 +23,13 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
 {
     private const long SchemaInitLockKey = 0x5251_474d_4350_5343;
     private readonly NpgsqlDataSource _dataSource;
+    private readonly int _maxRowsPerCaller;
 
-    private PostgresClient(NpgsqlDataSource dataSource) => _dataSource = dataSource;
+    private PostgresClient(NpgsqlDataSource dataSource, int maxRowsPerCaller)
+    {
+        _dataSource = dataSource;
+        _maxRowsPerCaller = maxRowsPerCaller;
+    }
 
     public static async Task<PostgresClient> ConnectAsync(PostgresConfig config, CancellationToken cancellationToken = default)
     {
@@ -32,7 +37,7 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
         builder.ConnectionStringBuilder.MaxPoolSize = config.MaxConnections;
         builder.ConnectionStringBuilder.Timeout = config.ConnectTimeoutSecs;
         var dataSource = builder.Build();
-        var client = new PostgresClient(dataSource);
+        var client = new PostgresClient(dataSource, config.MaxRowsPerCaller);
         try
         {
             await client.InitializeSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -234,6 +239,8 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
             clear.Parameters.Add(new NpgsqlParameter { Value = callerScope });
             await clear.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
+
+        await TrimCallerAsync(connection, transaction, "mcp_decisions", "request_id", callerScope, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -291,8 +298,56 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
         insertCommand.Parameters.Add(new NpgsqlParameter { Value = (object?)notes ?? DBNull.Value });
         insertCommand.Parameters.Add(new NpgsqlParameter { Value = (object?)reporter ?? DBNull.Value });
         await insertCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await TrimCallerAsync(connection, transaction, "mcp_feedback", "feedback_id", callerScope, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return feedbackId;
+    }
+
+    /// <summary>Keep at most <c>MaxRowsPerCaller</c> rows per caller by removing the oldest, inside the writing transaction (no-op when 0).</summary>
+    private async Task TrimCallerAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, string table, string key, string callerScope, CancellationToken cancellationToken)
+    {
+        if (_maxRowsPerCaller <= 0)
+        {
+            return;
+        }
+
+        // Serialize trimming per caller and table. Without this, concurrent writers each count before the others commit, see only
+        // their own new row, delete nothing, and the cap is exceeded permanently. The lock is held to the end of the transaction;
+        // under READ COMMITTED the count below then sees every row committed by the writer that held the lock before us.
+        await using (var gate = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", connection, transaction))
+        {
+            gate.Parameters.Add(new NpgsqlParameter { Value = $"cap:{table}:{callerScope}" });
+            await gate.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        // table and key are fixed identifiers chosen by the two call sites above, never user input.
+        var sql = $"DELETE FROM {table} WHERE {key} IN (SELECT {key} FROM {table} WHERE caller_scope = $1 ORDER BY created_at DESC, {key} OFFSET $2)";
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.Add(new NpgsqlParameter { Value = callerScope });
+        command.Parameters.Add(new NpgsqlParameter { Value = (long)_maxRowsPerCaller });
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<PurgeResult> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        int feedbackRemoved;
+        // Feedback rows reference decisions with ON DELETE CASCADE; old feedback on newer decisions is removed too.
+        await using (var feedback = new NpgsqlCommand(
+            "DELETE FROM mcp_feedback WHERE feedback_id IN (SELECT feedback_id FROM mcp_feedback WHERE created_at < $1 ORDER BY created_at LIMIT $2)", connection))
+        {
+            feedback.Parameters.Add(new NpgsqlParameter { Value = olderThan });
+            feedback.Parameters.Add(new NpgsqlParameter { Value = (long)batchSize });
+            feedbackRemoved = await feedback.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await using var decisions = new NpgsqlCommand(
+            "DELETE FROM mcp_decisions WHERE request_id IN (SELECT request_id FROM mcp_decisions WHERE created_at < $1 ORDER BY created_at LIMIT $2)", connection);
+        decisions.Parameters.Add(new NpgsqlParameter { Value = olderThan });
+        decisions.Parameters.Add(new NpgsqlParameter { Value = (long)batchSize });
+        var decisionsRemoved = await decisions.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        return new PurgeResult(decisionsRemoved, feedbackRemoved);
     }
 
     public async Task<DriftSummary> DriftSummaryAsync(string callerScope, DateTimeOffset start, DateTimeOffset midpoint, CancellationToken cancellationToken = default)
@@ -460,6 +515,7 @@ public sealed class PostgresClient : IPostgresClient, IAsyncDisposable
             Path = path,
             Method = request.Method,
             Headers = headers,
+            RobotsViolation = request.RobotsViolation,
         };
     }
 

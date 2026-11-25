@@ -44,6 +44,9 @@
       "tls_fingerprint_source": {
         "type": "string"
       },
+      "robots_violation": {
+        "type": "boolean"
+      },
       "tls_fingerprint_attestation": {
         "type": "string"
       },

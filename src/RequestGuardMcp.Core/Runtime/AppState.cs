@@ -27,6 +27,8 @@ public sealed class AppState : IAsyncDisposable
     public IGeoipClient Geoip { get; private set; } = NullGeoipClient.Instance;
     public IReputationClient Reputation { get; private set; }
     public AppMetrics Metrics { get; } = new();
+    public Health.DependencyHealthCache DependencyHealth { get; }
+    public RequestMemoryBudget RequestMemory { get; }
 
     public ConcurrentDictionary<string, bool> FeatureFlags { get; } = new(StringComparer.Ordinal);
 
@@ -34,9 +36,12 @@ public sealed class AppState : IAsyncDisposable
     {
         Config = config;
         Semaphore = new SemaphoreSlim(config.Limits.GlobalConcurrency, config.Limits.GlobalConcurrency);
+        DependencyHealth = new Health.DependencyHealthCache(
+            TimeSpan.FromSeconds(config.Limits.HealthCacheSecs), TimeSpan.FromSeconds(config.Limits.HealthDeadlineSecs), TimeProvider.System);
+        RequestMemory = new RequestMemoryBudget(config.Limits.MaxInflightRequestBytes);
         BuildInfo = BuildInfo.Current();
         ClassificationCacheDomain = Util.RequestFingerprint.ComputeCacheDomain(
-            config.TlsFingerprints, BuildInfo.Version, BuildInfo.GitCommit);
+            config.TlsFingerprints, BuildInfo.Version, BuildInfo.GitCommit, config.Redis.CacheDomain);
         Cache = new InMemoryCacheStore();
         Reputation = new ReputationClient(Redis);
         RefreshFeatureFlags();

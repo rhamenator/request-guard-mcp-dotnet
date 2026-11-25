@@ -80,12 +80,27 @@ public static class McpEndpoints
             return;
         }
 
+        // Reserve the worst-case memory for this body before reading any of it (issue 81). The declared length is used
+        // when present; chunked or unknown lengths reserve the configured maximum. Refuse at once when the aggregate
+        // budget is exhausted: callers retry, and total buffered input stays inside the memory envelope.
+        var declared = context.Request.ContentLength is { } length && length >= 0
+            ? Math.Min(length, state.Config.Limits.MaxRequestBytes)
+            : state.Config.Limits.MaxRequestBytes;
+        using var memory = state.RequestMemory.TryReserve(declared);
+        if (memory is null)
+        {
+            context.Response.Headers.RetryAfter = "1";
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
         string text;
         using var bodyDeadline = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
         bodyDeadline.CancelAfter(TimeSpan.FromSeconds(state.Config.Limits.HttpBodyTimeoutSecs));
         try
         {
-            using var body = new MemoryStream();
+            // Pre-size to the declared length so the buffer does not double while growing (the reservation covers its capacity).
+            using var body = new MemoryStream(context.Request.ContentLength is { } declaredLength && declaredLength > 0 ? (int)Math.Min(declaredLength, declared) : 0);
             await context.Request.Body.CopyToAsync(body, bodyDeadline.Token).ConfigureAwait(false);
             text = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true)
                 .GetString(body.GetBuffer(), 0, checked((int)body.Length));
@@ -154,7 +169,8 @@ public static class McpEndpoints
     private static async Task HandleHealthAsync(HttpContext context)
     {
         var state = context.RequestServices.GetRequiredService<AppState>();
-        var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
+        // Constant-cost liveness (issue 82): dependency state is reported by /ready and the authenticated health tool.
+        var health = HealthCheck.Liveness(state);
         context.Response.ContentType = MediaTypeNames.Application.Json;
         await WriteWithDeadlineAsync(context, token => System.Text.Json.JsonSerializer.SerializeAsync(context.Response.Body, health, McpJson.Options, token))
             .ConfigureAwait(false);
@@ -164,7 +180,7 @@ public static class McpEndpoints
     {
         var state = context.RequestServices.GetRequiredService<AppState>();
         var capacityAvailable = state.Semaphore.CurrentCount > 0;
-        var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
+        var health = await state.DependencyHealth.GetAsync(state, context.RequestAborted).ConfigureAwait(false);
         var ready = capacityAvailable && health.Status == "healthy";
         context.Response.StatusCode = ready ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable;
         await WriteResponseAsync(context, ready ? "ready" : "not ready").ConfigureAwait(false);

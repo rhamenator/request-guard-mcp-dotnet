@@ -1,3 +1,4 @@
+using RequestGuardMcp.Core.Runtime;
 using RequestGuardMcp.Core.Util;
 
 namespace RequestGuardMcp.Core.Configuration;
@@ -76,18 +77,27 @@ public sealed class AppConfig
             Limits.HttpBodyTimeoutSecs <= 0 ||
             Limits.HttpResponseWriteTimeoutSecs <= 0 ||
             Limits.Http2IdleTimeoutSecs <= 0 ||
+            Limits.Http1MaxLifetimeSecs <= 0 ||
+            Limits.Http1MaxRequests <= 0 ||
             Limits.WebSocketIdleTimeoutSecs <= 0 ||
             Limits.WebSocketWriteTimeoutSecs <= 0 ||
             Limits.PerToolTimeoutSecs <= 0 ||
-            Limits.ClassifyTimeoutSecs <= 0)
+            Limits.ClassifyTimeoutSecs <= 0 ||
+            Limits.HealthCacheSecs <= 0 ||
+            Limits.HealthDeadlineSecs <= 0)
         {
             throw new ConfigValidationException("all request, batch, concurrency, and timeout limits must be positive");
+        }
+
+        if (Limits.MaxInflightRequestBytes < (long)Limits.MaxRequestBytes * RequestMemoryBudget.ExpansionFactor)
+        {
+            throw new ConfigValidationException("max_inflight_request_bytes must admit at least one maximum-size request (4 x max_request_bytes)");
         }
 
         // CancelAfter(TimeSpan) is bounded by UInt32 milliseconds. Reject values
         // that would otherwise fail only after a client connects or calls a tool.
         if (new[] { Limits.HttpHeaderTimeoutSecs, Limits.HttpBodyTimeoutSecs, Limits.HttpResponseWriteTimeoutSecs,
-                Limits.Http2IdleTimeoutSecs, Limits.WebSocketIdleTimeoutSecs, Limits.WebSocketWriteTimeoutSecs,
+                Limits.Http2IdleTimeoutSecs, Limits.Http1MaxLifetimeSecs, Limits.WebSocketIdleTimeoutSecs, Limits.WebSocketWriteTimeoutSecs,
                 Limits.PerToolTimeoutSecs, Limits.ClassifyTimeoutSecs }.Any(seconds => seconds > 4_294_967))
         {
             throw new ConfigValidationException("timeout limits must not exceed 4294967 seconds");
@@ -107,6 +117,11 @@ public sealed class AppConfig
         if (Redis.Url is not null && string.IsNullOrWhiteSpace(Redis.Url))
         {
             throw new ConfigValidationException("redis.url cannot be empty when configured");
+        }
+
+        if (Postgres.RetentionDays < 0 || Postgres.MaxRowsPerCaller < 0 || Postgres.RetentionBatchSize <= 0 || Postgres.RetentionIntervalMinutes <= 0)
+        {
+            throw new ConfigValidationException("postgres retention_days and max_rows_per_caller must not be negative; retention_batch_size and retention_interval_minutes must be positive");
         }
 
         if (Postgres.MaxConnections <= 0 || Postgres.ConnectTimeoutSecs <= 0)
@@ -201,6 +216,9 @@ public sealed class AuthConfig
 public sealed class LimitsConfig
 {
     public int MaxRequestBytes { get; set; } = 1024 * 1024;
+
+    /// <summary>Aggregate budget for request bodies and WebSocket messages being read or processed at once (each byte is budgeted at 4 bytes of memory). Excess requests are refused with 503 / a WebSocket close instead of queueing.</summary>
+    public long MaxInflightRequestBytes { get; set; } = 64L * 1024 * 1024;
     public int MaxBatchSize { get; set; } = 50;
     public int GlobalConcurrency { get; set; } = 256;
     public int MaxConnections { get; set; } = 256;
@@ -208,10 +226,22 @@ public sealed class LimitsConfig
     public int HttpBodyTimeoutSecs { get; set; } = 30;
     public int HttpResponseWriteTimeoutSecs { get; set; } = 10;
     public int Http2IdleTimeoutSecs { get; set; } = 60;
+
+    /// <summary>Non-renewable maximum age of an HTTP/1 connection, from its first request. WebSocket connections are exempt (they have their own idle and write limits).</summary>
+    public int Http1MaxLifetimeSecs { get; set; } = 120;
+
+    /// <summary>Maximum requests served on one HTTP/1 connection before it is closed gracefully.</summary>
+    public int Http1MaxRequests { get; set; } = 100;
     public int WebSocketIdleTimeoutSecs { get; set; } = 60;
     public int WebSocketWriteTimeoutSecs { get; set; } = 10;
     public int PerToolTimeoutSecs { get; set; } = 30;
     public int ClassifyTimeoutSecs { get; set; } = 5;
+
+    /// <summary>How long a dependency health result (Redis, PostgreSQL, GeoIP) is reused by <c>/ready</c> and the health tool.</summary>
+    public int HealthCacheSecs { get; set; } = 2;
+
+    /// <summary>Hard deadline for one dependency health check; slower dependencies are reported unhealthy.</summary>
+    public int HealthDeadlineSecs { get; set; } = 3;
 }
 
 public sealed class RedisConfig
@@ -220,6 +250,9 @@ public sealed class RedisConfig
     public int PoolSize { get; set; } = 16;
     public string KeyPrefix { get; set; } = "request_guard";
     public int CacheTtlSecs { get; set; } = 300;
+
+    /// <summary>Explicit, unique name mixed into every cache key. Required when Redis is used and the executable has no embedded source revision (issue 80); otherwise optional.</summary>
+    public string? CacheDomain { get; set; }
 }
 
 public sealed class PostgresConfig
@@ -227,6 +260,18 @@ public sealed class PostgresConfig
     public string? Url { get; set; }
     public int MaxConnections { get; set; } = 10;
     public int ConnectTimeoutSecs { get; set; } = 5;
+
+    /// <summary>Delete persisted decisions (and their feedback) older than this many days. 0 keeps everything (the default, as before).</summary>
+    public int RetentionDays { get; set; }
+
+    /// <summary>Rows deleted per retention batch, so one purge never holds a long lock.</summary>
+    public int RetentionBatchSize { get; set; } = 1000;
+
+    /// <summary>Minutes between retention runs.</summary>
+    public int RetentionIntervalMinutes { get; set; } = 60;
+
+    /// <summary>Per caller, keep at most this many decisions and this many feedback rows; the oldest are removed first. 0 means no cap.</summary>
+    public int MaxRowsPerCaller { get; set; }
 }
 
 public sealed class GeoipConfig
