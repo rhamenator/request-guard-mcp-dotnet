@@ -55,6 +55,13 @@ internal static class ToolResult
     }
 }
 
+/// <summary>Bounds on free text stored with feedback (issue 84).</summary>
+internal static class FeedbackLimits
+{
+    public const int MaxNotesChars = 2000;
+    public const int MaxReporterChars = 200;
+}
+
 public sealed class FeedbackTool : IMcpTool
 {
     public string Name => "feedback";
@@ -69,6 +76,11 @@ public sealed class FeedbackTool : IMcpTool
         if (!state.Config.Features.EnableFeedback || !state.Postgres.IsAvailable)
         {
             throw AppErrorException.IntegrationUnavailable("feedback requires PostgreSQL persistence and enable_feedback");
+        }
+
+        if (request.Notes is { Length: > FeedbackLimits.MaxNotesChars } || request.Reporter is { Length: > FeedbackLimits.MaxReporterChars })
+        {
+            throw AppErrorException.InvalidRequest($"notes must be at most {FeedbackLimits.MaxNotesChars} characters and reporter at most {FeedbackLimits.MaxReporterChars}");
         }
 
         var verdict = request.CorrectVerdict.ToLowerInvariant();

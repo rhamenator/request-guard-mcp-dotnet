@@ -113,6 +113,11 @@ public sealed class AppConfig
             throw new ConfigValidationException("redis.url cannot be empty when configured");
         }
 
+        if (Postgres.RetentionDays < 0 || Postgres.MaxRowsPerCaller < 0 || Postgres.RetentionBatchSize <= 0 || Postgres.RetentionIntervalMinutes <= 0)
+        {
+            throw new ConfigValidationException("postgres retention_days and max_rows_per_caller must not be negative; retention_batch_size and retention_interval_minutes must be positive");
+        }
+
         if (Postgres.MaxConnections <= 0 || Postgres.ConnectTimeoutSecs <= 0)
         {
             throw new ConfigValidationException("PostgreSQL connection count and timeout must be positive");
@@ -246,6 +251,18 @@ public sealed class PostgresConfig
     public string? Url { get; set; }
     public int MaxConnections { get; set; } = 10;
     public int ConnectTimeoutSecs { get; set; } = 5;
+
+    /// <summary>Delete persisted decisions (and their feedback) older than this many days. 0 keeps everything (the default, as before).</summary>
+    public int RetentionDays { get; set; }
+
+    /// <summary>Rows deleted per retention batch, so one purge never holds a long lock.</summary>
+    public int RetentionBatchSize { get; set; } = 1000;
+
+    /// <summary>Minutes between retention runs.</summary>
+    public int RetentionIntervalMinutes { get; set; } = 60;
+
+    /// <summary>Per caller, keep at most this many decisions and this many feedback rows; the oldest are removed first. 0 means no cap.</summary>
+    public int MaxRowsPerCaller { get; set; }
 }
 
 public sealed class GeoipConfig

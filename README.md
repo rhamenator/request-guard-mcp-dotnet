@@ -438,6 +438,20 @@ capacity or cause restarts. Dependency state is reported by `GET /ready` and the
 one in-flight check, reuse its result for `MCP__LIMITS__HEALTH_CACHE_SECS` (2) and give it a hard deadline of
 `MCP__LIMITS__HEALTH_DEADLINE_SECS` (3), after which the dependencies are reported unhealthy. The Redis PING is
 cancellation-aware. Keep `/ready` and `/metrics` off untrusted networks with your reverse proxy or network policy.
+### PostgreSQL retention and caps
+
+Persisted decisions and feedback grow without bound unless limited (issue 84). Both controls are off by default,
+so existing deployments keep their data:
+
+- `MCP__POSTGRES__RETENTION_DAYS` (0 = keep everything) deletes decisions, and their feedback, older than that many
+  days. A background job runs every `MCP__POSTGRES__RETENTION_INTERVAL_MINUTES` (60) and deletes in batches of
+  `MCP__POSTGRES__RETENTION_BATCH_SIZE` (1000) so no single statement holds a long lock.
+- `MCP__POSTGRES__MAX_ROWS_PER_CALLER` (0 = no cap) keeps at most that many decisions and that many feedback rows
+  per caller, removing the oldest inside the same transaction that writes the new row.
+- Feedback `notes` are limited to 2000 characters and `reporter` to 200.
+
+Still the operator's job: disk, WAL and table-size alerts, a per-token rate limit at your reverse proxy, and a
+retention window that matches your privacy policy.
 
 ### Connection resource limits
 

@@ -50,4 +50,7 @@ public interface IPostgresClient
     public Task<DriftSummary> DriftSummaryAsync(string callerScope, DateTimeOffset start, DateTimeOffset midpoint, CancellationToken cancellationToken = default);
 
     public Task<CalibrationSummary> CalibrationSummaryAsync(string callerScope, DateTimeOffset start, CancellationToken cancellationToken = default);
+
+    /// <summary>Delete up to <paramref name="batchSize"/> decisions older than <paramref name="olderThan"/> (their feedback goes with them) and return how many were removed.</summary>
+    public Task<int> PurgeExpiredAsync(DateTimeOffset olderThan, int batchSize, CancellationToken cancellationToken = default);
 }
