@@ -23,7 +23,7 @@ if (Environment.GetEnvironmentVariable("CONFIG_FILE") is { Length: > 0 } configF
     }
     catch (Exception error) when (error is IOException or FormatException or NotSupportedException)
     {
-        Console.Error.WriteLine($"configuration error: {error.Message}");
+        Console.Error.WriteLine($"configuration error: {StartupErrorText.Scrub(error.Message)}");
         return 1;
     }
 }
@@ -89,8 +89,8 @@ if (CompatibilityValue("TLS_FINGERPRINT_ATTESTATION_MAX_AGE_SECONDS") is { } raw
     appConfig.TlsFingerprints.MaxAgeSeconds = (int)tlsMaxAge;
 }
 
-appConfig.TlsFingerprints.KnownBadJa3 = SplitList(CompatibilityValue("TLS_KNOWN_BAD_JA3"));
-appConfig.TlsFingerprints.KnownBadJa4 = SplitList(CompatibilityValue("TLS_KNOWN_BAD_JA4"));
+// Only an actually-set legacy variable overrides the structured lists (issue 86).
+LegacyTlsOverrides.Apply(appConfig, CompatibilityValue("TLS_KNOWN_BAD_JA3"), CompatibilityValue("TLS_KNOWN_BAD_JA4"));
 
 // Stdio is authorized by process ownership, not HTTP Bearer headers. It opens no
 // network listener; every subprocess gets a separate cache scope in StdioTransport.
@@ -114,7 +114,7 @@ try
 }
 catch (ConfigValidationException ex)
 {
-    Console.Error.WriteLine($"configuration error: {ex.Message}");
+    Console.Error.WriteLine($"configuration error: {StartupErrorText.Scrub(ex.Message)}");
     return 1;
 }
 
@@ -172,7 +172,7 @@ try
 }
 catch (Exception error)
 {
-    Console.Error.WriteLine($"integration initialization error: {error.Message}");
+    Console.Error.WriteLine($"integration initialization error: {StartupErrorText.Scrub(error.Message)}");
     await appState.DisposeAsync().ConfigureAwait(false);
     return 1;
 }

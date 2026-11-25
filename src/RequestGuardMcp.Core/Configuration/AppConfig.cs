@@ -76,6 +76,8 @@ public sealed class AppConfig
             Limits.HttpBodyTimeoutSecs <= 0 ||
             Limits.HttpResponseWriteTimeoutSecs <= 0 ||
             Limits.Http2IdleTimeoutSecs <= 0 ||
+            Limits.Http1MaxLifetimeSecs <= 0 ||
+            Limits.Http1MaxRequests <= 0 ||
             Limits.WebSocketIdleTimeoutSecs <= 0 ||
             Limits.WebSocketWriteTimeoutSecs <= 0 ||
             Limits.PerToolTimeoutSecs <= 0 ||
@@ -87,7 +89,7 @@ public sealed class AppConfig
         // CancelAfter(TimeSpan) is bounded by UInt32 milliseconds. Reject values
         // that would otherwise fail only after a client connects or calls a tool.
         if (new[] { Limits.HttpHeaderTimeoutSecs, Limits.HttpBodyTimeoutSecs, Limits.HttpResponseWriteTimeoutSecs,
-                Limits.Http2IdleTimeoutSecs, Limits.WebSocketIdleTimeoutSecs, Limits.WebSocketWriteTimeoutSecs,
+                Limits.Http2IdleTimeoutSecs, Limits.Http1MaxLifetimeSecs, Limits.WebSocketIdleTimeoutSecs, Limits.WebSocketWriteTimeoutSecs,
                 Limits.PerToolTimeoutSecs, Limits.ClassifyTimeoutSecs }.Any(seconds => seconds > 4_294_967))
         {
             throw new ConfigValidationException("timeout limits must not exceed 4294967 seconds");
@@ -208,6 +210,12 @@ public sealed class LimitsConfig
     public int HttpBodyTimeoutSecs { get; set; } = 30;
     public int HttpResponseWriteTimeoutSecs { get; set; } = 10;
     public int Http2IdleTimeoutSecs { get; set; } = 60;
+
+    /// <summary>Non-renewable maximum age of an HTTP/1 connection, from its first request. WebSocket connections are exempt (they have their own idle and write limits).</summary>
+    public int Http1MaxLifetimeSecs { get; set; } = 120;
+
+    /// <summary>Maximum requests served on one HTTP/1 connection before it is closed gracefully.</summary>
+    public int Http1MaxRequests { get; set; } = 100;
     public int WebSocketIdleTimeoutSecs { get; set; } = 60;
     public int WebSocketWriteTimeoutSecs { get; set; } = 10;
     public int PerToolTimeoutSecs { get; set; } = 30;

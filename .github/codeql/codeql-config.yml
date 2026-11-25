@@ -1,0 +1,5 @@
+# Compiler output is not maintained source. With build-mode: none these exclusions apply (they do not for a manual build).
+name: Request Guard MCP .NET CodeQL configuration
+paths-ignore:
+  - '**/obj/**'
+  - '**/bin/**'
