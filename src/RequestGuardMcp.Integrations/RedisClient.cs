@@ -90,7 +90,8 @@ public sealed class RedisClient : IRedisClient, IAsyncDisposable
     {
         try
         {
-            await Database.PingAsync().ConfigureAwait(false);
+            // StackExchange.Redis cannot cancel a PING; WaitAsync makes the wait itself cancellation-aware (issue 82).
+            await Database.PingAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }
         catch (OperationCanceledException)

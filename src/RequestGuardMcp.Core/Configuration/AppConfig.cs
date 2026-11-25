@@ -81,7 +81,9 @@ public sealed class AppConfig
             Limits.WebSocketIdleTimeoutSecs <= 0 ||
             Limits.WebSocketWriteTimeoutSecs <= 0 ||
             Limits.PerToolTimeoutSecs <= 0 ||
-            Limits.ClassifyTimeoutSecs <= 0)
+            Limits.ClassifyTimeoutSecs <= 0 ||
+            Limits.HealthCacheSecs <= 0 ||
+            Limits.HealthDeadlineSecs <= 0)
         {
             throw new ConfigValidationException("all request, batch, concurrency, and timeout limits must be positive");
         }
@@ -220,6 +222,12 @@ public sealed class LimitsConfig
     public int WebSocketWriteTimeoutSecs { get; set; } = 10;
     public int PerToolTimeoutSecs { get; set; } = 30;
     public int ClassifyTimeoutSecs { get; set; } = 5;
+
+    /// <summary>How long a dependency health result (Redis, PostgreSQL, GeoIP) is reused by <c>/ready</c> and the health tool.</summary>
+    public int HealthCacheSecs { get; set; } = 2;
+
+    /// <summary>Hard deadline for one dependency health check; slower dependencies are reported unhealthy.</summary>
+    public int HealthDeadlineSecs { get; set; } = 3;
 }
 
 public sealed class RedisConfig
