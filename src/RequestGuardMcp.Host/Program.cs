@@ -23,7 +23,7 @@ if (Environment.GetEnvironmentVariable("CONFIG_FILE") is { Length: > 0 } configF
     }
     catch (Exception error) when (error is IOException or FormatException or NotSupportedException)
     {
-        Console.Error.WriteLine($"configuration error: {error.Message}");
+        Console.Error.WriteLine($"configuration error: {StartupErrorText.Scrub(error.Message)}");
         return 1;
     }
 }
@@ -114,7 +114,7 @@ try
 }
 catch (ConfigValidationException ex)
 {
-    Console.Error.WriteLine($"configuration error: {ex.Message}");
+    Console.Error.WriteLine($"configuration error: {StartupErrorText.Scrub(ex.Message)}");
     return 1;
 }
 
@@ -172,7 +172,7 @@ try
 }
 catch (Exception error)
 {
-    Console.Error.WriteLine($"integration initialization error: {error.Message}");
+    Console.Error.WriteLine($"integration initialization error: {StartupErrorText.Scrub(error.Message)}");
     await appState.DisposeAsync().ConfigureAwait(false);
     return 1;
 }
