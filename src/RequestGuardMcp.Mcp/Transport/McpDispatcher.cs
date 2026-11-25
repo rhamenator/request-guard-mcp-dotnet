@@ -144,7 +144,9 @@ public sealed class McpDispatcher(ToolRegistry registry, ILogger<McpDispatcher> 
             JsonNode? result;
             try
             {
-                result = await registry.DispatchNamedAsync(state, toolName, toolArguments, callerScope, linkedCts.Token)
+                // Start the tool on the thread pool: a tool that does CPU-bound work before its first await would otherwise run
+                // to completion inside this call, and the WaitAsync deadline below could never fire (issue 79).
+                result = await Task.Run(() => registry.DispatchNamedAsync(state, toolName, toolArguments, callerScope, linkedCts.Token), CancellationToken.None)
                     .WaitAsync(linkedCts.Token).ConfigureAwait(false);
             }
             catch (AppErrorException appError)
