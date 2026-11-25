@@ -11,6 +11,8 @@ public class BuildIdentityTests
     [InlineData("0.1.1+abc123def", "0.1.1", "abc123def")]
     [InlineData("0.1.1", "0.1.1", null)]
     [InlineData("0.1.1+", "0.1.1", null)]
+    [InlineData("0.1.1+unknown", "0.1.1", null)]
+    [InlineData("0.1.1+UNKNOWN", "0.1.1", null)]
     public void InformationalVersionIsSplitIntoVersionAndEmbeddedRevision(string input, string version, string? commit)
     {
         var (actualVersion, actualCommit) = BuildInfo.SplitInformationalVersion(input);

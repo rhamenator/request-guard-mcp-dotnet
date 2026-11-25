@@ -44,6 +44,7 @@ public sealed record BuildInfo(string Version, string GitCommit, string BuildDat
         }
 
         var commit = informational[(plus + 1)..].Trim();
-        return (informational[..plus], commit.Length == 0 ? null : commit);
+        // An image built without GIT_COMMIT embeds the literal "unknown"; that is the absence of a revision, so the runtime fallback still applies.
+        return (informational[..plus], commit.Length == 0 || string.Equals(commit, UnknownCommit, StringComparison.OrdinalIgnoreCase) ? null : commit);
     }
 }
