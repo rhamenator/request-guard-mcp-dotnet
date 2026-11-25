@@ -189,6 +189,11 @@ _ = await new WarmupTool().CallAsync(appState, null, CancellationToken.None).Con
 
 builder.Services.AddSingleton(appConfig);
 builder.Services.AddSingleton(appState);
+if (appConfig.Postgres.RetentionDays > 0 && appState.Postgres.IsAvailable)
+{
+    builder.Services.AddHostedService(provider => new PostgresRetentionService(
+        appState.Postgres, appConfig.Postgres, TimeProvider.System, provider.GetRequiredService<ILogger<PostgresRetentionService>>()));
+}
 builder.Services.AddSingleton<WebSocketConnectionHandler>();
 builder.Services.AddSingleton<McpDispatcher>();
 
