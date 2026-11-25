@@ -154,7 +154,8 @@ public static class McpEndpoints
     private static async Task HandleHealthAsync(HttpContext context)
     {
         var state = context.RequestServices.GetRequiredService<AppState>();
-        var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
+        // Constant-cost liveness (issue 82): dependency state is reported by /ready and the authenticated health tool.
+        var health = HealthCheck.Liveness(state);
         context.Response.ContentType = MediaTypeNames.Application.Json;
         await WriteWithDeadlineAsync(context, token => System.Text.Json.JsonSerializer.SerializeAsync(context.Response.Body, health, McpJson.Options, token))
             .ConfigureAwait(false);
@@ -164,7 +165,7 @@ public static class McpEndpoints
     {
         var state = context.RequestServices.GetRequiredService<AppState>();
         var capacityAvailable = state.Semaphore.CurrentCount > 0;
-        var health = await HealthCheck.RunAsync(state, context.RequestAborted).ConfigureAwait(false);
+        var health = await state.DependencyHealth.GetAsync(state, context.RequestAborted).ConfigureAwait(false);
         var ready = capacityAvailable && health.Status == "healthy";
         context.Response.StatusCode = ready ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable;
         await WriteResponseAsync(context, ready ? "ready" : "not ready").ConfigureAwait(false);

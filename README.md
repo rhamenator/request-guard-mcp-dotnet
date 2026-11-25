@@ -430,6 +430,14 @@ different builds never serve each other's cached verdicts. Docker images and nat
 publish time (`SourceRevisionId`); a runtime `GIT_COMMIT` variable is only a fallback for builds without one. A build
 that has no embedded revision refuses to start with Redis configured unless `MCP__REDIS__CACHE_DOMAIN` is set to a
 unique name. The cache schema was bumped, so entries written by earlier releases are not reused.
+### Liveness and readiness
+
+`GET /health` is a constant-cost liveness check: it reports that the process is serving and never contacts Redis,
+PostgreSQL or GeoIP (issue 82), so a slow dependency cannot make unauthenticated health traffic consume backend
+capacity or cause restarts. Dependency state is reported by `GET /ready` and the authenticated `health` tool. Both share
+one in-flight check, reuse its result for `MCP__LIMITS__HEALTH_CACHE_SECS` (2) and give it a hard deadline of
+`MCP__LIMITS__HEALTH_DEADLINE_SECS` (3), after which the dependencies are reported unhealthy. The Redis PING is
+cancellation-aware. Keep `/ready` and `/metrics` off untrusted networks with your reverse proxy or network policy.
 
 ### Connection resource limits
 

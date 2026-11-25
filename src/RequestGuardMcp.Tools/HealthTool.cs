@@ -16,7 +16,7 @@ public sealed class HealthTool : IMcpTool
 
     public async Task<JsonNode?> CallAsync(AppState state, JsonNode? parameters, CancellationToken cancellationToken)
     {
-        var result = await HealthCheck.RunAsync(state, cancellationToken).ConfigureAwait(false);
+        var result = await state.DependencyHealth.GetAsync(state, cancellationToken).ConfigureAwait(false);
         return JsonSerializer.SerializeToNode(result, McpJson.Options);
     }
 }
