@@ -27,7 +27,7 @@ class EnvelopeMigrationTests(unittest.TestCase):
             'model_version': '0.1.0', 'server': {'version': '0.1.0'},
             'api_version': '2025-06-18'}}
         dotnet = {'jsonrpc': '2.0', 'id': 1, 'result': {
-            'model_version': '0.1.1+commit', 'server': {'version': '0.1.1+commit'},
+            'model_version': '0.1.2+commit', 'server': {'version': '0.1.2+commit'},
             'api_version': '2025-06-18'}}
         self.assertEqual(normalize(rust), normalize(dotnet))
         self.assertEqual(
