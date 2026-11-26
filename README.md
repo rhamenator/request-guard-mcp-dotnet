@@ -19,8 +19,9 @@ work and unverified gaps are tracked in the
 work alongside direct HTTP/WebSocket JSON-RPC calls. The pinned official Python SDK
 qualifies the JSON-response HTTP path and process-local `--stdio`. Negotiation/auth/origin
 checks are exercised separately. SSE, sessions and OAuth discovery are not implemented.
-The immutable [v0.1.0 official release candidate](https://github.com/rhamenator/request-guard-mcp-dotnet/releases/tag/v0.1.0)
-has been published. The current source targets v0.1.1; no stable release has been published.
+The immutable [v0.1.0](https://github.com/rhamenator/request-guard-mcp-dotnet/releases/tag/v0.1.0) and
+[v0.1.1](https://github.com/rhamenator/request-guard-mcp-dotnet/releases/tag/v0.1.1) official release candidates
+have been published. The current source targets v0.1.2; no stable release has been published.
 
 The .NET port implements all 23 sibling Rust tool contracts, HTTP/WebSocket JSON-RPC transports,
 Bearer authentication, bounded concurrency/timeouts, two-level caching, PostgreSQL persistence and

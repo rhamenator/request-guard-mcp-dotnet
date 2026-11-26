@@ -83,22 +83,22 @@
           "MaxMind.Db": "[5.3.0, )",
           "MaxMind.GeoIP2": "[6.2.0, )",
           "Npgsql": "[10.0.4, )",
-          "RequestGuardMcp.Core": "[0.1.1, )",
+          "RequestGuardMcp.Core": "[0.1.2, )",
           "StackExchange.Redis": "[3.4.35, )"
         }
       },
       "requestguardmcp.mcp": {
         "type": "Project",
         "dependencies": {
-          "RequestGuardMcp.Core": "[0.1.1, )"
+          "RequestGuardMcp.Core": "[0.1.2, )"
         }
       },
       "requestguardmcp.tools": {
         "type": "Project",
         "dependencies": {
-          "RequestGuardMcp.Core": "[0.1.1, )",
-          "RequestGuardMcp.Integrations": "[0.1.1, )",
-          "RequestGuardMcp.Mcp": "[0.1.1, )"
+          "RequestGuardMcp.Core": "[0.1.2, )",
+          "RequestGuardMcp.Integrations": "[0.1.2, )",
+          "RequestGuardMcp.Mcp": "[0.1.2, )"
         }
       },
       "MaxMind.Db": {

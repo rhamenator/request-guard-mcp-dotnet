@@ -22,7 +22,7 @@ public sealed record BuildInfo(string Version, string GitCommit, string BuildDat
     {
         var informational = Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? "0.1.1";
+            ?? "0.1.2";
         var (version, embeddedCommit) = SplitInformationalVersion(informational);
 
         return new BuildInfo(
