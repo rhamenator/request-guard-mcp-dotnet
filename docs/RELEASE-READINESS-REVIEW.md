@@ -23,8 +23,11 @@ Review the following for the exact candidate revision:
 6. known defects, deferred work, compatibility constraints and residual risks;
 7. reproducible build and release instructions plus artifact provenance;
 8. native installer clean-install, launch, upgrade, uninstall and residue evidence for every
-   supported platform; and
-9. the exact source revision and proposed `0.MINOR.PATCH` release version.
+   supported platform;
+9. the exact source revision and proposed `0.MINOR.PATCH` release version; and
+10. a plain-language comparison of the candidate against the previous release: which operator-visible
+    behaviours changed, and whether `README.md` and `KNOWN-LIMITATIONS.md` state each one and its
+    non-claims (use `git diff <previous-tag>..<candidate> -- README.md docs/KNOWN-LIMITATIONS.md`).
 
 ## Durable readiness record
 
