@@ -23,7 +23,6 @@ REQUIRED_CHECKS = {
     "Tests",
     "Dependency Audit",
     "Rust Differential Parity",
-    "Current Rust Classifier (f76ff9d2558fac705f091d9b858d3bc180b4f0bd)",
     "Current Rust Classifier (30e17669f73b58bd310d247b0c69af91f55de2de)",
     "Real Redis pause, outage and recovery",
     "VerifyFull trust, rejection, outage and recovery",

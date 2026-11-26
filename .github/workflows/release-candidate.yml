@@ -40,6 +40,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           READINESS_ISSUE: ${{ inputs.readiness_issue }}
         run: |
+          set -euo pipefail
           mkdir -p dist
           python3 scripts/release_candidate_gate.py \
             --repository "$GITHUB_REPOSITORY" \
