@@ -66,6 +66,20 @@ class ReleaseCandidateGateTests(unittest.TestCase):
             gate.require_readiness_record(issue(), comments(), VERSION, SHA),
         )
 
+    def test_required_classifier_checks_match_the_ci_matrix(self):
+        import re
+        from pathlib import Path
+        ci = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text()
+        block = ci.split("classifier-current:", 1)[1].split("steps:", 1)[0]
+        revisions = set(re.findall(r"^\s*-\s+([0-9a-f]{40})\s*$", block, re.M))
+        required = {
+            name[len("Current Rust Classifier ("):-1]
+            for name in gate.REQUIRED_CHECKS
+            if name.startswith("Current Rust Classifier (")
+        }
+        self.assertTrue(revisions)
+        self.assertEqual(revisions, required)
+
     def test_candidate_must_be_exact_main(self):
         with self.assertRaises(gate.GateError):
             gate.require_exact_main({"commit": {"sha": "b" * 40}}, SHA, "main", "branch")
