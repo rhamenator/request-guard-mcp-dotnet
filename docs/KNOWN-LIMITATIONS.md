@@ -123,3 +123,33 @@ expiry can abort the connection without a graceful peer close. Output deadlines 
 abort a stalled HTTP/WS writer rather than returning a second error response. Expiry and
 recovery tests shorten configured WS budgets and use cancellation-ignoring I/O doubles;
 they do not establish default-duration endurance or every real slow-consumer/proxy case.
+
+## Changes since v0.1.1 that operators must know
+
+These behaviours changed or were added after v0.1.1. The README describes each control; this list records what
+it does not claim.
+
+- **Health checks.** `GET /health` is now a constant-cost liveness check and never contacts Redis, PostgreSQL or
+  GeoIP (issue 82). A deployment that used `/health` to detect a failed dependency must probe `GET /ready` (or the
+  authenticated `health` tool) instead. Readiness results are cached for 2 seconds and have a 3-second hard deadline,
+  after which dependencies are reported unhealthy; this is not a continuous monitoring system.
+- **Cache upgrade.** Cached verdicts are now keyed by build version and source revision (issue 80) and the cache
+  schema was bumped. The first start after upgrading reuses no earlier cache entries, so expect a temporary drop
+  in cache hit rate. A build with no embedded revision refuses to start with Redis configured unless
+  `MCP__REDIS__CACHE_DOMAIN` is set.
+- **PostgreSQL growth is unbounded by default.** Retention (`MCP__POSTGRES__RETENTION_DAYS`) and per-caller caps
+  (`MCP__POSTGRES__MAX_ROWS_PER_CALLER`) are off by default so existing data is kept (issue 84). Without them,
+  persisted decisions and feedback grow without limit. Disk, WAL and table-size monitoring remain the operator's job.
+  No claim is made about retention-job behaviour on very large production tables.
+- **HTTP/1 connection limits.** HTTP/1 connections now close after 120 seconds from the first request or 100
+  requests (issue 83); clients must tolerate reconnects. CI exercises these limits against real Kestrel, but the
+  evidence is not a packaged-artifact, maximum-load, leak or broader resource-exhaustion record, and WebSocket
+  connections are exempt from these two bounds.
+- **Memory budget.** `MCP__LIMITS__MAX_INFLIGHT_REQUEST_BYTES` (64 MiB) bounds the request bytes held at once
+  (issue 81). It is an aggregate admission budget, not a process memory limit; when it is exhausted an HTTP request
+  gets 503 and a WebSocket is closed; nothing queues.
+- **Security hardening without a hostile-input guarantee.** JSON redaction is linear-time and single-pass (#98),
+  regular-expression work is bounded and tool timeouts are effective for synchronous tools (#107), startup errors no
+  longer echo raw configuration text (#104), and secrets are excluded from the Docker build context (#97). These are
+  covered by regression tests; they are not an audit of every input path, and no independent human review has been
+  performed.
